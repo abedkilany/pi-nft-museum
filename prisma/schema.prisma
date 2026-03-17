@@ -1,0 +1,562 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  BANNED
+}
+
+enum ArtworkStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  PUBLIC_REVIEW
+  MINTING
+  PUBLISHED
+  PREMIUM
+  REJECTED
+  ARCHIVED
+  HIDDEN
+  SOLD
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  key         String           @unique
+  name        String
+  description String?
+  users       User[]
+  permissions RolePermission[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  key         String           @unique
+  name        String
+  description String?
+  roles       RolePermission[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  id           Int         @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime    @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+model User {
+  id            Int               @id @default(autoincrement())
+  username      String            @unique
+  fullName      String?
+  email         String            @unique
+  passwordHash  String?
+  piUid         String?           @unique
+  piUsername    String?
+  piWalletAddress String?
+  piLinkedAt    DateTime?
+  piAuthVerified Boolean          @default(false)
+  roleId        Int
+  status        UserStatus        @default(PENDING)
+  profileImage  String?
+  coverImage    String?
+  headline      String?
+  bio           String?           @db.Text
+  country       String?
+  customCountryName String?
+  phoneNumber   String?           @unique
+  showEmailPublic   Boolean       @default(false)
+  showPhonePublic   Boolean       @default(false)
+  showCountryPublic Boolean       @default(true)
+  websiteUrl    String?
+  twitterUrl    String?
+  instagramUrl  String?
+  lastLoginAt   DateTime?
+
+  role          Role              @relation(fields: [roleId], references: [id])
+  artistProfile ArtistProfile?
+  artworks      Artwork[]
+  purchasePayments PiPayment[] @relation("PiPaymentBuyer")
+  salesPayments    PiPayment[] @relation("PiPaymentSeller")
+  ratings       Rating[]
+  favorites     Favorite[]
+  notifications Notification[]
+  followers     Follow[] @relation("UserFollowers")
+  following     Follow[] @relation("UserFollowing")
+  activities    CommunityActivity[] @relation("ActivityActor")
+  receivedActivities CommunityActivity[] @relation("ActivitySubject")
+  auditLogs     AuditLog[]
+  reactions     ArtworkReaction[]
+  comments      ArtworkComment[]
+  submittedCommentReports CommentReport[] @relation("CommentReportReporter")
+  reviewedCommentReports  CommentReport[] @relation("CommentReportReviewer")
+  posts         CommunityPost[]
+  submittedArtworkReports ArtworkReport[] @relation("ArtworkReportReporter")
+  reviewedArtworkReports  ArtworkReport[] @relation("ArtworkReportReviewer")
+  canEditCommentsAfterDeadline Boolean @default(false)
+  commentLikes        CommentLike[]
+  
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  notifyMode  String   @default("ALL")
+  notificationsEnabled Boolean @default(true)
+  notifyAllActivity Boolean @default(true)
+  notifyNewArtworks Boolean @default(true)
+  notifyPremiumArtworks Boolean @default(true)
+  notifyComments Boolean @default(true)
+  muted Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt @default(now())
+
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model ArtistProfile {
+  id            Int        @id @default(autoincrement())
+  userId        Int        @unique
+  displayName   String
+  slug          String     @unique
+  headline      String?
+  biography     String?    @db.Text
+  verified      Boolean    @default(false)
+  totalArtworks Int        @default(0)
+  totalSales    Decimal    @default(0) @db.Decimal(12, 2)
+  totalRating   Decimal    @default(0) @db.Decimal(4, 2)
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+
+model Country {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  isoCode    String   @unique
+  phoneCode  String
+  allowed    Boolean  @default(true)
+  sortOrder  Int      @default(0)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ArtworkCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  artworks    Artwork[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Artwork {
+  id                    Int               @id @default(autoincrement())
+  artistUserId          Int
+  categoryId            Int?
+  title                 String
+  slug                  String            @unique
+  description           String            @db.Text
+  imageUrl              String
+  thumbnailUrl          String?
+  status                ArtworkStatus     @default(DRAFT)
+  basePrice             Decimal           @default(0) @db.Decimal(12, 2)
+  discountPercent       Float             @default(0)
+  price                 Decimal           @db.Decimal(12, 2)
+  currency              String            @default("PI")
+  featured              Boolean           @default(false)
+  viewsCount            Int               @default(0)
+  favoritesCount        Int               @default(0)
+  averageRating         Decimal           @default(0) @db.Decimal(3, 2)
+  ratingsCount          Int               @default(0)
+  likesCount            Int               @default(0)
+  dislikesCount         Int               @default(0)
+  premiumScore          Float?            @default(0)
+  premiumAt             DateTime?
+  publishedAt           DateTime?
+  reviewNote            String?           @db.Text
+  reviewedAt            DateTime?
+  publicReviewStartedAt DateTime?
+  mintWindowOpensAt     DateTime?
+  mintWindowEndsAt      DateTime?
+  mintedAt              DateTime?
+  statusBeforeModeration String?
+  statusBeforeArchive   String?
+  archivedAt            DateTime?
+
+  artist                User              @relation(fields: [artistUserId], references: [id])
+  category              ArtworkCategory?  @relation(fields: [categoryId], references: [id])
+  ratings               Rating[]
+  favorites             Favorite[]
+  reactions             ArtworkReaction[]
+  comments              ArtworkComment[]
+  reports               ArtworkReport[]
+  payments              PiPayment[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([artistUserId])
+  @@index([categoryId])
+}
+
+
+model PiPayment {
+  id                Int      @id @default(autoincrement())
+  paymentIdentifier String   @unique
+  artworkId         Int
+  buyerUserId       Int
+  sellerUserId      Int
+  amount            Float
+  memo              String?  @db.Text
+  network           String?  @default("Pi Testnet")
+  txid              String?  @unique
+  status            String   @default("CREATED")
+  rawPayload        Json?
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  artwork           Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  buyer             User     @relation("PiPaymentBuyer", fields: [buyerUserId], references: [id], onDelete: Cascade)
+  seller            User     @relation("PiPaymentSeller", fields: [sellerUserId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId])
+  @@index([buyerUserId])
+  @@index([sellerUserId])
+  @@index([status])
+}
+
+model Rating {
+  id          Int       @id @default(autoincrement())
+  artworkId   Int
+  userId      Int
+  value       Int
+  reviewText  String?   @db.Text
+
+  artwork     Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([artworkId, userId])
+  @@index([artworkId])
+  @@index([userId])
+}
+
+
+model ArtworkComment {
+  id                     Int              @id @default(autoincrement())
+  artworkId              Int
+  authorId               Int
+  parentId               Int?
+  commentKind            String           @default("FIRST_COMMENT")
+  stanceType             String?
+  body                   String           @db.Text
+  scoreImpact            Float            @default(0)
+  scoreEffectEnabled     Boolean          @default(true)
+  hiddenByArtist         Boolean          @default(false)
+  hiddenByModerator      Boolean          @default(false)
+  editLockedAt           DateTime?
+
+  artwork                Artwork          @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  author                 User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent                 ArtworkComment?  @relation("ArtworkCommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies                ArtworkComment[] @relation("ArtworkCommentReplies")
+  reports                CommentReport[]
+  commentLikes           CommentLike[]
+
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@index([artworkId])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+
+
+model CommentLike {
+  id         Int            @id @default(autoincrement())
+  commentId   Int
+  userId      Int
+
+  comment     ArtworkComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime       @default(now())
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model ArtworkReport {
+  id               Int       @id @default(autoincrement())
+  artworkId        Int
+  reporterId       Int
+  reviewedById     Int?
+  reason           String
+  description      String?   @db.Text
+  originalWorkLink String?
+  evidenceLink     String?
+  contactEmail     String?
+  status           String    @default("PENDING")
+  autoBlockedApplied Boolean @default(false)
+  adminNote        String?   @db.Text
+
+  artwork          Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  reporter         User      @relation("ArtworkReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedBy       User?     @relation("ArtworkReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  evidenceFiles    ArtworkReportEvidence[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([artworkId])
+  @@index([reporterId])
+  @@index([status])
+}
+
+model ArtworkReportEvidence {
+  id           Int       @id @default(autoincrement())
+  reportId      Int
+  fileUrl       String
+  originalName  String?
+  mimeType      String?
+
+  report        ArtworkReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+
+  @@index([reportId])
+}
+
+model CommentReport {
+  id              Int            @id @default(autoincrement())
+  commentId       Int
+  reporterId      Int
+  reviewedById    Int?
+  reason          String
+  description     String?        @db.Text
+  status          String         @default("PENDING")
+  adminNote       String?        @db.Text
+
+  comment         ArtworkComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter        User           @relation("CommentReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedBy      User?          @relation("CommentReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([commentId])
+  @@index([reporterId])
+  @@index([status])
+}
+
+model Favorite {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  artworkId  Int
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, artworkId])
+}
+
+model ArtworkReaction {
+  id        Int          @id @default(autoincrement())
+  artworkId Int
+  userId    Int
+  type      ReactionType
+
+  artwork   Artwork      @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([artworkId, userId])
+  @@index([artworkId])
+  @@index([userId])
+}
+
+model Page {
+  id             Int         @id @default(autoincrement())
+  title          String
+  slug           String      @unique
+  pageType       String?
+  status         PageStatus  @default(DRAFT)
+  menuLabel      String?
+  showInMenu     Boolean     @default(false)
+  seoTitle       String?
+  seoDescription String?     @db.Text
+  sections       PageSection[]
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model PageSection {
+  id           Int       @id @default(autoincrement())
+  pageId       Int
+  sectionKey   String
+  sectionType  String
+  title        String?
+  content      String?   @db.Text
+  settingsJson Json?
+  sortOrder    Int       @default(0)
+  isEnabled    Boolean   @default(true)
+
+  page         Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([pageId])
+}
+
+model SiteSetting {
+  id           Int       @id @default(autoincrement())
+  settingKey   String    @unique
+  settingValue String?   @db.Text
+  settingGroup String?
+  isPublic     Boolean   @default(false)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model HomepageSlide {
+  id          Int       @id @default(autoincrement())
+  title       String
+  subtitle    String?   @db.Text
+  imageUrl    String
+  buttonText  String?
+  buttonLink  String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+
+model CommunityPost {
+  id          Int       @id @default(autoincrement())
+  authorId    Int
+  title       String?
+  body        String    @db.Text
+  imageUrl    String?
+  isPublished Boolean   @default(false)
+
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId])
+}
+
+model Notification {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  type        String
+  title       String
+  message     String    @db.Text
+  linkUrl     String?
+  isRead      Boolean   @default(false)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isRead])
+}
+
+model CommunityActivity {
+  id            Int      @id @default(autoincrement())
+  actorId        Int
+  subjectUserId  Int?
+  type          String
+  title         String
+  message       String   @db.Text
+  linkUrl       String?
+
+  actor         User     @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
+  subjectUser   User?    @relation("ActivitySubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime @default(now())
+
+  @@index([actorId])
+  @@index([subjectUserId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id            Int       @id @default(autoincrement())
+  userId        Int?
+  action        String
+  targetType    String
+  targetId      String?
+  oldValuesJson Json?
+  newValuesJson Json?
+
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+}

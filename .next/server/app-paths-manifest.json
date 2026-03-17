@@ -1,0 +1,10 @@
+{
+  "/page": "app/page.js",
+  "/account/artworks/page": "app/account/artworks/page.js",
+  "/account/artworks/[id]/edit/page": "app/account/artworks/[id]/edit/page.js",
+  "/artwork/[id]/page": "app/artwork/[id]/page.js",
+  "/account/page": "app/account/page.js",
+  "/gallery/page": "app/gallery/page.js",
+  "/review/page": "app/review/page.js",
+  "/api/notifications/route": "app/api/notifications/route.js"
+}

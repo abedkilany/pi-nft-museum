@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" fill="none">
+  <rect width="1200" height="900" rx="48" fill="#111723"/>
+  <rect x="80" y="80" width="1040" height="740" rx="32" fill="#1C2432" stroke="#DDB04F" stroke-opacity="0.35"/>
+  <circle cx="360" cy="330" r="120" fill="#DDB04F" fill-opacity="0.15"/>
+  <path d="M270 590L430 430L570 550L710 390L930 650H270V590Z" fill="#DDB04F" fill-opacity="0.2"/>
+  <text x="600" y="760" text-anchor="middle" fill="#F5CF7B" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">Pi NFT Museum</text>
+  <text x="600" y="820" text-anchor="middle" fill="#B2BDCB" font-family="Arial, Helvetica, sans-serif" font-size="30">Default artwork placeholder</text>
+</svg>
