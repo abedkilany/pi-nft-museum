@@ -1,5 +1,8 @@
 node_modules
-# Keep environment variables out of version control
+.next
 .env
-
-/lib/generated/prisma
+.env.local
+logs
+localhost.pem
+localhost-key.pem
+# Keep environment variables out of version control
