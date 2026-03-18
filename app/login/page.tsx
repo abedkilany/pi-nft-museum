@@ -1,11 +1,10 @@
+import { Suspense } from 'react';
+import LoginPageClient from './LoginPageClient';
 
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/current-user';
-import { PiLoginCard } from '@/components/auth/PiLoginCard';
-
-export default async function LoginPage() {
-  const user = await getCurrentUser();
-  if (user) redirect('/account');
-
-  return <PiLoginCard />;
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
+      <LoginPageClient />
+    </Suspense>
+  );
 }
