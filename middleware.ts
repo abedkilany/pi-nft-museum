@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { STAFF_ROLES } from '@/lib/roles';
+import { readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
 
-const AUTH_COOKIE_NAME = 'pi_nft_auth';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function getSecretKey() {
@@ -13,7 +13,7 @@ function getSecretKey() {
 
 async function getSession(request: NextRequest) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const token = readAuthTokenFromCookieStore(request.cookies);
     if (!token) return null;
     const { payload } = await jwtVerify(token, getSecretKey());
     return payload as { userId: number; username: string; email: string; role: string };
