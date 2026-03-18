@@ -1,4 +1,4 @@
-// File: C:\Users\User\Desktop\Pi NFT Museum\app\pages\[slug]\page.tsx
+// File: C:\Users\User\Desktop\Pi NFT Museum - GitHub\app\pages\[slug]\page.tsx
 import * as entry from '../../../../../app/pages/[slug]/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

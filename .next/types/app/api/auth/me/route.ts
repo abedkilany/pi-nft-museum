@@ -1,4 +1,4 @@
-// File: C:\Users\User\Desktop\Pi NFT Museum\app\api\auth\me\route.ts
+// File: C:\Users\User\Desktop\Pi NFT Museum - GitHub\app\api\auth\me\route.ts
 import * as entry from '../../../../../../app/api/auth/me/route.js'
 import type { NextRequest } from 'next/server.js'
 

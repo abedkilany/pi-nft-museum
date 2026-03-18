@@ -72,3 +72,4 @@
 {"timestamp":"2026-03-17T11:56:22.986Z","level":"info","message":"Artwork pricing updated by owner","meta":{"artworkId":17,"userId":26,"basePrice":111,"discountPercent":49.99,"finalPrice":55.51}}
 {"timestamp":"2026-03-17T11:56:36.315Z","level":"info","message":"Pi payment approved","meta":{"paymentId":"z1yj4bWHsZsoyoyetPV7AAL4E2xM","artworkId":17,"buyerUserId":25,"network":"Pi Testnet"}}
 {"timestamp":"2026-03-17T11:56:52.675Z","level":"info","message":"Pi payment completed","meta":{"paymentId":"z1yj4bWHsZsoyoyetPV7AAL4E2xM","txid":"fe5931d76bcbe53b49d558c33fa3417598f11232e1aaa7d2e09029af101dadc5","artworkId":17,"buyerUserId":25,"network":"Pi Testnet","completed":true}}
+{"timestamp":"2026-03-18T00:00:45.252Z","level":"info","message":"Health check success","meta":{"ok":true,"appEnv":"unknown","database":"connected","stats":{"roles":4,"users":0,"artworks":0},"timestamp":"2026-03-18T00:00:45.250Z"}}

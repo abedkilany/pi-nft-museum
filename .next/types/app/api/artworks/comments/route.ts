@@ -1,4 +1,4 @@
-// File: C:\Users\User\Desktop\Pi NFT Museum\app\api\artworks\comments\route.ts
+// File: C:\Users\User\Desktop\Pi NFT Museum - GitHub\app\api\artworks\comments\route.ts
 import * as entry from '../../../../../../app/api/artworks/comments/route.js'
 import type { NextRequest } from 'next/server.js'
 

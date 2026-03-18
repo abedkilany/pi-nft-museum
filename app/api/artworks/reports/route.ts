@@ -78,8 +78,8 @@ export async function POST(request: Request) {
         prisma.artwork.update({
           where: { id: artworkId },
           data: {
-            statusBeforeModeration: artwork.status !== 'PENDING' ? artwork.status : artwork.statusBeforeModeration,
-            status: 'PENDING',
+            statusBeforeModeration: artwork.status !== 'HIDDEN' ? artwork.status : artwork.statusBeforeModeration,
+            status: 'HIDDEN',
             reviewNote: 'Temporarily hidden after receiving multiple user reports. Waiting for admin review.',
             reviewedAt: null,
             publicReviewStartedAt: null,
