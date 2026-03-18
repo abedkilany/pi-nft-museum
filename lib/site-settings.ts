@@ -50,6 +50,11 @@ export const SITE_SETTING_DEFINITIONS: SiteSettingDefinition[] = [
   { key: 'rating_max', label: 'Maximum rating', group: 'business_rules', type: 'number', defaultValue: '5' },
   { key: 'premium_allow_dislike', label: 'Allow dislike on premium', group: 'business_rules', type: 'boolean', defaultValue: 'false' },
 
+  { key: 'review_page_statuses', label: 'Review page statuses', group: 'business_rules', type: 'text', defaultValue: 'PUBLIC_REVIEW,MINTING', description: 'Statuses visible on the public review page.' },
+  { key: 'gallery_public_statuses', label: 'Main gallery statuses', group: 'business_rules', type: 'text', defaultValue: 'PUBLISHED', description: 'Statuses visible in the main gallery.' },
+  { key: 'premium_gallery_statuses', label: 'Premium gallery statuses', group: 'business_rules', type: 'text', defaultValue: 'PREMIUM', description: 'Statuses visible in the premium gallery.' },
+  { key: 'allow_public_review_reactions', label: 'Allow public review reactions', group: 'business_rules', type: 'boolean', defaultValue: 'true', description: 'Reserved for future public review reaction controls.' },
+
   { key: 'allow_public_registration', label: 'Allow public registration', group: 'security', type: 'boolean', defaultValue: 'true' },
   { key: 'community_enabled', label: 'Enable community area', group: 'community', type: 'boolean', defaultValue: 'false' },
   { key: 'community_post_moderation', label: 'Moderate future posts', group: 'community', type: 'boolean', defaultValue: 'true' },

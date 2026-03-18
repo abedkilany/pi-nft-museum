@@ -2,11 +2,15 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
+import { getGalleryStatuses } from '@/lib/artwork-workflow';
+import { getSiteSettingsMap } from '@/lib/site-settings';
 
 export default async function GalleryPage() {
   const user = await getCurrentUser();
+  const settings = await getSiteSettingsMap();
+  const galleryStatuses = getGalleryStatuses(settings);
   const artworks = await prisma.artwork.findMany({
-    where: { status: 'PUBLISHED' },
+    where: { status: { in: galleryStatuses as any } },
     include: {
       artist: { include: { artistProfile: true } },
       category: true,

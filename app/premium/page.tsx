@@ -4,9 +4,12 @@ import { timeToPremium } from '@/lib/timeToPremium';
 import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
+import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 
 export default async function PremiumPage() {
   const user = await getCurrentUser();
+  const settings = await getSiteSettingsMap();
+  const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
 
   const artworks = await prisma.artwork.findMany({
     where: { status: 'PREMIUM' },
@@ -114,6 +117,7 @@ export default async function PremiumPage() {
                     dislikesCount={art.dislikesCount}
                     myReaction={myReaction}
                     isPremium={true}
+                    premiumAllowDislike={premiumAllowDislike}
                   />
                 </div>
               </div>

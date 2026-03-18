@@ -3,11 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { RatingStars } from '@/components/ratings/RatingStars';
 import { formatDateTime } from '@/lib/artwork-windows';
+import { getReviewStatuses } from '@/lib/artwork-workflow';
+import { getSiteSettingsMap } from '@/lib/site-settings';
 
 export default async function ReviewPage() {
   const user = await getCurrentUser();
+  const settings = await getSiteSettingsMap();
+  const reviewStatuses = getReviewStatuses(settings);
   const artworks = await prisma.artwork.findMany({
-    where: { status: { in: ['PUBLIC_REVIEW', 'MINTING'] } },
+    where: { status: { in: reviewStatuses as any } },
     include: {
       artist: { include: { artistProfile: true } },
       category: true,

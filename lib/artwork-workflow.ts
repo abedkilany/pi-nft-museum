@@ -108,7 +108,7 @@ export function arePublicReviewReactionsAllowed(settings: SiteSettingsMap) {
 }
 
 export function getMintExpiryNextStatus(settings: SiteSettingsMap): ArtworkStatus {
-  const allowed: ArtworkStatus[] = ['PENDING', 'REJECTED', 'ARCHIVED'];
+  const allowed: ArtworkStatus[] = ['PENDING', 'REJECTED', 'ARCHIVED', 'HIDDEN'];
   const configured = getStringSetting(settings, 'mint_expiry_next_status', 'PENDING') as ArtworkStatus;
   return allowed.includes(configured) ? configured : 'PENDING';
 }
