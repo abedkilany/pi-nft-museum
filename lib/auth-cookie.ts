@@ -1,4 +1,4 @@
-import type { NextResponse } from "next/server";
+import type { NextResponse } from 'next/server';
 
 const AUTH_COOKIE_NAME = 'pi_nft_auth';
 const AUTH_COOKIE_FALLBACK_NAME = 'pi_nft_auth_client';
@@ -22,11 +22,11 @@ export function getAuthCookieOptions(request: Request) {
 
   return {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     secure,
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
-  } as const;
+  };
 }
 
 export function setAuthCookies(response: NextResponse, request: Request, token: string) {
@@ -40,6 +40,21 @@ export function setAuthCookies(response: NextResponse, request: Request, token: 
 
 export function clearAuthCookies(response: NextResponse, request: Request) {
   const options = getAuthCookieOptions(request);
+
   response.cookies.set(AUTH_COOKIE_NAME, '', { ...options, maxAge: 0 });
   response.cookies.set(AUTH_COOKIE_FALLBACK_NAME, '', { ...options, httpOnly: false, maxAge: 0 });
+
+  response.cookies.set(AUTH_COOKIE_NAME, '', {
+    ...options,
+    sameSite: 'none',
+    secure: true,
+    maxAge: 0,
+  });
+  response.cookies.set(AUTH_COOKIE_FALLBACK_NAME, '', {
+    ...options,
+    httpOnly: false,
+    sameSite: 'none',
+    secure: true,
+    maxAge: 0,
+  });
 }

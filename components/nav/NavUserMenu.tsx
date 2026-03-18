@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -15,6 +14,7 @@ type Props = {
 
 export function NavUserMenu({ user, showAdmin }: Props) {
   const [open, setOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
 
@@ -39,6 +39,31 @@ export function NavUserMenu({ user, showAdmin }: Props) {
     );
   }
 
+  async function handleLogout() {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Logout failed with status ${response.status}`);
+      }
+
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed', error);
+      alert('Logout failed. Please try again.');
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button className="button secondary" type="button" onClick={() => setOpen((value) => !value)}>
@@ -55,9 +80,15 @@ export function NavUserMenu({ user, showAdmin }: Props) {
             <Link href="/account" className="button secondary" style={{ justifyContent: 'flex-start' }}>Account</Link>
             <Link href="/account/artworks" className="button secondary" style={{ justifyContent: 'flex-start' }}>My artworks</Link>
             {showAdmin ? <Link href="/admin" className="button secondary" style={{ justifyContent: 'flex-start' }}>Admin panel</Link> : null}
-            <form action="/api/auth/logout" method="POST">
-              <button className="button secondary" type="submit" style={{ width: '100%', justifyContent: 'flex-start' }}>Logout</button>
-            </form>
+            <button
+              className="button secondary"
+              type="button"
+              style={{ width: '100%', justifyContent: 'flex-start' }}
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? 'Logging out…' : 'Logout'}
+            </button>
           </div>
         </div>
       ) : null}
