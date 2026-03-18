@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createSessionToken, getAuthCookieName } from '@/lib/auth';
+import { createSessionToken } from '@/lib/auth';
+import { setAuthCookies } from '@/lib/auth-cookie';
 import { logger } from '@/lib/logger';
 import {
   buildSyntheticEmail,
@@ -8,12 +9,6 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
-
-function isSecureRequest(request: Request) {
-  const origin = request.headers.get('origin') || '';
-  const forwardedProto = request.headers.get('x-forwarded-proto') || '';
-  return origin.startsWith('https://') || forwardedProto === 'https';
-}
 
 export async function POST(request: Request) {
   try {
@@ -36,6 +31,11 @@ export async function POST(request: Request) {
     if (!piUser?.uid) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
+
+    logger.info('Pi user verified', {
+      piUid: piUser.uid,
+      piUsername: piUser.username || null
+    });
 
     const roleKey = await resolvePiRole(piUser);
     const role = await prisma.role.findUnique({ where: { key: roleKey } });
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         include: { role: true }
       });
 
-      logger.info('Pi user logged in', {
+      logger.info('Pi user record updated for sign-in', {
         userId: user.id,
         role: user.role.key,
         piUid: piUser.uid,
@@ -130,9 +130,6 @@ export async function POST(request: Request) {
       piUsername: user.piUsername
     });
 
-    const secureCookie = isSecureRequest(request);
-    const sameSite = secureCookie ? 'none' : 'lax';
-
     const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
@@ -143,20 +140,12 @@ export async function POST(request: Request) {
       }
     });
 
-    response.cookies.set(getAuthCookieName(), token, {
-      httpOnly: true,
-      sameSite,
-      secure: secureCookie,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7
-    });
+    setAuthCookies(response, request, token);
 
     logger.info('Pi session cookie prepared', {
       userId: user.id,
-      secureCookie,
-      sameSite,
-      origin: request.headers.get('origin'),
-      forwardedProto: request.headers.get('x-forwarded-proto') || null
+      sameSite: 'lax',
+      secureCookie: request.headers.get('x-forwarded-proto') === 'https' || request.url.startsWith('https://') || (request.headers.get('origin') || '').startsWith('https://')
     });
 
     return response;
