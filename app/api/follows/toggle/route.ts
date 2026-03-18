@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
-import { createCommunityActivity } from '@/lib/community';
+import { assertCommunityEnabled, createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 
 export async function POST(request: Request) {
+  await assertCommunityEnabled();
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 

@@ -1,4 +1,4 @@
-import { ArtworkStatus, Prisma } from '@prisma/client';
+type ArtworkStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'PUBLIC_REVIEW' | 'MINTING' | 'PUBLISHED' | 'PREMIUM' | 'REJECTED' | 'ARCHIVED' | 'HIDDEN' | 'SOLD';
 import { prisma } from '@/lib/prisma';
 import {
   calculatePremiumScoreFromSettings,
@@ -176,7 +176,7 @@ export async function recalculateArtworkEngagement(artworkId: number, settings?:
 
   const shouldBecomePremium = isEligibleForPremium(premiumScore, resolvedSettings);
 
-  const data: Prisma.ArtworkUpdateInput = {
+  const data: Record<string, unknown> = {
     likesCount,
     dislikesCount,
     averageRating: Number(averageRating),

@@ -4,13 +4,13 @@ import { logger } from '@/lib/logger';
 const PI_API_BASE = 'https://api.minepi.com/v2';
 
 function getServerApiKey() {
-  return process.env.PI_SERVER_API_KEY || process.env.PI_API_KEY || process.env.NEXT_PUBLIC_PI_API_KEY || '';
+  return process.env.PI_SERVER_API_KEY || process.env.PI_API_KEY || '';
 }
 
 function getAuthHeaders() {
   const apiKey = getServerApiKey();
   if (!apiKey) {
-    throw new Error('PI_SERVER_API_KEY is not configured in .env');
+    throw new Error('PI_SERVER_API_KEY is not configured on the server.');
   }
 
   return {

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getSiteSettingsMap } from '@/lib/site-settings';
+import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 
 export type MenuItem = {
   label: string;
@@ -44,6 +44,7 @@ export function normalizeMenuItems(value: unknown): MenuItem[] {
 export async function getMenuItems() {
   const settings = await getSiteSettingsMap();
   let manual = DEFAULT_MENU;
+  const communityEnabled = getBooleanSetting(settings, 'community_enabled', true);
   try {
     manual = normalizeMenuItems(JSON.parse(settings.menu_json || '[]'));
   } catch {
@@ -68,7 +69,7 @@ export async function getMenuItems() {
     if (!hrefs.has(item.href)) manual.push(item);
   }
 
-  return manual;
+  return manual.map((item) => item.href === '/community' ? { ...item, enabled: item.enabled !== false && communityEnabled } : item);
 }
 
 export function getDefaultMenu() {

@@ -1,41 +1,24 @@
 import { prisma } from '@/lib/prisma';
+import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 
-export async function createNotification(input: {
-  userId: number;
-  type: string;
-  title: string;
-  message: string;
-  linkUrl?: string;
-}) {
-  return prisma.notification.create({
-    data: {
-      userId: input.userId,
-      type: input.type,
-      title: input.title,
-      message: input.message,
-      linkUrl: input.linkUrl,
-    },
-  });
+export async function isCommunityEnabled() {
+  const settings = await getSiteSettingsMap();
+  return getBooleanSetting(settings, 'community_enabled', true);
 }
 
-export async function createCommunityActivity(input: {
-  actorId: number;
-  subjectUserId?: number | null;
-  type: string;
-  title: string;
-  message: string;
-  linkUrl?: string;
-}) {
-  return prisma.communityActivity.create({
-    data: {
-      actorId: input.actorId,
-      subjectUserId: input.subjectUserId ?? null,
-      type: input.type,
-      title: input.title,
-      message: input.message,
-      linkUrl: input.linkUrl,
-    },
-  });
+export async function assertCommunityEnabled() {
+  const enabled = await isCommunityEnabled();
+  if (!enabled) throw new Error('Community features are currently disabled.');
+}
+
+export async function createNotification(input: { userId: number; type: string; title: string; message: string; linkUrl?: string; }) {
+  return prisma.notification.create({ data: { userId: input.userId, type: input.type, title: input.title, message: input.message, linkUrl: input.linkUrl } });
+}
+
+export async function createCommunityActivity(input: { actorId: number; subjectUserId?: number | null; type: string; title: string; message: string; linkUrl?: string; }) {
+  const enabled = await isCommunityEnabled();
+  if (!enabled) return null;
+  return prisma.communityActivity.create({ data: { actorId: input.actorId, subjectUserId: input.subjectUserId ?? null, type: input.type, title: input.title, message: input.message, linkUrl: input.linkUrl } });
 }
 
 export function formatTimeAgo(value: Date | string) {

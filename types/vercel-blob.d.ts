@@ -1,0 +1,1 @@
+declare module '@vercel/blob' { export function put(pathname: string, body: BlobPart | ArrayBuffer | ArrayBufferView, options?: { access?: 'public' | 'private'; addRandomSuffix?: boolean; contentType?: string; token?: string; }): Promise<{ url: string }>; }

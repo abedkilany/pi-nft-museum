@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server';
+import { purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
+function isAuthorized(request: Request) { const secret = process.env.MAINTENANCE_SECRET || process.env.HEALTHCHECK_SECRET; if (!secret) return false; const authHeader = request.headers.get('authorization') || ''; const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''; const querySecret = new URL(request.url).searchParams.get('secret') || ''; return bearer === secret || querySecret === secret; }
+export async function POST(request: Request) { if (!isAuthorized(request)) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 }); const result = await purgeExpiredArchivedArtworks(); return NextResponse.json({ ok: true, ...result, timestamp: new Date().toISOString() }); }
