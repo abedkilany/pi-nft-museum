@@ -4,7 +4,39 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
 
-type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'redirecting' | 'error';
+type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'confirming-session' | 'redirecting' | 'error';
+
+const SESSION_CONFIRM_ATTEMPTS = 5;
+const SESSION_CONFIRM_DELAYS_MS = [250, 500, 800, 1200, 1600];
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function confirmSession() {
+  for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
+    const meResponse = await fetch(`/api/auth/me?ts=${Date.now()}-${attempt}`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        Pragma: 'no-cache'
+      }
+    });
+
+    const meData = await meResponse.json().catch(() => null);
+    if (meResponse.ok && meData?.user) {
+      return meData.user;
+    }
+
+    if (attempt < SESSION_CONFIRM_DELAYS_MS.length) {
+      await sleep(SESSION_CONFIRM_DELAYS_MS[attempt]);
+    }
+  }
+
+  return null;
+}
 
 export function PiLoginCard() {
   const searchParams = useSearchParams();
@@ -57,7 +89,7 @@ export function PiLoginCard() {
       const response = await fetch('/api/auth/pi/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify({ accessToken: authResult.accessToken })
       });
 
@@ -67,18 +99,15 @@ export function PiLoginCard() {
         throw new Error(data.error || 'Pi login failed.');
       }
 
-      const meResponse = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'same-origin',
-        cache: 'no-store'
-      });
-      const meData = await meResponse.json();
+      setState('confirming-session');
+      setMessage('Confirming your session...');
+      const user = await confirmSession();
 
-      if (!meResponse.ok || !meData?.user) {
-        throw new Error('Pi login succeeded, but the local session was not confirmed. Please try again from the Sandbox URL.');
+      if (!user) {
+        throw new Error('Pi login succeeded, but the session was not confirmed yet. Please retry from the Pi Sandbox URL.');
       }
 
-      const target = meData.user.role === 'admin' || meData.user.role === 'superadmin' ? '/admin' : nextUrl;
+      const target = user.role === 'admin' || user.role === 'superadmin' ? '/admin' : nextUrl;
       setState('redirecting');
       setMessage('Connection successful. Redirecting...');
       window.location.assign(target);
