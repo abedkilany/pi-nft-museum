@@ -27,14 +27,26 @@ export function NavUserMenu({ user, showAdmin }: Props) {
       if (!ref.current) return;
       if (!ref.current.contains(event.target as Node)) setOpen(false);
     }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   if (!user) {
     return (
-      <div className="nav-actions">
-        <Link href="/login" className="button primary">Connect with Pi</Link>
+      <div className="nav-auth">
+        <Link href="/login" className="button primary nav-connect-button">
+          Connect with Pi
+        </Link>
       </div>
     );
   }
@@ -48,8 +60,8 @@ export function NavUserMenu({ user, showAdmin }: Props) {
         method: 'POST',
         credentials: 'include',
         headers: {
-          Accept: 'application/json',
-        },
+          Accept: 'application/json'
+        }
       });
 
       if (!response.ok) {
@@ -65,25 +77,43 @@ export function NavUserMenu({ user, showAdmin }: Props) {
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button className="button secondary" type="button" onClick={() => setOpen((value) => !value)}>
-        My account · {user.username}
+    <div ref={ref} className="nav-user-menu">
+      <button
+        className="button secondary nav-user-trigger"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <span className="nav-user-trigger-desktop">My account · {user.username}</span>
+        <span className="nav-user-trigger-mobile">Account</span>
       </button>
+
       {open ? (
-        <div className="card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: '240px', padding: '10px', zIndex: 40 }}>
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '6px' }}>
-            <strong style={{ display: 'block' }}>{user.username}</strong>
-            <span style={{ color: 'var(--muted)', fontSize: '14px' }}>{user.role}</span>
+        <div className="card nav-user-popover" role="menu">
+          <div className="nav-user-header">
+            <strong>{user.username}</strong>
+            <span>{user.role}</span>
           </div>
-          <div style={{ display: 'grid', gap: '6px' }}>
-            <Link href="/profile" className="button secondary" style={{ justifyContent: 'flex-start' }}>Profile</Link>
-            <Link href="/account" className="button secondary" style={{ justifyContent: 'flex-start' }}>Account</Link>
-            <Link href="/account/artworks" className="button secondary" style={{ justifyContent: 'flex-start' }}>My artworks</Link>
-            {showAdmin ? <Link href="/admin" className="button secondary" style={{ justifyContent: 'flex-start' }}>Admin panel</Link> : null}
+
+          <div className="nav-user-links">
+            <Link href="/profile" className="button secondary nav-user-link">
+              Profile
+            </Link>
+            <Link href="/account" className="button secondary nav-user-link">
+              Account
+            </Link>
+            <Link href="/account/artworks" className="button secondary nav-user-link">
+              My artworks
+            </Link>
+            {showAdmin ? (
+              <Link href="/admin" className="button secondary nav-user-link">
+                Admin panel
+              </Link>
+            ) : null}
             <button
-              className="button secondary"
+              className="button secondary nav-user-link"
               type="button"
-              style={{ width: '100%', justifyContent: 'flex-start' }}
               onClick={handleLogout}
               disabled={isLoggingOut}
             >

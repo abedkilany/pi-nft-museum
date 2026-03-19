@@ -12,14 +12,21 @@ type NotificationItem = {
   createdAt: string;
 };
 
+type PanelStyle = {
+  top: number;
+  right?: number;
+  left?: number;
+};
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelStyle, setPanelStyle] = useState<{ top: number; right: number }>({ top: 76, right: 24 });
+  const [panelStyle, setPanelStyle] = useState<PanelStyle>({ top: 76, right: 24 });
 
   async function load() {
     const response = await fetch('/api/notifications?take=8', { cache: 'no-store' });
@@ -32,6 +39,15 @@ export function NotificationBell() {
   useEffect(() => {
     setMounted(true);
     load();
+
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 640);
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -41,15 +57,38 @@ export function NotificationBell() {
       if (panelRef.current?.contains(target)) return;
       setOpen(false);
     }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   useEffect(() => {
     if (!open || !buttonRef.current) return;
+
     const rect = buttonRef.current.getBoundingClientRect();
-    setPanelStyle({ top: Math.round(rect.bottom + 8), right: Math.max(16, Math.round(window.innerWidth - rect.right)) });
-  }, [open]);
+
+    if (window.innerWidth <= 640) {
+      setPanelStyle({
+        top: Math.round(rect.bottom + 10),
+        left: 12
+      });
+      return;
+    }
+
+    setPanelStyle({
+      top: Math.round(rect.bottom + 8),
+      right: Math.max(16, Math.round(window.innerWidth - rect.right))
+    });
+  }, [open, isMobile]);
 
   async function markAllAsRead() {
     const response = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
@@ -78,45 +117,95 @@ export function NotificationBell() {
   }
 
   const panel = open ? (
-    <div ref={panelRef} className="notification-popover card" style={{ position: 'fixed', top: panelStyle.top, right: panelStyle.right, width: 360, maxWidth: 'calc(100vw - 24px)', padding: 12, zIndex: 2000 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 8px 12px', borderBottom: '1px solid var(--line)', marginBottom: 10 }}>
+    <div
+      ref={panelRef}
+      className="notification-popover card"
+      style={{
+        position: 'fixed',
+        top: panelStyle.top,
+        right: panelStyle.right,
+        left: panelStyle.left,
+        width: isMobile ? undefined : 360,
+        maxWidth: isMobile ? undefined : 'calc(100vw - 24px)',
+        padding: 12,
+        zIndex: 2000
+      }}
+    >
+      <div className="notification-head">
         <div>
           <strong>Notifications</strong>
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>{unreadCount} unread</div>
+          <div className="notification-subtitle">{unreadCount} unread</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button className="button secondary" type="button" onClick={markAllAsRead}>Mark all as read</button>
-          <button className="button secondary" type="button" onClick={clearRead}>Clear read</button>
+
+        <div className="notification-toolbar">
+          <button className="button secondary" type="button" onClick={markAllAsRead}>
+            Mark all as read
+          </button>
+          <button className="button secondary" type="button" onClick={clearRead}>
+            Clear read
+          </button>
         </div>
       </div>
-      <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
-        {notifications.length === 0 ? <p style={{ margin: 8, color: 'var(--muted)' }}>No notifications yet.</p> : notifications.map((item) => (
-          <div key={item.id} className="card" style={{ padding: 12, borderColor: item.isRead ? 'var(--line)' : 'rgba(221,176,79,0.4)', background: item.isRead ? undefined : 'rgba(221,176,79,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+
+      <div className="notification-list">
+        {notifications.length === 0 ? (
+          <p className="notification-empty">No notifications yet.</p>
+        ) : (
+          notifications.map((item) => (
+            <div
+              key={item.id}
+              className="card notification-item"
+              style={{
+                padding: 12,
+                borderColor: item.isRead ? 'var(--line)' : 'rgba(221,176,79,0.4)',
+                background: item.isRead ? undefined : 'rgba(221,176,79,0.08)'
+              }}
+            >
               <div>
                 <strong>{item.title}</strong>
-                <p style={{ margin: '6px 0 0', color: 'var(--muted)', lineHeight: 1.5 }}>{item.message}</p>
+                <p className="notification-message">{item.message}</p>
+              </div>
+
+              <div className="notification-item-actions">
+                {!item.isRead ? (
+                  <button className="button secondary" type="button" onClick={() => markOneAsRead(item.id)}>
+                    Mark as read
+                  </button>
+                ) : null}
+                <button className="button secondary" type="button" onClick={() => deleteOne(item.id)}>
+                  Delete
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {!item.isRead ? <button className="button secondary" type="button" onClick={() => markOneAsRead(item.id)}>Mark as read</button> : null}
-              <button className="button secondary" type="button" onClick={() => deleteOne(item.id)}>Delete</button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
-      <div style={{ paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-        <Link href="/notifications" className="button primary" onClick={() => setOpen(false)}>Open notifications</Link>
+
+      <div className="notification-footer">
+        <Link href="/notifications" className="button primary" onClick={() => setOpen(false)}>
+          Open notifications
+        </Link>
       </div>
     </div>
   ) : null;
 
   return (
     <>
-      <button ref={buttonRef} className="button secondary" type="button" onClick={() => setOpen((value) => !value)} style={{ position: 'relative', minWidth: 52 }} aria-label="Notifications">
+      <button
+        ref={buttonRef}
+        className="button secondary nav-bell-button"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        style={{ position: 'relative', minWidth: 52 }}
+        aria-label="Notifications"
+        aria-expanded={open}
+      >
         🔔
-        {unreadCount > 0 ? <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span> : null}
+        {unreadCount > 0 ? (
+          <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+        ) : null}
       </button>
+
       {mounted && panel ? createPortal(panel, document.body) : null}
     </>
   );
