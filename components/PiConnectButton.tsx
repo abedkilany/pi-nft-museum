@@ -1,8 +1,8 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
+import { setPiAuthToken, piApiFetch } from '@/lib/pi-auth-client';
 import { authenticateWithPi } from '@/lib/pi';
-import { piApiFetch, setPiAuthToken } from '../lib/pi-auth-client';
 
 type Props = {
   className?: string;
@@ -29,6 +29,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.accessToken}`,
         },
         body: JSON.stringify({
           accessToken: auth.accessToken,
@@ -42,7 +43,20 @@ export function PiConnectButton({ className = 'button primary', children, redire
         return;
       }
 
+      // Keep a client fallback specifically for Pi Browser / WebView quirks.
       setPiAuthToken(auth.accessToken);
+
+      // Confirm that one follow-up request still sees the authenticated user.
+      const authCheck = await piApiFetch('/api/auth/me', {
+        method: 'GET',
+        cache: 'no-store',
+      }).catch(() => null);
+      const authCheckPayload = authCheck ? await authCheck.json().catch(() => null) : null;
+
+      if (!authCheck?.ok || !authCheckPayload?.authenticated) {
+        // Do not fail hard here; bearer fallback is still stored and may be enough inside Pi Browser.
+        console.warn('Pi login succeeded, but session confirmation did not fully stick yet.', authCheckPayload);
+      }
 
       const target = redirectTo || (
         payload?.user?.role === 'admin' || payload?.user?.role === 'superadmin'

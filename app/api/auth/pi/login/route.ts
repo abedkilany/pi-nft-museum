@@ -7,10 +7,24 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
-import { createSessionToken } from '@/lib/auth';
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { setAuthCookies } from '@/lib/auth-cookie';
+import { createSessionToken, getAuthCookieName } from '@/lib/auth';
+
+function buildSessionCookie(request: Request, token: string) {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isSecure = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
+
+  return {
+    name: getAuthCookieName(),
+    value: token,
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: 'none' as const,
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -164,7 +178,7 @@ export async function POST(request: Request) {
       },
     });
 
-    setAuthCookies(response, request, sessionToken);
+    response.cookies.set(buildSessionCookie(request, sessionToken));
     return response;
   } catch (error) {
     logger.error('Pi login failed', error);
