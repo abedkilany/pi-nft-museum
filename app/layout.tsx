@@ -2,7 +2,6 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
-import { AuthApiFetchBridge } from '@/components/auth/AuthApiFetchBridge';
 
 export const metadata: Metadata = {
   title: 'Pi NFT Museum',
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <PiScript />
-        <AuthApiFetchBridge />
         <div className="page-shell">
           <NavBar />
           <main className="container">{children}</main>
