@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import {
-  getCrossSiteAuthCookieName,
-  readAuthTokenFromCookieStore,
-} from '@/lib/auth-cookie';
+import { readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
 import { getAuthCookieName, verifySessionToken } from '@/lib/auth';
 import { cookies, headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -12,15 +9,13 @@ export async function GET() {
   const requestId = crypto.randomUUID();
 
   try {
-    const cookieStore = await cookies();
-    const headerStore = await headers();
+    const cookieStore = cookies();
+    const headerStore = headers();
 
-    const names = [
-      getAuthCookieName(),
-      getCrossSiteAuthCookieName(),
-    ];
-
-    const presentCookies = names.filter((name) => Boolean(cookieStore.get(name)?.value));
+    const authCookieName = getAuthCookieName();
+    const presentCookies = [authCookieName].filter((name) =>
+      Boolean(cookieStore.get(name)?.value)
+    );
     const token = readAuthTokenFromCookieStore(cookieStore);
 
     logger.info('AUTH_ME_START', {
