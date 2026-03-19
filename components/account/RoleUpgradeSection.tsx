@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type RoleKey = 'visitor' | 'artist_or_trader';
 
@@ -18,7 +19,7 @@ export function RoleUpgradeSection({ currentRole }: { currentRole: string }) {
     setLoading(true);
     setMessage(null);
     try {
-      const response = await fetch('/api/account/role', {
+      const response = await piApiFetch('/api/account/role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: selectedRole }),

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function ArtworkStatusActions({ artworkId, status }: { artworkId: number; status: string }) {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function ArtworkStatusActions({ artworkId, status }: { artworkId: number;
   async function handleChange() {
     setBusy(true);
     setMessage('');
-    const response = await fetch('/api/artworks/owner-status', {
+    const response = await piApiFetch('/api/artworks/owner-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artworkId, targetStatus }),

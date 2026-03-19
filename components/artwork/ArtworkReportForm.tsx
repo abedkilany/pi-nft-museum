@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function ArtworkReportForm({ artworkId, canReport }: { artworkId: number; canReport: boolean }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function ArtworkReportForm({ artworkId, canReport }: { artworkId: number;
     if (files) {
       Array.from(files).slice(0, 5).forEach((file) => formData.append('evidenceFiles', file));
     }
-    const response = await fetch('/api/artworks/reports', { method: 'POST', body: formData });
+    const response = await piApiFetch('/api/artworks/reports', { method: 'POST', body: formData });
     const data = await response.json();
     setBusy(false);
     setMessage(data.message || data.error || 'Done.');

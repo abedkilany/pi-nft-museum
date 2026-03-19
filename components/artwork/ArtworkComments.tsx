@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type CommentType = 'FIRST_COMMENT' | 'REPLY' | 'ARTIST_REPLY';
 
@@ -257,7 +258,7 @@ export function ArtworkComments({
   async function submitReply(comment: ArtworkCommentItem) {
     setBusy(true);
     setMessage('');
-    const response = await fetch('/api/artworks/comments', {
+    const response = await piApiFetch('/api/artworks/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artworkId, body: replyBody, parentId: comment.id }),
@@ -274,7 +275,7 @@ export function ArtworkComments({
 
   async function deleteComment(commentId: number) {
     if (!confirm('Delete this comment?')) return;
-    const response = await fetch('/api/artworks/comments/delete', {
+    const response = await piApiFetch('/api/artworks/comments/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commentId }),
@@ -285,7 +286,7 @@ export function ArtworkComments({
   }
 
   async function hideComment(commentId: number, hidden: boolean) {
-    const response = await fetch('/api/artworks/comments/hide', {
+    const response = await piApiFetch('/api/artworks/comments/hide', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commentId, hidden }),
@@ -299,7 +300,7 @@ export function ArtworkComments({
     const reason = window.prompt('Report reason (SPAM / ABUSE / COPYRIGHT / OTHER)', 'OTHER');
     if (!reason) return;
     const description = window.prompt('Optional note for the moderation team', '');
-    const response = await fetch('/api/artworks/comments/report', {
+    const response = await piApiFetch('/api/artworks/comments/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commentId, reason, description }),
@@ -309,7 +310,7 @@ export function ArtworkComments({
   }
 
   async function toggleLike(commentId: number) {
-    const response = await fetch('/api/artworks/comments/like', {
+    const response = await piApiFetch('/api/artworks/comments/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commentId }),

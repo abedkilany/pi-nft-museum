@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 const OPTIONS = [
   { value: 'ALL', label: 'All activity' },
@@ -47,7 +48,7 @@ export function ProfileFollowControls({ targetUserId, initiallyFollowing, initia
   }, [open]);
 
   async function toggleFollow() {
-    const response = await fetch('/api/follows/toggle', {
+    const response = await piApiFetch('/api/follows/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetUserId }),
@@ -61,7 +62,7 @@ export function ProfileFollowControls({ targetUserId, initiallyFollowing, initia
   }
 
   async function changeMode(value: string) {
-    const response = await fetch('/api/follows/mode', {
+    const response = await piApiFetch('/api/follows/mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetUserId, notifyMode: value }),

@@ -3,6 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function DeleteAccountSection() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function DeleteAccountSection() {
     if (!confirm('This will permanently delete your account and artworks. Continue?')) return;
     setBusy(true);
     setMessage('');
-    const response = await fetch('/api/account/delete', {
+    const response = await piApiFetch('/api/account/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
