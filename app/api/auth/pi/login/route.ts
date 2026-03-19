@@ -196,7 +196,7 @@ export async function POST(request: Request) {
           status: user.status === 'PENDING' ? 'ACTIVE' : user.status,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
-          piWalletAddress: piUser.walletAddress || user.piWalletAddress || null,
+          piWalletAddress: piUser.wallet_address || user.piWalletAddress || null,
           piLinkedAt: user.piLinkedAt || new Date(),
           piAuthVerified: true,
           lastLoginAt: new Date(),
