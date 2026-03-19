@@ -7,8 +7,10 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
+import { createSessionToken } from '@/lib/auth';
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { setAuthCookies } from '@/lib/auth-cookie';
 
 export async function POST(request: Request) {
   try {
@@ -134,6 +136,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
+    const sessionToken = await createSessionToken({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role.key,
+      piUid: user.piUid,
+      piUsername: user.piUsername,
+    });
+
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
@@ -142,7 +153,7 @@ export async function POST(request: Request) {
       newValues: { role: user.role.key, piUid: user.piUid },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
       user: {
@@ -152,6 +163,9 @@ export async function POST(request: Request) {
         piUsername: user.piUsername,
       },
     });
+
+    setAuthCookies(response, request, sessionToken);
+    return response;
   } catch (error) {
     logger.error('Pi login failed', error);
     return NextResponse.json(

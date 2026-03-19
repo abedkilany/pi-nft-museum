@@ -1,9 +1,8 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { setPiAuthToken } from '@/lib/pi-auth-client';
 import { authenticateWithPi } from '@/lib/pi';
-import { piApiFetch } from '../lib/pi-auth-client';
+import { piApiFetch, setPiAuthToken } from '../lib/pi-auth-client';
 
 type Props = {
   className?: string;
@@ -30,7 +29,6 @@ export function PiConnectButton({ className = 'button primary', children, redire
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.accessToken}`,
         },
         body: JSON.stringify({
           accessToken: auth.accessToken,

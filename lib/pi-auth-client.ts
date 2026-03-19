@@ -1,4 +1,4 @@
-const PI_AUTH_TOKEN_KEY = 'pi_access_token';
+const PI_AUTH_STATE_KEY = 'pi_auth_state';
 
 function isBrowser() {
   return typeof window !== 'undefined';
@@ -14,7 +14,7 @@ function getStorage() {
 }
 
 export function getPiAuthToken() {
-  return getStorage()?.getItem(PI_AUTH_TOKEN_KEY) || null;
+  return getStorage()?.getItem(PI_AUTH_STATE_KEY) || null;
 }
 
 export function syncPiAuthCookie(_token?: string | null) {
@@ -25,19 +25,17 @@ export function clearPiAuthCookie() {
   return;
 }
 
-export function setPiAuthToken(token: string) {
-  getStorage()?.setItem(PI_AUTH_TOKEN_KEY, token);
+export function setPiAuthToken(_token: string) {
+  getStorage()?.setItem(PI_AUTH_STATE_KEY, '1');
 }
 
 export function clearPiAuthToken() {
-  getStorage()?.removeItem(PI_AUTH_TOKEN_KEY);
+  getStorage()?.removeItem(PI_AUTH_STATE_KEY);
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
-  const token = getPiAuthToken();
   return {
     ...(init || {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
@@ -45,6 +43,6 @@ export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {
   return fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
-    credentials: 'omit',
+    credentials: 'include',
   });
 }

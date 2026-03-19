@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { MenuItem } from '@/lib/menu';
 import { isAdminRole } from '@/lib/roles';
-import { getPiAuthToken, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 import { NavUserMenu } from '@/components/nav/NavUserMenu';
 import { NotificationBell } from '@/components/nav/NotificationBell';
 import { MobileNav } from '@/components/nav/MobileNav';
@@ -26,15 +26,6 @@ export function NavBarClient({ items }: Props) {
     let cancelled = false;
 
     async function loadUser() {
-      const token = getPiAuthToken();
-      if (!token) {
-        if (!cancelled) {
-          setUser(null);
-          setCheckedAuth(true);
-        }
-        return;
-      }
-
       const response = await piApiFetch('/api/auth/me', {
         method: 'GET',
         cache: 'no-store',

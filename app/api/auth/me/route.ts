@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { verifySessionToken } from '@/lib/auth';
+import { readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     const bearerToken = extractBearerToken(authHeader);
+    const cookieToken = readAuthTokenFromCookieStore(request.cookies);
 
     logger.info('AUTH_ME_START', {
       requestId,
@@ -19,15 +22,38 @@ export async function GET(request: NextRequest) {
       userAgent: request.headers.get('user-agent'),
       authHeaderPresent: Boolean(authHeader),
       bearerTokenPresent: Boolean(bearerToken),
-      tokenSource: bearerToken ? 'bearer' : 'none',
-      tokenFound: Boolean(bearerToken),
-      tokenLength: bearerToken?.length ?? 0,
-      tokenPreview: bearerToken ? `${bearerToken.slice(0, 12)}...` : null,
+      cookieTokenPresent: Boolean(cookieToken),
+      tokenSource: cookieToken ? 'cookie' : bearerToken ? 'bearer' : 'none',
     });
+
+    if (cookieToken) {
+      const sessionUser = await verifySessionToken(cookieToken).catch((error) => {
+        logger.warn('AUTH_ME_INVALID_COOKIE', {
+          requestId,
+          message: error instanceof Error ? error.message : 'Invalid session cookie',
+        });
+        return null;
+      });
+
+      if (sessionUser) {
+        return NextResponse.json({
+          ok: true,
+          authenticated: true,
+          user: {
+            id: sessionUser.userId,
+            username: sessionUser.username,
+            email: sessionUser.email,
+            role: sessionUser.role,
+            piUid: sessionUser.piUid,
+            piUsername: sessionUser.piUsername,
+          },
+        });
+      }
+    }
 
     if (!bearerToken) {
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'NO_TOKEN' },
+        { ok: false, authenticated: false, reason: 'NO_SESSION' },
         { status: 401 }
       );
     }
@@ -46,33 +72,6 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-
-    logger.info('AUTH_ME_TOKEN_VERIFIED', {
-      requestId,
-      userId: session.user.id,
-      role: session.user.role.key,
-      username: session.user.username,
-      piUid: session.piUser.uid,
-      piUsername: session.piUser.username || null,
-    });
-
-    logger.info('AUTH_ME_DB_LOOKUP', {
-      requestId,
-      found: true,
-      userId: session.user.id,
-      username: session.user.username,
-      status: session.user.status,
-      role: session.user.role.key,
-      piUid: session.user.piUid,
-      piUsername: session.user.piUsername,
-    });
-
-    logger.info('AUTH_ME_CONFIRMED', {
-      requestId,
-      userId: session.user.id,
-      username: session.user.username,
-      role: session.user.role.key,
-    });
 
     return NextResponse.json({
       ok: true,
