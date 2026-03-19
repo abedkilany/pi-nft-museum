@@ -4,6 +4,7 @@ import { getMenuItems } from '@/lib/menu';
 import { isAdminRole } from '@/lib/roles';
 import { NavUserMenu } from '@/components/nav/NavUserMenu';
 import { NotificationBell } from '@/components/nav/NotificationBell';
+import { MobileNav } from '@/components/nav/MobileNav';
 
 export async function NavBar() {
   const user = await getCurrentUser();
@@ -16,6 +17,11 @@ export async function NavBar() {
     if (item.visibility === 'guest') return !user;
     return true;
   });
+
+  const mobileItems = visibleItems.map((item) => ({
+    label: item.label,
+    href: item.href
+  }));
 
   return (
     <header className="topbar">
@@ -42,20 +48,7 @@ export async function NavBar() {
         </div>
       </div>
 
-      <details className="mobile-nav">
-        <summary className="mobile-nav-summary">
-          <span>Menu</span>
-          <span className="mobile-nav-icon" aria-hidden="true">☰</span>
-        </summary>
-
-        <nav className="mobile-nav-panel">
-          {visibleItems.map((item) => (
-            <Link key={`${item.label}-${item.href}`} href={item.href} className="mobile-nav-link">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </details>
+      <MobileNav items={mobileItems} />
     </header>
   );
 }

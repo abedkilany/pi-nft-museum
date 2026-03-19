@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getArraySetting, getNumberSetting, getStringSetting } from '@/lib/site-settings';
 import { getArtworkStatusLabel } from '@/lib/artwork-status';
-import { formatTimeAgo } from '@/lib/community';
 
 export default async function HomePage() {
   const settings = await getSiteSettingsMap();
@@ -12,15 +11,14 @@ export default async function HomePage() {
   const siteTagline = getStringSetting(settings, 'site_tagline', 'A digital museum for NFT artworks on Pi Network');
   const placeholder = getStringSetting(settings, 'placeholder_artwork_image_url', '/placeholder-artwork.svg');
 
-  const [artworks, stats, activities] = await Promise.all([
+  const [artworks, stats] = await Promise.all([
     prisma.artwork.findMany({
       where: { status: { in: featuredStatuses as any[] } },
       take: featuredLimit,
       include: { artist: { include: { artistProfile: true } }, category: true },
       orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }]
     }),
-    prisma.artwork.groupBy({ by: ['status'], _count: true }),
-    prisma.communityActivity.findMany({ include: { actor: { select: { username: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 6 })
+    prisma.artwork.groupBy({ by: ['status'], _count: true })
   ]);
 
   const pending = stats.find((item) => item.status === 'PENDING')?._count || 0;
@@ -28,26 +26,26 @@ export default async function HomePage() {
   const premium = stats.find((item) => item.status === 'PREMIUM')?._count || 0;
 
   return (
-    <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
-      <section className="card" style={{ padding: '32px' }}>
+    <div className="home-page">
+      <section className="card home-hero-card">
         <span className="section-kicker">Pi Network ready foundation</span>
-        <h1 style={{ margin: '0 0 12px' }}>{siteName}</h1>
-        <p style={{ margin: 0, maxWidth: '760px', lineHeight: 1.8, color: 'var(--muted)' }}>{siteTagline}</p>
-        <div className="hero-actions">
+        <h1>{siteName}</h1>
+        <p>{siteTagline}</p>
+        <div className="hero-actions home-hero-actions">
           <Link href="/gallery" className="button primary">Open gallery</Link>
           <Link href="/review" className="button secondary">Public review</Link>
           <Link href="/community" className="button secondary">Community groundwork</Link>
         </div>
       </section>
 
-      <section className="stats-grid">
+      <section className="stats-grid home-stats-grid">
         <div className="card stat-card"><strong>{published}</strong><span>Published</span></div>
         <div className="card stat-card"><strong>{premium}</strong><span>Premium</span></div>
         <div className="card stat-card"><strong>{pending}</strong><span>Awaiting review</span></div>
       </section>
 
-      <section className="card" style={{ padding: '24px' }}>
-        <div className="section-head compact">
+      <section className="card home-featured-card">
+        <div className="section-head compact home-section-head">
           <div>
             <span className="section-kicker">Featured</span>
             <h2>Minted artworks only</h2>
@@ -56,28 +54,34 @@ export default async function HomePage() {
         </div>
 
         {artworks.length === 0 ? (
-          <p style={{ margin: 0 }}>No featured artworks are available yet.</p>
+          <p className="home-empty-state">No featured artworks are available yet.</p>
         ) : (
-          <div className="gallery-grid">
+          <div className="gallery-grid home-gallery-grid">
             {artworks.map((artwork) => {
               const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
+              const description = artwork.description.length > 90 ? `${artwork.description.slice(0, 90)}…` : artwork.description;
+
               return (
                 <article key={artwork.id} className="card art-card">
                   <div className="art-image-wrap">
                     <img src={artwork.imageUrl || placeholder} alt={artwork.title} className="art-image" />
                   </div>
-                  <div style={{ padding: '18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start' }}>
+                  <div className="art-body">
+                    <div className="art-top home-art-top">
                       <div>
-                        <h3 style={{ margin: '0 0 6px' }}>{artwork.title}</h3>
-                        <p style={{ margin: 0, color: 'var(--muted)' }}>{artistName}</p>
+                        <h3>{artwork.title}</h3>
+                        <p>{artistName}</p>
                       </div>
                       <span className="pill">{getArtworkStatusLabel(artwork.status)}</span>
                     </div>
-                    <p style={{ color: 'var(--muted)', minHeight: '48px' }}>{artwork.description.slice(0, 90)}{artwork.description.length > 90 ? '…' : ''}</p>
-                    <div className="card-actions">
+                    <p className="art-description home-art-description">{description}</p>
+                    <div className="card-actions home-card-actions">
                       <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
-                      {artwork.status === 'PREMIUM' ? <Link href="/premium" className="button primary">Premium</Link> : <Link href="/gallery" className="button primary">Gallery</Link>}
+                      {artwork.status === 'PREMIUM' ? (
+                        <Link href="/premium" className="button primary">Premium</Link>
+                      ) : (
+                        <Link href="/gallery" className="button primary">Gallery</Link>
+                      )}
                     </div>
                   </div>
                 </article>
