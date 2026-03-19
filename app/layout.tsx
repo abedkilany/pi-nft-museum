@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
 import AuthSessionBridge from '@/components/auth/AuthSessionBridge';
-import { AutoPiAuth } from '@/components/auth/AutoPiAuth';
 import { RouteAccessGate } from '@/components/auth/RouteAccessGate';
 import { AuthApiFetchBridge } from '@/components/auth/AuthApiFetchBridge';
 
@@ -26,9 +25,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PiScript />
         <Suspense fallback={null}>
           <AuthSessionBridge />
-        </Suspense>
-        <Suspense fallback={null}>
-          <AutoPiAuth />
         </Suspense>
         <Suspense fallback={null}>
           <RouteAccessGate />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
-import { setPiAuthToken } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
 
 type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'confirming-session' | 'redirecting' | 'error';
 
@@ -20,7 +20,7 @@ function storeClientToken(token: string) {
 
 function getStoredToken() {
   if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem('pi_auth_token');
+  return getPiAuthToken();
 }
 
 async function confirmSession() {
@@ -29,7 +29,7 @@ async function confirmSession() {
 
     const meResponse = await fetch(`/api/auth/me?ts=${Date.now()}-${attempt}`, {
       method: 'GET',
-      credentials: 'include',
+      credentials: 'omit',
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -65,8 +65,27 @@ export function PiLoginCard() {
   const [state, setState] = useState<LoginState>('checking-sdk');
   const autoStartedRef = useRef(false);
 
+  const redirectForUser = useCallback((role?: string) => {
+    const target = role === 'admin' || role === 'superadmin' ? '/admin' : nextUrl;
+    setState('redirecting');
+    setMessage('Connection successful. Redirecting...');
+    window.location.assign(buildRedirectUrl(target));
+  }, [nextUrl]);
+
   const handleLogin = useCallback(async () => {
     try {
+      const existingToken = getStoredToken();
+      if (existingToken) {
+        setState('confirming-session');
+        setMessage('Existing session found. Confirming...');
+        const existing = await confirmSession();
+        if (existing?.user) {
+          redirectForUser(existing.user.role);
+          return;
+        }
+        clearPiAuthToken();
+      }
+
       setLoading(true);
       setState('authenticating');
       setMessage('Waiting for Pi approval...');
@@ -81,7 +100,7 @@ export function PiLoginCard() {
       const response = await fetch('/api/auth/pi/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        credentials: 'omit',
         body: JSON.stringify({ accessToken: authResult.accessToken })
       });
 
@@ -103,22 +122,33 @@ export function PiLoginCard() {
         throw new Error('Pi login succeeded, but the session was not confirmed yet. Please retry from the Pi Browser or the Pi Sandbox URL.');
       }
 
-      const target = confirmed.user.role === 'admin' || confirmed.user.role === 'superadmin' ? '/admin' : nextUrl;
-      setState('redirecting');
-      setMessage('Connection successful. Redirecting...');
-      window.location.assign(buildRedirectUrl(target));
+      redirectForUser(confirmed.user.role);
     } catch (error) {
       setState('error');
       setMessage(error instanceof Error ? error.message : 'Pi login failed.');
     } finally {
       setLoading(false);
     }
-  }, [nextUrl]);
+  }, [redirectForUser]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function detectSdk() {
+      const existingToken = getStoredToken();
+      if (existingToken) {
+        setReady(true);
+        setState('confirming-session');
+        setMessage('Existing session found. Confirming...');
+        const existing = await confirmSession();
+        if (cancelled) return;
+        if (existing?.user) {
+          redirectForUser(existing.user.role);
+          return;
+        }
+        clearPiAuthToken();
+      }
+
       setState('checking-sdk');
       setMessage('Checking Pi Browser connection...');
       const sdkReady = await waitForPiSdk(12000, 300);
@@ -144,7 +174,7 @@ export function PiLoginCard() {
     return () => {
       cancelled = true;
     };
-  }, [handleLogin]);
+  }, [handleLogin, redirectForUser]);
 
   return (
     <div style={{ paddingTop: '30px' }}>

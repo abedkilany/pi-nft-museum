@@ -4,16 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { clearPiAuthToken, getPiAuthToken, piApiFetch } from '@/lib/pi-auth-client';
 
-const PUBLIC_PATH_PREFIXES = ['/gallery', '/review', '/community', '/premium', '/privacy-policy', '/terms-of-service', '/artwork'];
+const PUBLIC_PATH_PREFIXES = ['/', '/gallery', '/review', '/community', '/premium', '/privacy-policy', '/terms-of-service', '/artwork'];
 const PROTECTED_PREFIXES = ['/account', '/admin', '/notifications'];
 const PROTECTED_EXACT_PATHS = new Set(['/upload', '/profile']);
 
 type AuthState = 'idle' | 'checking' | 'done';
 
 function isPublicPath(pathname: string) {
-  if (pathname === '/') return false;
-  if (pathname === '/login') return false;
-  return PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || (prefix !== '/' && pathname.startsWith(`${prefix}/`)));
 }
 
 function isProtectedPath(pathname: string) {
@@ -33,7 +31,7 @@ export function RouteAccessGate() {
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    if (isPublicPath(pathname)) {
+    if (isPublicPath(pathname) && pathname !== '/login') {
       setState('done');
       return;
     }
@@ -42,8 +40,8 @@ export function RouteAccessGate() {
 
     async function run() {
       const token = getPiAuthToken();
-      const isEntryPath = pathname === '/' || pathname === '/login';
       const protectedPath = isProtectedPath(pathname);
+      const isLoginPath = pathname === '/login';
 
       if (!token) {
         if (protectedPath) {
@@ -80,7 +78,7 @@ export function RouteAccessGate() {
         return;
       }
 
-      if (isEntryPath) {
+      if (isLoginPath) {
         const nextUrl = searchParams?.get('next');
         router.replace(nextUrl || (isAdmin ? '/admin' : '/account'));
         return;
@@ -96,7 +94,7 @@ export function RouteAccessGate() {
     };
   }, [nextPath, pathname, router, searchParams]);
 
-  const shouldBlock = state === 'checking' && (pathname === '/' || pathname === '/login' || isProtectedPath(pathname));
+  const shouldBlock = state === 'checking' && (pathname === '/login' || isProtectedPath(pathname));
   if (!shouldBlock) return null;
 
   return (
