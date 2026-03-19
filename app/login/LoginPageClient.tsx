@@ -2,17 +2,6 @@
 
 import { useState } from 'react';
 
-declare global {
-  interface Window {
-    Pi?: {
-      authenticate: (
-        scopes: string[],
-        onIncompletePaymentFound?: (payment: unknown) => void
-      ) => Promise<{ accessToken?: string; user?: { uid?: string; username?: string } }>;
-    };
-  }
-}
-
 export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +9,7 @@ export default function LoginPageClient() {
     const start = Date.now();
 
     while (Date.now() - start < timeoutMs) {
-      if (window.Pi) return window.Pi;
+      if ((window as any).Pi) return (window as any).Pi;
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
 
