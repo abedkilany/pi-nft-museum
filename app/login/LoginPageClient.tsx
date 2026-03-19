@@ -2,24 +2,46 @@
 
 import { useState } from 'react';
 
+declare global {
+  interface Window {
+    Pi?: {
+      authenticate: (
+        scopes: string[],
+        onIncompletePaymentFound?: (payment: unknown) => void
+      ) => Promise<{ accessToken?: string; user?: { uid?: string; username?: string } }>;
+    };
+  }
+}
+
 export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
+
+  const waitForPi = async (timeoutMs = 8000) => {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      if (window.Pi) return window.Pi;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    return null;
+  };
 
   const handleLogin = async () => {
     try {
       setLoading(true);
 
-      const pi = (window as any).Pi;
+      const pi = await waitForPi();
+
       if (!pi) {
-        alert('Pi SDK not available');
+        alert('Pi SDK not loaded. Open the app inside Pi Browser and try again.');
         return;
       }
 
-      const scopes = ['username', 'payments'];
-      const auth = await pi.authenticate(scopes);
+      const auth = await pi.authenticate(['username', 'payments']);
 
       if (!auth?.accessToken) {
-        alert('Login failed');
+        alert('Pi login did not return an access token.');
         return;
       }
 
@@ -38,14 +60,14 @@ export default function LoginPageClient() {
 
       if (!response.ok) {
         const text = await response.text();
-        console.error(text);
-        alert('Server login failed');
+        console.error('Server login failed:', text);
+        alert('Server login failed.');
         return;
       }
 
       window.location.href = '/admin';
     } catch (error) {
-      console.error(error);
+      console.error('Pi login error:', error);
       alert('Error during login');
     } finally {
       setLoading(false);
@@ -59,11 +81,16 @@ export default function LoginPageClient() {
           <span className="section-kicker">Pi Sign In</span>
           <h1>Login with Pi</h1>
         </div>
-        <p>Use your Pi Browser account to continue.</p>
+        <p>Open this page in Pi Browser, then continue with Pi authentication.</p>
       </div>
 
       <div className="card-actions" style={{ marginTop: 16 }}>
-        <button type="button" className="button primary" onClick={handleLogin} disabled={loading}>
+        <button
+          type="button"
+          className="button primary"
+          onClick={handleLogin}
+          disabled={loading}
+        >
           {loading ? 'Signing in...' : 'Login with Pi'}
         </button>
       </div>
