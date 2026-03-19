@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { clearPiAuthToken } from '@/lib/pi-auth-client';
 
 type Props = {
   user: {
@@ -68,6 +69,7 @@ export function NavUserMenu({ user, showAdmin }: Props) {
         throw new Error(`Logout failed with status ${response.status}`);
       }
 
+      clearPiAuthToken();
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed', error);
