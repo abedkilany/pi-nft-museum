@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
 import { setPiAuthToken } from '@/lib/pi-auth-client';
@@ -70,40 +70,14 @@ export function PiLoginCard() {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<LoginState>('checking-sdk');
+  const autoStartedRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function detectSdk() {
-      setState('checking-sdk');
-      setMessage('Checking Pi Browser connection...');
-      const sdkReady = await waitForPiSdk(12000, 300);
-      if (cancelled) return;
-
-      setReady(sdkReady);
-      if (sdkReady) {
-        setState('ready');
-        setMessage('Pi SDK detected. You can connect with Pi now.');
-        return;
-      }
-
-      setState('error');
-      setMessage('Pi SDK not detected. Open the app from Pi Browser or the Pi Sandbox URL, then try again.');
-    }
-
-    void detectSdk();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function handleLogin() {
+  const handleLogin = useCallback(async () => {
     try {
       setLoading(true);
       setState('authenticating');
       setMessage('Waiting for Pi approval...');
-      const authResult = await authenticateWithPi();
+      const authResult = await authenticateWithPi(['username']);
 
       if (!authResult?.accessToken) {
         throw new Error('Pi login did not return an access token.');
@@ -146,30 +120,60 @@ export function PiLoginCard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [nextUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function detectSdk() {
+      setState('checking-sdk');
+      setMessage('Checking Pi Browser connection...');
+      const sdkReady = await waitForPiSdk(12000, 300);
+      if (cancelled) return;
+
+      setReady(sdkReady);
+      if (sdkReady) {
+        setState('ready');
+        setMessage('Pi SDK detected. Connecting automatically...');
+        if (!autoStartedRef.current) {
+          autoStartedRef.current = true;
+          void handleLogin();
+        }
+        return;
+      }
+
+      setState('error');
+      setMessage('Pi SDK not detected. Open the app from Pi Browser or the Pi Sandbox URL, then try again.');
+    }
+
+    void detectSdk();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [handleLogin]);
 
   return (
     <div style={{ paddingTop: '30px' }}>
       <section className="card upload-form">
         <div className="section-head compact">
           <div>
-            <span className="section-kicker">Visitor mode by default</span>
-            <h1>Connect with Pi</h1>
+            <span className="section-kicker">Automatic Pi sign-in</span>
+            <h1>Connecting with Pi</h1>
           </div>
-          <p>Everyone can browse the marketplace as a Visitor. Connect with Pi only when you want your own account for publishing or trading.</p>
+          <p>The app connects with Pi automatically in Pi Browser. If you are using the Sandbox, you can also retry manually.</p>
         </div>
 
         <div className="card" style={{ padding: '16px', display: 'grid', gap: '10px', marginBottom: '18px' }}>
           <strong>How it works</strong>
           <p style={{ margin: 0, color: 'var(--muted)' }}>
-            First-time Pi sign-in creates your account automatically with the role <strong>Artist or Trader</strong>.
-            Admin and Super Admin accounts are still assigned from your server settings.
+            Your Pi account is verified with Pi first, then your app account is created or updated automatically.
           </p>
         </div>
 
         <div className="form-actions">
-          <button className="button primary" type="button" onClick={handleLogin} disabled={!ready || loading}>
-            {loading ? 'Connecting to Pi...' : 'Connect with Pi'}
+          <button className="button primary" type="button" onClick={() => void handleLogin()} disabled={!ready || loading}>
+            {loading ? 'Connecting to Pi...' : 'Retry Pi connection'}
           </button>
           {message ? <p className="form-message">{message}</p> : null}
           <p className="form-message" style={{ color: 'var(--muted)' }}>

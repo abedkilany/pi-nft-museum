@@ -88,16 +88,16 @@ export async function waitForPiSdk(timeoutMs = 12000, intervalMs = 250) {
   return false;
 }
 
-export async function authenticateWithPi() {
+export async function authenticateWithPi(
+  scopes: string[] = ['username'],
+  onIncompletePaymentFound?: (payment: unknown) => void
+) {
   const ready = await waitForPiSdk();
   if (!ready || typeof window === 'undefined' || !window.Pi) {
     throw new Error('Pi SDK not available. Open the app from Pi Browser or Pi Sandbox and try again.');
   }
 
-  const scopes = ['username', 'payments', 'wallet_address'];
-  return window.Pi.authenticate(scopes, (payment) => {
-    console.log('Incomplete payment found:', payment);
-  });
+  return window.Pi.authenticate(scopes, onIncompletePaymentFound || (() => undefined));
 }
 
 export async function createPiPayment(paymentData: { amount: number; memo: string; metadata: Record<string, unknown> }, callbacks: {

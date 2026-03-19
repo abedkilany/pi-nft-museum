@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
 import { AuthSessionBridge } from '@/components/auth/AuthSessionBridge';
+import { AutoPiAuth } from '@/components/auth/AutoPiAuth';
 
 export const metadata: Metadata = {
   title: 'Pi NFT Museum',
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <PiScript />
         <AuthSessionBridge />
+        <AutoPiAuth />
         <div className="page-shell">
           <NavBar />
           <main className="container">{children}</main>
