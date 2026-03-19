@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { STAFF_ROLES } from '@/lib/roles';
-import { readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
+import { getAuthCookieName, getAuthCookieOptions, readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -11,15 +11,35 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-async function getSession(request: NextRequest) {
+function extractBearerToken(authHeader: string | null) {
+  if (!authHeader) return null;
+  if (!authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice(7).trim();
+}
+
+async function verifyToken(token: string | null) {
   try {
-    const token = readAuthTokenFromCookieStore(request.cookies);
     if (!token) return null;
     const { payload } = await jwtVerify(token, getSecretKey());
     return payload as { userId: number; username: string; email: string; role: string };
   } catch {
     return null;
   }
+}
+
+async function getSession(request: NextRequest) {
+  const headerToken = extractBearerToken(request.headers.get('authorization'));
+  const queryToken = request.nextUrl.searchParams.get('authToken');
+  const cookieToken = readAuthTokenFromCookieStore(request.cookies);
+
+  const token = headerToken || queryToken || cookieToken;
+  const session = await verifyToken(token);
+
+  return {
+    session,
+    token,
+    fromQuery: Boolean(queryToken && session),
+  };
 }
 
 function normalizeOrigin(value?: string | null) {
@@ -78,12 +98,27 @@ export async function middleware(request: NextRequest) {
 
   if (!needsAccount && !needsAdmin) return NextResponse.next();
 
-  const session = await getSession(request);
-  if (!session) return NextResponse.redirect(new URL('/login', request.url));
+  const { session, token, fromQuery } = await getSession(request);
+  if (!session || !token) return NextResponse.redirect(new URL('/login', request.url));
   if (needsAdmin && !STAFF_ROLES.includes(session.role as (typeof STAFF_ROLES)[number])) {
     return NextResponse.redirect(new URL('/account', request.url));
   }
-  return NextResponse.next();
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-auth-token', token);
+  requestHeaders.set('authorization', `Bearer ${token}`);
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  if (fromQuery) {
+    response.cookies.set(getAuthCookieName(), token, getAuthCookieOptions(request));
+  }
+
+  return response;
 }
 
 export const config = {

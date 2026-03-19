@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
+import { setPiAuthToken } from '@/lib/pi-auth-client';
 
 type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'confirming-session' | 'redirecting' | 'error';
 
 const SESSION_CONFIRM_ATTEMPTS = 5;
 const SESSION_CONFIRM_DELAYS_MS = [250, 500, 800, 1200, 1600];
-const AUTH_TOKEN_STORAGE_KEY = 'pi_auth_token';
 const AUTH_COOKIE_NAME = 'pi_nft_auth';
 
 function sleep(ms: number) {
@@ -18,7 +18,7 @@ function sleep(ms: number) {
 function storeClientToken(token: string) {
   if (typeof window === 'undefined') return;
 
-  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  setPiAuthToken(token);
 
   const maxAge = 60 * 60 * 12;
   document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=None; Secure`;
@@ -26,7 +26,7 @@ function storeClientToken(token: string) {
 
 function getStoredToken() {
   if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  return window.localStorage.getItem('pi_auth_token');
 }
 
 async function confirmSession() {
@@ -46,7 +46,7 @@ async function confirmSession() {
 
     const meData = await meResponse.json().catch(() => null);
     if (meResponse.ok && meData?.user) {
-      return meData.user;
+      return { user: meData.user, token };
     }
 
     if (attempt < SESSION_CONFIRM_DELAYS_MS.length) {
@@ -55,6 +55,12 @@ async function confirmSession() {
   }
 
   return null;
+}
+
+function buildRedirectUrl(path: string, token: string | null) {
+  const url = new URL(path, window.location.origin);
+  if (token) url.searchParams.set('authToken', token);
+  return url.toString();
 }
 
 export function PiLoginCard() {
@@ -124,16 +130,16 @@ export function PiLoginCard() {
 
       setState('confirming-session');
       setMessage('Confirming your session...');
-      const user = await confirmSession();
+      const confirmed = await confirmSession();
 
-      if (!user) {
+      if (!confirmed?.user) {
         throw new Error('Pi login succeeded, but the session was not confirmed yet. Please retry from the Pi Browser or the Pi Sandbox URL.');
       }
 
-      const target = user.role === 'admin' || user.role === 'superadmin' ? '/admin' : nextUrl;
+      const target = confirmed.user.role === 'admin' || confirmed.user.role === 'superadmin' ? '/admin' : nextUrl;
       setState('redirecting');
       setMessage('Connection successful. Redirecting...');
-      window.location.assign(target);
+      window.location.assign(buildRedirectUrl(target, confirmed.token));
     } catch (error) {
       setState('error');
       setMessage(error instanceof Error ? error.message : 'Pi login failed.');

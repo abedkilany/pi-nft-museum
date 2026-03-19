@@ -1,12 +1,23 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { verifySessionToken, type SessionUser } from './auth';
 import { readAuthTokenFromCookieStore } from './auth-cookie';
 import { prisma } from './prisma';
 
+function extractBearerToken(authHeader: string | null) {
+  if (!authHeader) return null;
+  if (!authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice(7).trim();
+}
+
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies();
-    const token = readAuthTokenFromCookieStore(cookieStore);
+    const headerStore = await headers();
+
+    const token =
+      extractBearerToken(headerStore.get('authorization')) ||
+      headerStore.get('x-auth-token') ||
+      readAuthTokenFromCookieStore(cookieStore);
 
     if (!token) return null;
 
