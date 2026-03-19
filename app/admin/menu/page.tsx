@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic';
-
 import { MenuEditor } from '@/components/admin/MenuEditor';
 import { getMenuItems } from '@/lib/menu';
 

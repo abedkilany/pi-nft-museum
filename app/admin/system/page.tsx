@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic';
-
 import { readSystemLogs } from '@/lib/system-log';
 
 export default async function AdminSystemPage() {
