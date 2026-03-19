@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
-import { setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
+import { setPiAuthToken } from '@/lib/pi-auth-client';
 
 type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'confirming-session' | 'redirecting' | 'error';
 
@@ -16,7 +16,6 @@ function sleep(ms: number) {
 function storeClientToken(token: string) {
   if (typeof window === 'undefined') return;
   setPiAuthToken(token);
-  syncPiAuthCookie(token);
 }
 
 function getStoredToken() {

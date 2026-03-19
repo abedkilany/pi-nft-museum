@@ -1,27 +1,45 @@
+'use client';
+
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
+import { useEffect, useState } from 'react';
 import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButton';
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { formatDateTime, getMintWindowStatus, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
-import { getSiteSettingsMap, getNumberSetting } from '@/lib/site-settings';
+import { formatDateTime, getMintWindowStatus } from '@/lib/artwork-windows';
 import { getArtworkStatusLabel } from '@/lib/artwork-status';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
 import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
-import { getArchiveMessage, purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
-export default async function MyArtworksPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  await syncExpiredPublicReviewWindows();
-  await purgeExpiredArchivedArtworks();
-  const settings = await getSiteSettingsMap();
-  const archiveMessage = await getArchiveMessage();
-  const reviewHours = getNumberSetting(settings, 'public_review_hours', 48);
+export default function MyArtworksPage() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const artworks = await prisma.artwork.findMany({ where: { artistUserId: user.userId }, orderBy: { createdAt: 'desc' }, include: { category: true } });
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const response = await piApiFetch('/api/account/artworks', { method: 'GET', cache: 'no-store' }).catch(() => null);
+      const payload = response ? await response.json().catch(() => null) : null;
+      if (cancelled) return;
+      if (!response?.ok || !payload?.ok) {
+        setError(payload?.error || 'Failed to load artworks.');
+        setLoading(false);
+        return;
+      }
+      setData(payload);
+      setLoading(false);
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>Loading artworks…</p></div></div>;
+  if (error) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>{error}</p></div></div>;
+
+  const artworks = data?.artworks || [];
+  const reviewHours = data?.reviewHours || 48;
+  const archiveMessage = data?.archiveMessage || '';
 
   return (
     <div style={{ paddingTop: '30px' }}>
@@ -33,7 +51,7 @@ export default async function MyArtworksPage() {
         <div className="card-actions"><Link href="/upload" className="button primary">Upload new artwork</Link></div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
           <div style={{ display: 'grid', gap: '16px' }}>
-            {artworks.map((artwork) => {
+            {artworks.map((artwork: any) => {
               const mintWindowStatus = getMintWindowStatus(artwork);
               const showMintButton = mintWindowStatus === 'mint_open';
               return (
@@ -43,7 +61,7 @@ export default async function MyArtworksPage() {
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Status: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number((artwork as any).basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p><p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number((artwork as any).discountPercent ?? 0).toFixed(2)}%</p><p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
+                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number(artwork.basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p><p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number(artwork.discountPercent ?? 0).toFixed(2)}%</p><p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
                     {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
                     {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
                   </div>

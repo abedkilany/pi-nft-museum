@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
-import { getPiAuthToken, piApiFetch, setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
+import { getPiAuthToken, piApiFetch, setPiAuthToken } from '@/lib/pi-auth-client';
 
 const ELIGIBLE_PATHS = new Set(['/', '/login']);
 const AUTO_AUTH_LOCK_KEY = 'pi_auto_auth_lock';
@@ -28,7 +28,6 @@ export function AutoPiAuth() {
     async function run() {
       const token = getPiAuthToken();
       if (token) {
-        syncPiAuthCookie(token);
         const existing = await piApiFetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).then((res) => res.json()).catch(() => null);
         if (cancelled) return;
         if (existing?.ok && existing?.user) {
@@ -68,7 +67,6 @@ export function AutoPiAuth() {
         }
 
         setPiAuthToken(data.token);
-        syncPiAuthCookie(data.token);
 
         const me = await piApiFetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).then((res) => res.json()).catch(() => null);
         if (cancelled || !me?.ok || !me?.user) return;

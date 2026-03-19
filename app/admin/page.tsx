@@ -1,12 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { redirect } from 'next/navigation';
 
 export default async function AdminDashboardPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
   const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount] = await Promise.all([
     prisma.user.count(),
     prisma.artwork.count(),
@@ -23,7 +18,7 @@ export default async function AdminDashboardPage() {
     <div style={{ display: 'grid', gap: '24px' }}>
       <div className="card" style={{ padding: '24px' }}>
         <h1 style={{ marginBottom: '8px' }}>Admin Dashboard</h1>
-        <p style={{ opacity: 0.8 }}>Welcome back, {user.username}. Manage artworks, users, countries, comments, pages, categories, settings, and system activity from one place.</p>
+        <p style={{ opacity: 0.8 }}>Manage artworks, users, countries, comments, pages, categories, settings, and system activity from one place.</p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         <div className="card" style={{ padding: '20px' }}><h3>Users</h3><p>{usersCount}</p></div>

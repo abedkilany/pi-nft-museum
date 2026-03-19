@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { getPiAuthToken, setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
+import { getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
 
 export default function AuthSessionBridge() {
   const pathname = usePathname();
@@ -22,8 +22,6 @@ export default function AuthSessionBridge() {
 
     const storedToken = getPiAuthToken();
     if (!storedToken) return;
-
-    syncPiAuthCookie(storedToken);
   }, [pathname]);
 
   return null;
