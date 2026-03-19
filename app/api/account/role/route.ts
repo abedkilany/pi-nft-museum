@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { createSessionToken } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-import { setAuthCookies } from '@/lib/auth-cookie';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 
@@ -93,18 +91,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const token = await createSessionToken({
-      userId: updatedUser.id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      role: updatedUser.role.key,
-      piUid: updatedUser.piUid,
-      piUsername: updatedUser.piUsername
-    });
-
-    const response = NextResponse.json({ ok: true, role: updatedUser.role.key });
-    setAuthCookies(response, request, token);
-
     await createAuditLog({
       userId: updatedUser.id,
       action: 'ACCOUNT_ROLE_CHANGED',
@@ -115,7 +101,7 @@ export async function POST(request: Request) {
     });
 
     logger.info('Account role updated', { userId: updatedUser.id, role: updatedUser.role.key });
-    return response;
+    return NextResponse.json({ ok: true, role: updatedUser.role.key });
   } catch (error) {
     logger.error('Failed to update account role', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });

@@ -110,9 +110,7 @@ export function PiLoginCard() {
         throw new Error(data.error || 'Pi login failed.');
       }
 
-      if (data?.token && typeof data.token === 'string') {
-        storeClientToken(data.token);
-      }
+      storeClientToken(authResult.accessToken);
 
       setState('confirming-session');
       setMessage('Confirming your session...');

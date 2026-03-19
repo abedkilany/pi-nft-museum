@@ -1,12 +1,20 @@
-const PI_AUTH_TOKEN_KEY = 'pi_auth_token';
+const PI_AUTH_TOKEN_KEY = 'pi_access_token';
 
 function isBrowser() {
   return typeof window !== 'undefined';
 }
 
-export function getPiAuthToken() {
+function getStorage() {
   if (!isBrowser()) return null;
-  return window.localStorage.getItem(PI_AUTH_TOKEN_KEY);
+  try {
+    return window.sessionStorage;
+  } catch {
+    return window.localStorage;
+  }
+}
+
+export function getPiAuthToken() {
+  return getStorage()?.getItem(PI_AUTH_TOKEN_KEY) || null;
 }
 
 export function syncPiAuthCookie(_token?: string | null) {
@@ -18,18 +26,15 @@ export function clearPiAuthCookie() {
 }
 
 export function setPiAuthToken(token: string) {
-  if (!isBrowser()) return;
-  window.localStorage.setItem(PI_AUTH_TOKEN_KEY, token);
+  getStorage()?.setItem(PI_AUTH_TOKEN_KEY, token);
 }
 
 export function clearPiAuthToken() {
-  if (!isBrowser()) return;
-  window.localStorage.removeItem(PI_AUTH_TOKEN_KEY);
+  getStorage()?.removeItem(PI_AUTH_TOKEN_KEY);
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   const token = getPiAuthToken();
-
   return {
     ...(init || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

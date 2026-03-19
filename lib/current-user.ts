@@ -1,46 +1,18 @@
-import { cookies, headers } from 'next/headers';
-import { verifySessionToken, type SessionUser } from './auth';
-import { readAuthTokenFromCookieStore } from './auth-cookie';
-import { prisma } from './prisma';
-
-function extractBearerToken(authHeader: string | null) {
-  if (!authHeader) return null;
-  if (!authHeader.startsWith('Bearer ')) return null;
-  return authHeader.slice(7).trim();
-}
+import { headers } from 'next/headers';
+import { type SessionUser } from './auth';
+import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    const cookieStore = await cookies();
-    const headerStore = await headers();
-
+    const headerStore = headers();
     const token =
       extractBearerToken(headerStore.get('authorization')) ||
-      headerStore.get('x-auth-token') ||
-      readAuthTokenFromCookieStore(cookieStore);
+      headerStore.get('x-auth-token');
 
     if (!token) return null;
 
-    const session = await verifySessionToken(token);
-    if (!session?.userId) return null;
-
-    const dbUser = await prisma.user.findUnique({
-      where: { id: Number(session.userId) },
-      include: { role: true },
-    });
-
-    if (!dbUser) return null;
-    if (dbUser.status === 'BANNED' || dbUser.status === 'SUSPENDED') return null;
-
-    return {
-      userId: dbUser.id,
-      username: dbUser.username,
-      email: dbUser.email,
-      role: dbUser.role.key,
-      piUid: dbUser.piUid,
-      piUsername: dbUser.piUsername,
-      sessionId: session.sessionId,
-    };
+    const session = await resolvePiSessionFromToken(token);
+    return session?.sessionUser || null;
   } catch {
     return null;
   }

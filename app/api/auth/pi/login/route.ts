@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createSessionToken } from '@/lib/auth';
-import { setAuthCookies } from '@/lib/auth-cookie';
 import { logger } from '@/lib/logger';
 import {
   buildSyntheticEmail,
@@ -136,28 +134,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
-    const token = await createSessionToken({
-      userId: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role.key,
-      piUid: user.piUid,
-      piUsername: user.piUsername
-    });
-
-    const response = NextResponse.json({
-      ok: true,
-      message: 'Connected with Pi.',
-      token,
-      user: {
-        username: user.username,
-        role: user.role.key,
-        piUsername: user.piUsername
-      }
-    });
-
-    setAuthCookies(response, request, token);
-
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
@@ -166,12 +142,16 @@ export async function POST(request: Request) {
       newValues: { role: user.role.key, piUid: user.piUid },
     });
 
-    logger.info('Pi session cookie prepared', {
-      userId: user.id,
-      secureCookie: request.headers.get('x-forwarded-proto') === 'https' || request.url.startsWith('https://') || (request.headers.get('origin') || '').startsWith('https://')
+    return NextResponse.json({
+      ok: true,
+      message: 'Connected with Pi.',
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role.key,
+        piUsername: user.piUsername,
+      },
     });
-
-    return response;
   } catch (error) {
     logger.error('Pi login failed', error);
     return NextResponse.json(
