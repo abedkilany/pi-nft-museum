@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
-import { AuthSessionBridge } from '@/components/auth/AuthSessionBridge';
+import AuthSessionBridge from '@/components/auth/AuthSessionBridge';
 import { AutoPiAuth } from '@/components/auth/AutoPiAuth';
 
 export const metadata: Metadata = {
