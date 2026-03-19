@@ -1,24 +1,22 @@
-import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID();
 
   try {
-    const headerStore = headers();
-    const authHeader = headerStore.get('authorization');
+    const authHeader = request.headers.get('authorization');
     const bearerToken = extractBearerToken(authHeader);
 
     logger.info('AUTH_ME_START', {
       requestId,
-      origin: headerStore.get('origin'),
-      referer: headerStore.get('referer'),
-      host: headerStore.get('host'),
-      userAgent: headerStore.get('user-agent'),
+      origin: request.headers.get('origin'),
+      referer: request.headers.get('referer'),
+      host: request.headers.get('host'),
+      userAgent: request.headers.get('user-agent'),
       authHeaderPresent: Boolean(authHeader),
       bearerTokenPresent: Boolean(bearerToken),
       tokenSource: bearerToken ? 'bearer' : 'none',
@@ -28,7 +26,10 @@ export async function GET() {
     });
 
     if (!bearerToken) {
-      return NextResponse.json({ ok: false, authenticated: false, reason: 'NO_TOKEN' }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, authenticated: false, reason: 'NO_TOKEN' },
+        { status: 401 }
+      );
     }
 
     const session = await resolvePiSessionFromToken(bearerToken).catch((error) => {
@@ -40,7 +41,10 @@ export async function GET() {
     });
 
     if (!session) {
-      return NextResponse.json({ ok: false, authenticated: false, reason: 'INVALID_OR_UNKNOWN_PI_USER' }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, authenticated: false, reason: 'INVALID_OR_UNKNOWN_PI_USER' },
+        { status: 401 }
+      );
     }
 
     logger.info('AUTH_ME_TOKEN_VERIFIED', {
@@ -89,6 +93,9 @@ export async function GET() {
       stack: error instanceof Error ? error.stack : null,
     });
 
-    return NextResponse.json({ ok: false, authenticated: false, reason: 'SERVER_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, authenticated: false, reason: 'SERVER_ERROR' },
+      { status: 500 }
+    );
   }
 }
