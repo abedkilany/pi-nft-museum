@@ -18,28 +18,33 @@ export function getAuthCookieName() {
   return AUTH_COOKIE_NAME;
 }
 
+export function getAuthCookieOptions(request: Request) {
+  const secure = isSecureRequest(request);
+
+  return {
+    httpOnly: true,
+    sameSite: 'none' as const,
+    secure: true,
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  };
+}
+
 export function setAuthCookies(
   response: NextResponse,
   request: Request,
   token: string
 ) {
-  const secure = isSecureRequest(request);
-
-  response.cookies.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,             // مهم جدًا
-    sameSite: 'none',         // الحل الحقيقي هنا
-    path: '/',
-    maxAge: 60 * 60 * 12,
-  });
+  response.cookies.set(
+    AUTH_COOKIE_NAME,
+    token,
+    getAuthCookieOptions(request)
+  );
 }
 
 export function clearAuthCookies(response: NextResponse, request: Request) {
   response.cookies.set(AUTH_COOKIE_NAME, '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    path: '/',
+    ...getAuthCookieOptions(request),
     maxAge: 0,
     expires: new Date(0),
   });

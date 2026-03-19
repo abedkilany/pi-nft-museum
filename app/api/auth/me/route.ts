@@ -7,11 +7,11 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-const LEGACY_COOKIE_NAMES = [
-  '__Secure-pi_nft_auth_cross',
-  '__Secure-pi_nft_auth_client_cross',
-  'pi_nft_auth_client',
-];
+function extractBearerToken(authHeader: string | null) {
+  if (!authHeader) return null;
+  if (!authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice(7).trim();
+}
 
 export async function GET() {
   const requestId = crypto.randomUUID();
@@ -20,15 +20,15 @@ export async function GET() {
     const cookieStore = cookies();
     const headerStore = headers();
 
-    const authCookieName = getAuthCookieName();
-    const allCookieNames = cookieStore.getAll().map((cookie) => cookie.name);
+    const authHeader = headerStore.get('authorization');
+    const bearerToken = extractBearerToken(authHeader);
+    const cookieToken = readAuthTokenFromCookieStore(cookieStore);
+    const token = bearerToken || cookieToken;
 
-    const authCookiePresent = Boolean(cookieStore.get(authCookieName)?.value);
-    const legacyCookiesPresent = LEGACY_COOKIE_NAMES.filter((name) =>
+    const authCookieName = getAuthCookieName();
+    const presentCookies = [authCookieName].filter((name) =>
       Boolean(cookieStore.get(name)?.value)
     );
-
-    const token = readAuthTokenFromCookieStore(cookieStore);
 
     logger.info('AUTH_ME_START', {
       requestId,
@@ -36,10 +36,12 @@ export async function GET() {
       referer: headerStore.get('referer'),
       host: headerStore.get('host'),
       userAgent: headerStore.get('user-agent'),
-      cookieNames: allCookieNames,
-      authCookieName,
-      authCookiePresent,
-      legacyCookiesPresent,
+      cookieNames: cookieStore.getAll().map((cookie) => cookie.name),
+      presentCookies,
+      authHeaderPresent: Boolean(authHeader),
+      bearerTokenPresent: Boolean(bearerToken),
+      cookieTokenPresent: Boolean(cookieToken),
+      tokenSource: bearerToken ? 'bearer' : cookieToken ? 'cookie' : 'none',
       tokenFound: Boolean(token),
       tokenLength: token?.length ?? 0,
       tokenPreview: token ? `${token.slice(0, 12)}...` : null,
@@ -48,8 +50,7 @@ export async function GET() {
     if (!token) {
       logger.warn('AUTH_ME_NO_TOKEN', {
         requestId,
-        authCookiePresent,
-        legacyCookiesPresent,
+        presentCookies,
       });
 
       return NextResponse.json(
@@ -81,6 +82,30 @@ export async function GET() {
       );
     }
 
+    logger.info('AUTH_ME_TOKEN_VERIFIED', {
+      requestId,
+      userId: session?.userId ?? null,
+      role: session?.role ?? null,
+      username: session?.username ?? null,
+      piUid: session?.piUid ?? null,
+      piUsername: session?.piUsername ?? null,
+    });
+
+    if (!session?.userId) {
+      logger.warn('AUTH_ME_SESSION_MISSING_USER_ID', {
+        requestId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: false,
+          authenticated: false,
+          reason: 'SESSION_MISSING_USER_ID',
+        },
+        { status: 401 }
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: Number(session.userId) },
       include: { role: true },
@@ -90,23 +115,52 @@ export async function GET() {
       requestId,
       found: Boolean(user),
       userId: user?.id ?? null,
+      username: user?.username ?? null,
       status: user?.status ?? null,
       role: user?.role?.key ?? null,
+      piUid: user?.piUid ?? null,
+      piUsername: user?.piUsername ?? null,
     });
 
     if (!user) {
+      logger.warn('AUTH_ME_USER_NOT_FOUND', {
+        requestId,
+        sessionUserId: session.userId,
+      });
+
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'USER_NOT_FOUND' },
+        {
+          ok: false,
+          authenticated: false,
+          reason: 'USER_NOT_FOUND',
+        },
         { status: 401 }
       );
     }
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
+      logger.warn('AUTH_ME_USER_BLOCKED', {
+        requestId,
+        userId: user.id,
+        status: user.status,
+      });
+
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'USER_BLOCKED' },
+        {
+          ok: false,
+          authenticated: false,
+          reason: 'USER_BLOCKED',
+        },
         { status: 403 }
       );
     }
+
+    logger.info('AUTH_ME_CONFIRMED', {
+      requestId,
+      userId: user.id,
+      username: user.username,
+      role: user.role.key,
+    });
 
     return NextResponse.json({
       ok: true,

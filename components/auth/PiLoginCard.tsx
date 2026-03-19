@@ -8,20 +8,39 @@ type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | '
 
 const SESSION_CONFIRM_ATTEMPTS = 5;
 const SESSION_CONFIRM_DELAYS_MS = [250, 500, 800, 1200, 1600];
+const AUTH_TOKEN_STORAGE_KEY = 'pi_auth_token';
+const AUTH_COOKIE_NAME = 'pi_nft_auth';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function storeClientToken(token: string) {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+
+  const maxAge = 60 * 60 * 12;
+  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=None; Secure`;
+}
+
+function getStoredToken() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+}
+
 async function confirmSession() {
   for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
+    const token = getStoredToken();
+
     const meResponse = await fetch(`/api/auth/me?ts=${Date.now()}-${attempt}`, {
       method: 'GET',
       credentials: 'include',
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        Pragma: 'no-cache'
+        Pragma: 'no-cache',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       }
     });
 
@@ -99,12 +118,16 @@ export function PiLoginCard() {
         throw new Error(data.error || 'Pi login failed.');
       }
 
+      if (data?.token && typeof data.token === 'string') {
+        storeClientToken(data.token);
+      }
+
       setState('confirming-session');
       setMessage('Confirming your session...');
       const user = await confirmSession();
 
       if (!user) {
-        throw new Error('Pi login succeeded, but the session was not confirmed yet. Please retry from the Pi Sandbox URL.');
+        throw new Error('Pi login succeeded, but the session was not confirmed yet. Please retry from the Pi Browser or the Pi Sandbox URL.');
       }
 
       const target = user.role === 'admin' || user.role === 'superadmin' ? '/admin' : nextUrl;
