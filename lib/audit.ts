@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 export async function createAuditLog(input: {
@@ -15,8 +16,10 @@ export async function createAuditLog(input: {
         action: input.action,
         targetType: input.targetType,
         targetId: input.targetId == null ? null : String(input.targetId),
-        oldValuesJson: input.oldValues === undefined ? null : input.oldValues,
-        newValuesJson: input.newValues === undefined ? null : input.newValues,
+        oldValuesJson:
+          input.oldValues === undefined ? Prisma.JsonNull : (input.oldValues as Prisma.InputJsonValue),
+        newValuesJson:
+          input.newValues === undefined ? Prisma.JsonNull : (input.newValues as Prisma.InputJsonValue),
       },
     });
   } catch {
