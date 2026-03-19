@@ -2,19 +2,6 @@
 
 import Script from 'next/script';
 
-declare global {
-  interface Window {
-    Pi?: {
-      init: (options: { version: string; sandbox?: boolean }) => void;
-      authenticate: (
-        scopes: string[],
-        onIncompletePaymentFound?: (payment: unknown) => void
-      ) => Promise<{ accessToken?: string; user?: { uid?: string; username?: string } }>;
-    };
-    __pi_initialized__?: boolean;
-  }
-}
-
 export function PiScript() {
   return (
     <Script
@@ -22,12 +9,14 @@ export function PiScript() {
       strategy="afterInteractive"
       onLoad={() => {
         try {
-          if (window.Pi && !window.__pi_initialized__) {
-            window.Pi.init({
+          const w = window as any;
+
+          if (w.Pi && !w.__pi_initialized__) {
+            w.Pi.init({
               version: '2.0',
               sandbox: false,
             });
-            window.__pi_initialized__ = true;
+            w.__pi_initialized__ = true;
             console.log('Pi SDK initialized');
           }
         } catch (error) {
