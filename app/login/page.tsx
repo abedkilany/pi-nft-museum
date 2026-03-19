@@ -1,45 +1,66 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
+import { setPiAuthToken } from '@/lib/pi-auth-client';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+
+  const waitForPi = async (timeoutMs = 8000) => {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      if ((window as any).Pi) return (window as any).Pi;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    return null;
+  };
 
   const handleLogin = async () => {
     try {
       setLoading(true);
 
-      // @ts-ignore
-      const scopes = ["username", "payments"];
-
-      // @ts-ignore
-      const auth = await window.Pi.authenticate(scopes);
-
-      if (!auth?.accessToken) {
-        alert("Login failed");
+      const pi = await waitForPi();
+      if (!pi) {
+        alert('Pi SDK not loaded. Open the app inside Pi Browser and try again.');
         return;
       }
 
-      // أرسل التوكن للسيرفر
-      await fetch("/api/auth/pi/login", {
-        method: "POST",
+      const auth = await pi.authenticate(['username', 'payments']);
+      if (!auth?.accessToken) {
+        alert('Pi login did not return an access token.');
+        return;
+      }
+
+      const response = await fetch('/api/auth/pi/login', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.accessToken}`,
         },
         body: JSON.stringify({
           accessToken: auth.accessToken,
         }),
       });
 
-      // خزّن accessToken فقط
-      sessionStorage.setItem("pi_token", auth.accessToken);
+      const payload = await response.json().catch(() => null);
 
-      // اذهب للوحة التحكم
-      window.location.href = "/admin";
+      if (!response.ok || !payload?.ok) {
+        alert(payload?.error || 'Server login failed.');
+        return;
+      }
 
-    } catch (err) {
-      console.error(err);
-      alert("Error during login");
+      setPiAuthToken(auth.accessToken);
+
+      const target = payload?.user?.role === 'admin' || payload?.user?.role === 'superadmin'
+        ? '/account'
+        : '/account';
+
+      window.location.href = target;
+    } catch (error) {
+      console.error('Pi login error:', error);
+      alert('Error during login');
     } finally {
       setLoading(false);
     }
@@ -48,9 +69,8 @@ export default function LoginPage() {
   return (
     <div style={{ padding: 40 }}>
       <h1>Login with Pi</h1>
-
       <button onClick={handleLogin} disabled={loading}>
-        {loading ? "Loading..." : "Login"}
+        {loading ? 'Loading...' : 'Login'}
       </button>
     </div>
   );

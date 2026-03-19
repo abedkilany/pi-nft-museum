@@ -57,9 +57,10 @@ export function NavUserMenu({ user, showAdmin }: Props) {
     setIsLoggingOut(true);
 
     try {
+      clearPiAuthToken();
+
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           Accept: 'application/json'
         }
@@ -69,7 +70,6 @@ export function NavUserMenu({ user, showAdmin }: Props) {
         throw new Error(`Logout failed with status ${response.status}`);
       }
 
-      clearPiAuthToken();
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed', error);

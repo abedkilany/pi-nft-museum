@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { setPiAuthToken } from '@/lib/pi-auth-client';
 
 export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
@@ -21,20 +22,16 @@ export default function LoginPageClient() {
       setLoading(true);
 
       const pi = await waitForPi();
-
       if (!pi) {
         alert('Pi SDK not loaded. Open the app inside Pi Browser and try again.');
         return;
       }
 
       const auth = await pi.authenticate(['username', 'payments']);
-
       if (!auth?.accessToken) {
         alert('Pi login did not return an access token.');
         return;
       }
-
-      sessionStorage.setItem('pi_token', auth.accessToken);
 
       const response = await fetch('/api/auth/pi/login', {
         method: 'POST',
@@ -47,14 +44,16 @@ export default function LoginPageClient() {
         }),
       });
 
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Server login failed:', text);
-        alert('Server login failed.');
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.ok) {
+        console.error('Server login failed:', payload);
+        alert(payload?.error || 'Server login failed.');
         return;
       }
 
-      window.location.href = '/admin';
+      setPiAuthToken(auth.accessToken);
+      window.location.href = '/account';
     } catch (error) {
       console.error('Pi login error:', error);
       alert('Error during login');
