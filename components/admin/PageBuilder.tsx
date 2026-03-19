@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type SectionType = 'hero' | 'rich_text' | 'image' | 'cta';
 
@@ -170,7 +171,7 @@ function PageCard({ page, isNew = false }: { page: PageRecord; isNew?: boolean }
       return;
     }
     setBusy(true);
-    const response = await fetch('/api/admin/pages/delete', {
+    const response = await piApiFetch('/api/admin/pages/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pageId: page.id })

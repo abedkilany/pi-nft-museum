@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type EditableArtwork = {
   id: number;
@@ -51,7 +52,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
     payload.append('category', form.category);
     if (file) payload.append('imageFile', file);
 
-    const response = await fetch('/api/artworks/update', { method: 'POST', body: payload });
+    const response = await piApiFetch('/api/artworks/update', { method: 'POST', body: payload });
     const data = await response.json();
     setLoading(false);
     if (!response.ok) {

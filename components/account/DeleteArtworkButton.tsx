@@ -3,6 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function DeleteArtworkButton({ artworkId, title, archived = false }: { artworkId: number; title: string; archived?: boolean }) {
   const router = useRouter();
@@ -17,7 +18,7 @@ export function DeleteArtworkButton({ artworkId, title, archived = false }: { ar
     if (!confirm(promptText)) return;
     setBusy(true);
     setMessage('');
-    const response = await fetch('/api/artworks/delete', {
+    const response = await piApiFetch('/api/artworks/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artworkId, permanent })

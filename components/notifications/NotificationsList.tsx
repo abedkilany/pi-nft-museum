@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type NotificationItem = {
   id: number;
@@ -16,7 +17,7 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
   const [items, setItems] = useState(initialNotifications);
 
   async function markAllAsRead() {
-    const response = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+    const response = await piApiFetch('/api/notifications/mark-all-read', { method: 'POST' });
     if (!response.ok) return;
     setItems((current) => current.map((item) => ({ ...item, isRead: true })));
   }
@@ -28,7 +29,7 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
   }
 
   async function clearRead() {
-    const response = await fetch('/api/notifications/clear-read', { method: 'POST' });
+    const response = await piApiFetch('/api/notifications/clear-read', { method: 'POST' });
     if (!response.ok) return;
     setItems((current) => current.filter((item) => !item.isRead));
   }

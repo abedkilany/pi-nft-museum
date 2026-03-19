@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type AdminArtwork = {
   id: number;
@@ -30,7 +31,7 @@ export function AdminArtworksTable({
 
       const reviewNote = reviewNotes[artworkId] || '';
 
-      const response = await fetch('/api/admin/artworks/update-status', {
+      const response = await piApiFetch('/api/admin/artworks/update-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -5,6 +5,7 @@ import { PiConnectButton } from '@/components/PiConnectButton';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { clearPiAuthToken } from '@/lib/pi-auth-client';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type Props = {
   user: {
@@ -60,7 +61,7 @@ export function NavUserMenu({ user, showAdmin }: Props) {
     try {
       clearPiAuthToken();
 
-      const response = await fetch('/api/auth/logout', {
+      const response = await piApiFetch('/api/auth/logout', {
         method: 'POST',
         headers: {
           Accept: 'application/json'

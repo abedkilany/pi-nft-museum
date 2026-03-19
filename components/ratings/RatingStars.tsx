@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function RatingStars({
   artworkId,
@@ -29,7 +30,7 @@ export function RatingStars({
       setLoading(true);
       setMessage('');
 
-      const response = await fetch('/api/ratings/submit', {
+      const response = await piApiFetch('/api/ratings/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ artworkId, value })

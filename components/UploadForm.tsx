@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { piApiFetch } from '../lib/pi-auth-client';
 
 type CategoryOption = { id: number; name: string; slug: string };
 
@@ -30,7 +31,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
     payload.append('status', form.status);
     if (file) payload.append('imageFile', file);
 
-    const response = await fetch('/api/artworks/create', { method: 'POST', body: payload });
+    const response = await piApiFetch('/api/artworks/create', { method: 'POST', body: payload });
     const data = await response.json();
     setLoading(false);
 

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function ResubmitArtworkButton({ artworkId }: { artworkId: number }) {
   const router = useRouter();
@@ -10,7 +11,7 @@ export function ResubmitArtworkButton({ artworkId }: { artworkId: number }) {
   async function handleResubmit() {
     setLoading(true);
 
-    const response = await fetch('/api/artworks/resubmit', {
+    const response = await piApiFetch('/api/artworks/resubmit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artworkId })

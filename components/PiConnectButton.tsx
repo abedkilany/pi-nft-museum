@@ -3,6 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { setPiAuthToken } from '@/lib/pi-auth-client';
 import { authenticateWithPi } from '@/lib/pi';
+import { piApiFetch } from '../lib/pi-auth-client';
 
 type Props = {
   className?: string;
@@ -25,7 +26,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
         return;
       }
 
-      const response = await fetch('/api/auth/pi/login', {
+      const response = await piApiFetch('/api/auth/pi/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

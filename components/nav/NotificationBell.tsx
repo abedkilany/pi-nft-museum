@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type NotificationItem = {
   id: number;
@@ -29,7 +30,7 @@ export function NotificationBell() {
   const [panelStyle, setPanelStyle] = useState<PanelStyle>({ top: 76, right: 24 });
 
   async function load() {
-    const response = await fetch('/api/notifications?take=8', { cache: 'no-store' });
+    const response = await piApiFetch('/api/notifications?take=8', { cache: 'no-store' });
     if (!response.ok) return;
     const payload = await response.json();
     setNotifications(payload.notifications || []);
@@ -91,7 +92,7 @@ export function NotificationBell() {
   }, [open, isMobile]);
 
   async function markAllAsRead() {
-    const response = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+    const response = await piApiFetch('/api/notifications/mark-all-read', { method: 'POST' });
     if (!response.ok) return;
     setNotifications((items) => items.map((item) => ({ ...item, isRead: true })));
     setUnreadCount(0);
@@ -111,7 +112,7 @@ export function NotificationBell() {
   }
 
   async function clearRead() {
-    const response = await fetch('/api/notifications/clear-read', { method: 'POST' });
+    const response = await piApiFetch('/api/notifications/clear-read', { method: 'POST' });
     if (!response.ok) return;
     setNotifications((items) => items.filter((item) => !item.isRead));
   }
