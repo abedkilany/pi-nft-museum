@@ -6,17 +6,27 @@ import { COMMENT_STANCE_OPTIONS, getCommentScoreImpact, recalculateArtworkPremiu
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { getBooleanSetting, getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 
 export async function POST(request: Request) {
   try {
+    const csrfError = assertSameOrigin(request);
+    if (csrfError) return csrfError;
+
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+
+    const rateLimitError = applyRateLimit(request, [currentUser.userId], 'artwork-comment', [
+      { limit: 6, windowMs: 60 * 1000 },
+      { limit: 30, windowMs: 10 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
 
     const { artworkId, body, stanceType, parentId } = await request.json();
     const cleanBody = String(body || '').trim();
     const id = Number(artworkId);
     const replyToId = parentId ? Number(parentId) : null;
-    if (!id || cleanBody.length < 2) return NextResponse.json({ error: 'Comment is too short.' }, { status: 400 });
+    if (!id || cleanBody.length < 2 || cleanBody.length > 2000) return NextResponse.json({ error: 'Comment length is invalid.' }, { status: 400 });
 
     const settings = await getSiteSettingsMap();
     if (!getBooleanSetting(settings, 'comments_enabled', true)) {

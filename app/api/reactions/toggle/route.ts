@@ -8,11 +8,21 @@ import { canReceiveReactions } from '@/lib/artwork-status';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { toSafeInt, toTrimmedString } from '@/lib/validators';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 
 export async function POST(request: Request) {
   try {
+    const csrfError = assertSameOrigin(request);
+    if (csrfError) return csrfError;
+
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in to react.' }, { status: 401 });
+
+    const rateLimitError = applyRateLimit(request, [currentUser.userId], 'artwork-reaction', [
+      { limit: 20, windowMs: 60 * 1000 },
+      { limit: 150, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
 
     const body = await request.json();
     const artworkId = toSafeInt(body.artworkId);

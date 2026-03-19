@@ -3,24 +3,49 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { saveUploadedFile } from '@/lib/uploads';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
+import { isValidPublicUrl, validateEmail } from '@/lib/validators';
 
 const REPORT_THRESHOLD = 5;
+const ALLOWED_REASONS = new Set(['COPYRIGHT', 'PLAGIARISM', 'SPAM', 'OFFENSIVE', 'SCAM', 'OTHER']);
 
 export async function POST(request: Request) {
   try {
+    const csrfError = assertSameOrigin(request);
+    if (csrfError) return csrfError;
+
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
+    const rateLimitError = applyRateLimit(request, [currentUser.userId], 'artwork-report', [
+      { limit: 3, windowMs: 15 * 60 * 1000 },
+      { limit: 10, windowMs: 24 * 60 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
+
     const formData = await request.formData();
     const artworkId = Number(formData.get('artworkId'));
-    const reason = String(formData.get('reason') || '').trim() || 'OTHER';
+    const reason = String(formData.get('reason') || '').trim().toUpperCase() || 'OTHER';
     const description = String(formData.get('description') || '').trim();
     const originalWorkLink = String(formData.get('originalWorkLink') || '').trim();
     const evidenceLink = String(formData.get('evidenceLink') || '').trim();
     const contactEmail = String(formData.get('contactEmail') || '').trim();
 
-    if (!artworkId || description.length < 10) {
+    if (!artworkId || description.length < 10 || description.length > 4000) {
       return NextResponse.json({ error: 'Please add enough details to review the report.' }, { status: 400 });
+    }
+    if (!ALLOWED_REASONS.has(reason)) {
+      return NextResponse.json({ error: 'Invalid report reason.' }, { status: 400 });
+    }
+    if (originalWorkLink && !isValidPublicUrl(originalWorkLink)) {
+      return NextResponse.json({ error: 'Original work link is invalid.' }, { status: 400 });
+    }
+    if (evidenceLink && !isValidPublicUrl(evidenceLink)) {
+      return NextResponse.json({ error: 'Evidence link is invalid.' }, { status: 400 });
+    }
+    if (contactEmail && !validateEmail(contactEmail)) {
+      return NextResponse.json({ error: 'Contact email is invalid.' }, { status: 400 });
     }
 
     const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
@@ -60,6 +85,7 @@ export async function POST(request: Request) {
         originalWorkLink: originalWorkLink || null,
         evidenceLink: evidenceLink || null,
         contactEmail: contactEmail || null,
+        status: 'UNDER_REVIEW',
         evidenceFiles: {
           create: savedFiles.map((file) => ({
             fileUrl: file.url,
@@ -73,40 +99,28 @@ export async function POST(request: Request) {
 
     const reportCount = await prisma.artworkReport.count({ where: { artworkId, status: { not: 'REJECTED' } } });
 
-    if (reportCount >= REPORT_THRESHOLD && artwork.status !== 'PENDING') {
-      await prisma.$transaction([
-        prisma.artwork.update({
-          where: { id: artworkId },
-          data: {
-            statusBeforeModeration: artwork.status !== 'HIDDEN' ? artwork.status : artwork.statusBeforeModeration,
-            status: 'HIDDEN',
-            reviewNote: 'Temporarily hidden after receiving multiple user reports. Waiting for admin review.',
-            reviewedAt: null,
-            publicReviewStartedAt: null,
-            mintWindowOpensAt: null,
-            mintWindowEndsAt: null,
-            publishedAt: null,
-            mintedAt: null
-          }
-        }),
-        prisma.artworkReport.updateMany({
-          where: { artworkId, autoBlockedApplied: false },
-          data: { autoBlockedApplied: true, status: 'UNDER_REVIEW' }
-        }),
-        prisma.notification.create({
-          data: {
-            userId: artwork.artistUserId,
-            type: 'artwork_report_threshold',
-            title: 'Artwork temporarily hidden for review',
-            message: 'Your artwork was temporarily blocked after multiple reports and has been moved to pending review. The admin team will review it shortly.'
-          }
-        })
-      ]);
-      logger.warn('Artwork auto-hidden after report threshold', { artworkId, reportCount });
+    if (reportCount >= REPORT_THRESHOLD) {
+      await prisma.notification.create({
+        data: {
+          userId: artwork.artistUserId,
+          type: 'artwork_report_threshold',
+          title: 'Artwork queued for moderation review',
+          message: 'Your artwork received multiple reports and has been queued for manual admin review. It has not been auto-hidden.',
+        }
+      });
+      logger.warn('Artwork reached report threshold and was queued for manual review', { artworkId, reportCount });
     }
 
+    await createAuditLog({
+      userId: currentUser.userId,
+      action: 'ARTWORK_REPORTED',
+      targetType: 'ARTWORK',
+      targetId: artworkId,
+      newValues: { reportId: report.id, reason, reportCount },
+    });
+
     logger.warn('Artwork report created', { artworkId, reportId: report.id, reporterId: currentUser.userId, reportCount });
-    return NextResponse.json({ ok: true, message: reportCount >= REPORT_THRESHOLD ? 'Report submitted. The artwork has reached the review threshold and was moved to pending review.' : 'Report submitted successfully. The admin team will review it.' });
+    return NextResponse.json({ ok: true, message: reportCount >= REPORT_THRESHOLD ? 'Report submitted. The artwork was queued for manual admin review.' : 'Report submitted successfully. The admin team will review it.' });
   } catch (error) {
     logger.error('Failed to create artwork report', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });

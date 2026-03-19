@@ -1,12 +1,26 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
+import { requireSuperadminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
+import { validateEmail, validateUsername } from '@/lib/validators';
+
+const ALLOWED_STATUSES = new Set(['ACTIVE', 'SUSPENDED', 'PENDING', 'BANNED']);
 
 export async function POST(request: Request) {
-  const admin = await requireAdminApi();
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
+  const admin = await requireSuperadminApi();
   if ('error' in admin) return admin.error;
+
+  const rateLimitError = applyRateLimit(request, [admin.user.userId], 'admin-user-update', [
+    { limit: 20, windowMs: 10 * 60 * 1000 },
+    { limit: 60, windowMs: 60 * 60 * 1000 },
+  ]);
+  if (rateLimitError) return rateLimitError;
 
   const formData = await request.formData();
   const userId = Number(formData.get('userId'));
@@ -16,7 +30,7 @@ export async function POST(request: Request) {
   const phoneNumber = String(formData.get('phoneNumber') || '').trim();
   const country = String(formData.get('country') || '').trim();
   const roleId = Number(formData.get('roleId'));
-  const status = String(formData.get('status') || 'ACTIVE');
+  const status = String(formData.get('status') || 'ACTIVE').trim().toUpperCase();
   const headline = String(formData.get('headline') || '').trim();
   const bio = String(formData.get('bio') || '').trim();
   const profileImage = String(formData.get('profileImage') || '').trim();
@@ -27,8 +41,33 @@ export async function POST(request: Request) {
   const canEditCommentsAfterDeadline = formData.get('canEditCommentsAfterDeadline') === 'on';
 
   if (!userId || !username || !email || !roleId) {
-    return NextResponse.redirect(new URL('/admin/users', request.url));
+    return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
   }
+
+  if (!validateUsername(username) || !validateEmail(email) || !ALLOWED_STATUSES.has(status)) {
+    return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  }
+
+  const [targetUser, targetRole] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, include: { role: true } }),
+    prisma.role.findUnique({ where: { id: roleId } }),
+  ]);
+
+  if (!targetUser || !targetRole) {
+    return NextResponse.redirect(new URL('/admin/users?error=not-found', request.url));
+  }
+
+  if (targetUser.id === admin.user.userId && targetRole.key !== 'superadmin') {
+    return NextResponse.redirect(new URL('/admin/users?error=cannot-demote-self', request.url));
+  }
+
+  const oldValues = {
+    username: targetUser.username,
+    email: targetUser.email,
+    roleId: targetUser.roleId,
+    role: targetUser.role.key,
+    status: targetUser.status,
+  };
 
   await prisma.user.update({
     where: { id: userId },
@@ -47,10 +86,19 @@ export async function POST(request: Request) {
       showEmailPublic,
       showPhonePublic,
       showCountryPublic,
-      canEditCommentsAfterDeadline
+      canEditCommentsAfterDeadline,
     }
   });
 
-  logger.info('Admin updated user', { adminUserId: admin.user.userId, targetUserId: userId });
-  return NextResponse.redirect(new URL('/admin/users', request.url));
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_USER_UPDATED',
+    targetType: 'USER',
+    targetId: userId,
+    oldValues,
+    newValues: { username, email, roleId, role: targetRole.key, status },
+  });
+
+  logger.info('Superadmin updated user', { adminUserId: admin.user.userId, targetUserId: userId, role: targetRole.key, status });
+  return NextResponse.redirect(new URL('/admin/users?updated=1', request.url));
 }

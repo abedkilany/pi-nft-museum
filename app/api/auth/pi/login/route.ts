@@ -9,9 +9,17 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
+import { applyRateLimit } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   try {
+    const rateLimitError = applyRateLimit(request, ['pi-login'], 'auth-pi-login', [
+      { limit: 10, windowMs: 10 * 60 * 1000 },
+      { limit: 40, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
+
     const body = await request.json();
     const accessToken = String(body.accessToken || '').trim();
 
@@ -112,12 +120,19 @@ export async function POST(request: Request) {
       logger.info('Pi user record updated for sign-in', {
         userId: user.id,
         role: user.role.key,
-        piUid: piUser.uid,
+        piUid: user.piUid,
         piUsername: user.piUsername || null
       });
     }
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
+      await createAuditLog({
+        userId: user.id,
+        action: 'LOGIN_BLOCKED',
+        targetType: 'USER',
+        targetId: user.id,
+        newValues: { status: user.status },
+      });
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
@@ -142,9 +157,16 @@ export async function POST(request: Request) {
 
     setAuthCookies(response, request, token);
 
+    await createAuditLog({
+      userId: user.id,
+      action: 'LOGIN_SUCCESS',
+      targetType: 'USER',
+      targetId: user.id,
+      newValues: { role: user.role.key, piUid: user.piUid },
+    });
+
     logger.info('Pi session cookie prepared', {
       userId: user.id,
-      sameSite: 'lax',
       secureCookie: request.headers.get('x-forwarded-proto') === 'https' || request.url.startsWith('https://') || (request.headers.get('origin') || '').startsWith('https://')
     });
 

@@ -3,8 +3,6 @@ import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import {
   getCrossSiteAuthCookieName,
-  getCrossSiteFallbackAuthCookieName,
-  getFallbackAuthCookieName,
   readAuthTokenFromCookieStore,
 } from '@/lib/auth-cookie';
 import { getAuthCookieName } from '@/lib/auth';
@@ -15,8 +13,6 @@ export async function GET() {
   const names = [
     getAuthCookieName(),
     getCrossSiteAuthCookieName(),
-    getFallbackAuthCookieName(),
-    getCrossSiteFallbackAuthCookieName(),
   ];
 
   const presentCookies = names.filter((name) => Boolean(cookieStore.get(name)?.value));

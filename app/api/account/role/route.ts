@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { createSessionToken, getAuthCookieName } from '@/lib/auth';
+import { createSessionToken } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { setAuthCookies } from '@/lib/auth-cookie';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
-const ALLOWED_ROLES = new Set(['visitor', 'trader', 'artist']);
+const ALLOWED_ROLES = new Set(['visitor', 'artist_or_trader']);
 
 function slugify(text: string) {
   return String(text || '')
@@ -31,10 +34,19 @@ async function ensureUniqueArtistSlug(baseValue: string, userId: number) {
 
 export async function POST(request: Request) {
   try {
+    const csrfError = assertSameOrigin(request);
+    if (csrfError) return csrfError;
+
     const sessionUser = await getCurrentUser();
     if (!sessionUser) {
       return NextResponse.json({ error: 'You must be logged in.' }, { status: 401 });
     }
+
+    const rateLimitError = applyRateLimit(request, [sessionUser.userId], 'account-role', [
+      { limit: 5, windowMs: 10 * 60 * 1000 },
+      { limit: 10, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
 
     const body = await request.json();
     const requestedRole = String(body.role || '').trim().toLowerCase();
@@ -67,7 +79,7 @@ export async function POST(request: Request) {
       include: { role: true }
     });
 
-    if (requestedRole === 'artist' && !current.artistProfile) {
+    if (requestedRole === 'artist_or_trader' && !current.artistProfile) {
       const displayName = current.fullName || current.piUsername || current.username;
       const slug = await ensureUniqueArtistSlug(current.piUsername || current.username, current.id);
       await prisma.artistProfile.create({
@@ -91,12 +103,15 @@ export async function POST(request: Request) {
     });
 
     const response = NextResponse.json({ ok: true, role: updatedUser.role.key });
-    response.cookies.set(getAuthCookieName(), token, {
-      httpOnly: true,
-      sameSite: request.headers.get('origin')?.startsWith('https://') || request.headers.get('x-forwarded-proto') === 'https' ? 'none' : 'lax',
-      secure: request.headers.get('origin')?.startsWith('https://') || request.headers.get('x-forwarded-proto') === 'https',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+    setAuthCookies(response, request, token);
+
+    await createAuditLog({
+      userId: updatedUser.id,
+      action: 'ACCOUNT_ROLE_CHANGED',
+      targetType: 'USER',
+      targetId: updatedUser.id,
+      oldValues: { role: current.role.key },
+      newValues: { role: updatedUser.role.key },
     });
 
     logger.info('Account role updated', { userId: updatedUser.id, role: updatedUser.role.key });

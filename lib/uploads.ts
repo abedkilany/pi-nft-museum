@@ -6,11 +6,24 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
 const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const PINATA_API_URL = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 
-const FILE_SIGNATURES: Array<{ mime: string; bytes: number[] }> = [
+const FILE_SIGNATURES: Array<{ mime: string; bytes?: number[]; validator?: (buffer: Uint8Array) => boolean }> = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47] },
   { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38] },
-  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46] },
+  {
+    mime: 'image/webp',
+    validator: (buffer) =>
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50,
+  },
+  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46] },
 ];
 
 function sanitizeFilename(name: string) {
@@ -33,29 +46,18 @@ function extensionForMimeType(type: string) {
       return '.webp';
     case 'image/gif':
       return '.gif';
+    case 'application/pdf':
+      return '.pdf';
     default:
       return '';
   }
 }
 
 function hasMatchingSignature(buffer: Uint8Array, type: string) {
-  if (type === 'image/webp') {
-    return (
-      buffer.length >= 12 &&
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46 &&
-      buffer[8] === 0x57 &&
-      buffer[9] === 0x45 &&
-      buffer[10] === 0x42 &&
-      buffer[11] === 0x50
-    );
-  }
-
   const signature = FILE_SIGNATURES.find((item) => item.mime === type);
   if (!signature) return false;
-  return signature.bytes.every((byte, index) => buffer[index] === byte);
+  if (signature.validator) return signature.validator(buffer);
+  return signature.bytes?.every((byte, index) => buffer[index] === byte) ?? false;
 }
 
 function getGatewayBase() {
@@ -82,11 +84,7 @@ export type SavedUpload = {
   storageProvider: 'local' | 'ipfs';
 };
 
-async function saveLocally(
-  file: File,
-  buffer: Uint8Array,
-  options: SaveOptions
-): Promise<SavedUpload> {
+async function saveLocally(file: File, buffer: Uint8Array, options: SaveOptions): Promise<SavedUpload> {
   const targetDir = options.subdir ? path.join(UPLOAD_DIR, options.subdir) : UPLOAD_DIR;
   await mkdir(targetDir, { recursive: true });
 
@@ -123,18 +121,11 @@ async function saveToPinata(file: File, buffer: Uint8Array): Promise<SavedUpload
 
   const formData = new FormData();
   formData.append('file', new Blob([buffer], { type: file.type }), pinName);
-  formData.append(
-    'pinataMetadata',
-    JSON.stringify({
-      name: pinName,
-    })
-  );
+  formData.append('pinataMetadata', JSON.stringify({ name: pinName }));
 
   const response = await fetch(PINATA_API_URL, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-    },
+    headers: { Authorization: `Bearer ${jwt}` },
     body: formData,
     cache: 'no-store',
   });

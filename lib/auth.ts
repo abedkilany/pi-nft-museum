@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
 
 const AUTH_COOKIE_NAME = 'pi_nft_auth';
@@ -10,6 +11,7 @@ export type SessionUser = {
   role: string;
   piUid?: string | null;
   piUsername?: string | null;
+  sessionId?: string;
 };
 
 function getSecretKey() {
@@ -31,16 +33,23 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export async function createSessionToken(user: SessionUser) {
-  return new SignJWT(user)
+  return new SignJWT({
+    userId: user.userId,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    piUid: user.piUid ?? null,
+    piUsername: user.piUsername ?? null,
+    sessionId: user.sessionId || randomUUID(),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('12h')
     .sign(getSecretKey());
 }
 
 export async function verifySessionToken(token: string) {
   const { payload } = await jwtVerify(token, getSecretKey());
-
   return payload as unknown as SessionUser;
 }
 
