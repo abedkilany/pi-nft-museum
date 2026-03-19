@@ -5,7 +5,7 @@ import { PiLoginCard } from '@/components/auth/PiLoginCard';
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === 'admin' || user.role === 'superadmin' ? '/admin' : '/account');
+  if (user) redirect('/account');
 
   return <PiLoginCard />;
 }

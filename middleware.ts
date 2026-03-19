@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { STAFF_ROLES } from '@/lib/roles';
-import { readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
+import { getAuthCookieName, getAuthCookieOptions, readAuthTokenFromCookieStore } from '@/lib/auth-cookie';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -29,14 +29,16 @@ async function verifyToken(token: string | null) {
 
 async function getSession(request: NextRequest) {
   const headerToken = extractBearerToken(request.headers.get('authorization'));
+  const queryToken = request.nextUrl.searchParams.get('authToken');
   const cookieToken = readAuthTokenFromCookieStore(request.cookies);
 
-  const token = headerToken || cookieToken;
+  const token = headerToken || queryToken || cookieToken;
   const session = await verifyToken(token);
 
   return {
     session,
     token,
+    fromQuery: Boolean(queryToken && session),
   };
 }
 
@@ -96,7 +98,7 @@ export async function middleware(request: NextRequest) {
 
   if (!needsAccount && !needsAdmin) return NextResponse.next();
 
-  const { session, token } = await getSession(request);
+  const { session, token, fromQuery } = await getSession(request);
   if (!session || !token) return NextResponse.redirect(new URL('/login', request.url));
   if (needsAdmin && !STAFF_ROLES.includes(session.role as (typeof STAFF_ROLES)[number])) {
     return NextResponse.redirect(new URL('/account', request.url));
@@ -111,6 +113,10 @@ export async function middleware(request: NextRequest) {
       headers: requestHeaders,
     },
   });
+
+  if (fromQuery) {
+    response.cookies.set(getAuthCookieName(), token, getAuthCookieOptions(request));
+  }
 
   return response;
 }
