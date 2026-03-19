@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     if (imageFile instanceof File && imageFile.size > 0) finalImageUrl = (await saveUploadedImage(imageFile)) || artwork.imageUrl;
     if (!finalImageUrl) finalImageUrl = getStringSetting(settings, 'placeholder_artwork_image_url', '/placeholder-artwork.svg');
 
-    let categoryRecord: any = null;
+    let categoryRecord = null;
     if (category) {
       const categorySlug = slugify(category);
       categoryRecord = await prisma.artworkCategory.upsert({ where: { slug: categorySlug }, update: { name: category }, create: { name: category, slug: categorySlug, description: `${category} artworks` } });

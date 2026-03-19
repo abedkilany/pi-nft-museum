@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
 
 export type MenuItem = {
   label: string;
@@ -14,26 +14,30 @@ const DEFAULT_MENU: MenuItem[] = [
   { label: 'Premium', href: '/premium', visibility: 'public', enabled: true },
   { label: 'Review', href: '/review', visibility: 'public', enabled: true },
   { label: 'Upload', href: '/upload', visibility: 'auth', enabled: true },
-  { label: 'Community', href: '/community', visibility: 'public', enabled: true }
+  { label: 'Community', href: '/community', visibility: 'public', enabled: true },
 ];
 
 export function normalizeMenuItems(value: unknown): MenuItem[] {
   if (!Array.isArray(value)) return DEFAULT_MENU;
+
   const items = value
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const candidate = item as Record<string, unknown>;
       const label = String(candidate.label || '').trim();
       const href = String(candidate.href || '').trim();
+
       if (!label || !href) return null;
+
       const visibility = ['public', 'guest', 'auth', 'admin'].includes(String(candidate.visibility || 'public'))
         ? (String(candidate.visibility || 'public') as MenuItem['visibility'])
         : 'public';
+
       return {
         label,
         href,
         visibility,
-        enabled: candidate.enabled !== false
+        enabled: candidate.enabled !== false,
       } satisfies MenuItem;
     })
     .filter(Boolean) as MenuItem[];
@@ -43,25 +47,30 @@ export function normalizeMenuItems(value: unknown): MenuItem[] {
 
 export async function getMenuItems() {
   const settings = await getSiteSettingsMap();
+  const communityEnabled = getBooleanSetting(settings, 'community_enabled', false);
+
   let manual = DEFAULT_MENU;
-  const communityEnabled = getBooleanSetting(settings, 'community_enabled', true);
   try {
     manual = normalizeMenuItems(JSON.parse(settings.menu_json || '[]'));
   } catch {
     manual = DEFAULT_MENU;
   }
 
+  if (!communityEnabled) {
+    manual = manual.filter((item) => item.href !== '/community');
+  }
+
   const managedPages = await prisma.page.findMany({
     where: { status: 'PUBLISHED', showInMenu: true },
     orderBy: { title: 'asc' },
-    select: { slug: true, title: true, menuLabel: true }
+    select: { slug: true, title: true, menuLabel: true },
   });
 
   const autoPageItems = managedPages.map((page) => ({
     label: page.menuLabel || page.title,
     href: `/pages/${page.slug}`,
     visibility: 'public' as const,
-    enabled: true
+    enabled: true,
   }));
 
   const hrefs = new Set(manual.map((item) => item.href));
@@ -69,7 +78,7 @@ export async function getMenuItems() {
     if (!hrefs.has(item.href)) manual.push(item);
   }
 
-  return manual.map((item) => item.href === '/community' ? { ...item, enabled: item.enabled !== false && communityEnabled } : item);
+  return manual;
 }
 
 export function getDefaultMenu() {

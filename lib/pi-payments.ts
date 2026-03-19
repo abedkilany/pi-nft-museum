@@ -10,13 +10,13 @@ function getServerApiKey() {
 function getAuthHeaders() {
   const apiKey = getServerApiKey();
   if (!apiKey) {
-    throw new Error('PI_SERVER_API_KEY is not configured on the server.');
+    throw new Error('PI_SERVER_API_KEY is not configured in .env');
   }
 
   return {
     Authorization: `Key ${apiKey}`,
     Accept: 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
   };
 }
 
@@ -25,9 +25,9 @@ export async function callPiPaymentApi(path: string, init?: RequestInit) {
     ...init,
     headers: {
       ...getAuthHeaders(),
-      ...(init?.headers || {})
+      ...(init?.headers || {}),
     },
-    cache: 'no-store'
+    cache: 'no-store',
   });
 
   const payload = await response.json().catch(() => null);
@@ -43,12 +43,14 @@ export async function callPiPaymentApi(path: string, init?: RequestInit) {
 export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number) {
   const artwork = await prisma.artwork.findUnique({
     where: { id: artworkId },
-    select: { id: true, artistUserId: true, title: true, price: true, currency: true, status: true }
+    select: { id: true, artistUserId: true, title: true, price: true, currency: true, status: true },
   });
 
   if (!artwork) throw new Error('Artwork not found.');
   if (artwork.artistUserId === buyerUserId) throw new Error('You cannot buy your own artwork.');
-  if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status)) throw new Error('This artwork is not available for payment right now.');
+  if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status)) {
+    throw new Error('This artwork is not available for payment right now.');
+  }
 
   return { artwork };
 }

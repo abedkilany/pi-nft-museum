@@ -1,16 +1,16 @@
-# Final stabilization pass
+Applied changes in this package:
+- IPFS-ready uploads via Pinata when PINATA_JWT is set; local uploads remain available for development fallback.
+- Community page now respects community_enabled and shows a Coming soon state when disabled.
+- Navigation hides /community when the feature is disabled.
+- Added protected maintenance endpoint: POST /api/maintenance/purge-archived
+- Health endpoint now returns a minimal payload and can be protected with HEALTHCHECK_SECRET.
+- Server-side Pi payments no longer fall back to NEXT_PUBLIC_PI_API_KEY.
+- Removed local cleanup from app/layout.tsx.
+- Removed local certificate/cache junk files and duplicate PiPaymentButton copy.
+- Follow APIs now return 403 while community is disabled.
 
-Applied in this package:
-- Added production-ready storage adapter with Vercel Blob support and local fallback for development.
-- Community page and follow APIs now respect `community_enabled`.
-- Navigation now hides Community when disabled.
-- Removed filesystem purge job from root layout and added a protected maintenance endpoint instead.
-- Tightened Pi payment server key handling to server-only secrets.
-- Reduced `/api/health` output and added optional secret protection.
-- Updated `.env.example` for PostgreSQL/Neon and storage secrets.
-- Cleaned duplicate/local-only files from the repository snapshot.
-- Updated package.json to a patched Next.js 14.x release line and added `@vercel/blob`.
-- Adjusted TypeScript config and declarations so `npm run typecheck` passes in this offline review environment.
-
-Remaining intentional limitation:
-- The Mint button/flow was left as-is functionally, per your note that it is still experimental.
+Your required tasks after unpacking:
+1. Add these environment variables in Vercel: PINATA_JWT, PINATA_GATEWAY_URL, HEALTHCHECK_SECRET, MAINTENANCE_API_SECRET.
+2. Keep your existing DATABASE_URL and PI_SERVER_API_KEY values.
+3. Redeploy on Vercel.
+4. Test: upload artwork image, upload profile image, /community while disabled, /api/health, and follow/unfollow.

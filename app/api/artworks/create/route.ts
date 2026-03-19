@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const finalPrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
     const baseSlug = slugify(title);
     const uniqueSlug = `${baseSlug}-${Date.now()}`;
-    let categoryRecord: any = null;
+    let categoryRecord = null;
     if (category) {
       const categorySlug = slugify(category);
       categoryRecord = await prisma.artworkCategory.upsert({ where: { slug: categorySlug }, update: { name: category }, create: { name: category, slug: categorySlug, description: `${category} artworks` } });

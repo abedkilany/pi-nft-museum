@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Choose a reason for your first comment.' }, { status: 400 });
     }
 
-    let parentComment: any = null;
+    let parentComment = null;
     if (replyToId) {
       parentComment = await prisma.artworkComment.findUnique({ where: { id: replyToId } });
       if (!parentComment || parentComment.artworkId !== id) {
