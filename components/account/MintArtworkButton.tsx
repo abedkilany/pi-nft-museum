@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function MintArtworkButton({ artworkId }: { artworkId: number }) {
   const router = useRouter();
@@ -14,7 +13,7 @@ export function MintArtworkButton({ artworkId }: { artworkId: number }) {
       setLoading(true);
       setMessage('');
 
-      const response = await piApiFetch('/api/artworks/mint', {
+      const response = await fetch('/api/artworks/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ artworkId })

@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 type ReactionType = 'LIKE' | 'DISLIKE' | null;
 
@@ -37,7 +36,7 @@ export function ReactionButtons({
       setLoading(true);
       setMessage('');
 
-      const response = await piApiFetch('/api/reactions/toggle', {
+      const response = await fetch('/api/reactions/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ artworkId, type })

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 
 import { ensureDefaultCountries } from '@/lib/countries';
 import { prisma } from '@/lib/prisma';

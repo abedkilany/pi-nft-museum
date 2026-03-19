@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { PiConnectButton } from '@/components/PiConnectButton';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
@@ -27,7 +26,7 @@ export default async function GalleryPage() {
         <p style={{ margin: 0, color: 'var(--muted)' }}>Only minted and published artworks appear here. Nothing enters the gallery before mint.</p>
       </section>
 
-      {!user ? <section className="card" style={{ padding: '18px' }}><div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}><p style={{ margin: 0 }}>You can browse artworks freely. Log in with Pi to react.</p><PiConnectButton className="button primary">Connect with Pi</PiConnectButton></div></section> : null}
+      {!user ? <section className="card" style={{ padding: '18px' }}><p style={{ margin: 0 }}>You can browse artworks freely. <Link href="/login">Login with Pi</Link> to react.</p></section> : null}
 
       {artworks.length === 0 ? <section className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
         <section style={{ display: 'grid', gap: '16px' }}>

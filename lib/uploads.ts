@@ -60,17 +60,13 @@ function hasMatchingSignature(buffer: Uint8Array, type: string) {
   return signature.bytes?.every((byte, index) => buffer[index] === byte) ?? false;
 }
 
-function getPinataJwt() {
-  return process.env.PINATA_JWT || process.env.pinata_jwt || '';
-}
-
 function getGatewayBase() {
-  const raw = process.env.PINATA_GATEWAY_URL || process.env.pinata_gateway_url || 'https://gateway.pinata.cloud/ipfs';
+  const raw = process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud/ipfs';
   return raw.replace(/\/+$/, '');
 }
 
 function shouldUseIpfs() {
-  return Boolean(getPinataJwt());
+  return Boolean(process.env.PINATA_JWT);
 }
 
 type SaveOptions = {
@@ -113,7 +109,7 @@ async function saveLocally(file: File, buffer: Uint8Array, options: SaveOptions)
 }
 
 async function saveToPinata(file: File, buffer: Uint8Array): Promise<SavedUpload> {
-  const jwt = getPinataJwt();
+  const jwt = process.env.PINATA_JWT;
   if (!jwt) {
     throw new Error('PINATA_JWT is not configured.');
   }

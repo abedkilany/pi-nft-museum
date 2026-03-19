@@ -3,7 +3,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 type CountryOption = {
   name: string;
@@ -75,7 +74,7 @@ export function ProfileForms({ user, countries }: Props) {
     if (avatarFile) payload.append('profileImageFile', avatarFile);
     if (coverFile) payload.append('coverImageFile', coverFile);
 
-    const response = await piApiFetch('/api/account/profile', { method: 'POST', body: payload });
+    const response = await fetch('/api/account/profile', { method: 'POST', body: payload });
     const data = await response.json();
     setBusy(false);
     setProfileMessage(data.message || data.error || 'Done.');

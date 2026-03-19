@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 type FollowState = {
   isFollowing: boolean;
@@ -36,7 +35,7 @@ export function ProfileFollowControls({
     setError('');
     try {
       const method = state.isFollowing ? 'DELETE' : 'POST';
-      const response = await piApiFetch('/api/profile/follow', {
+      const response = await fetch('/api/profile/follow', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileUserId }),
@@ -56,7 +55,7 @@ export function ProfileFollowControls({
     setSaving(true);
     setError('');
     try {
-      const response = await piApiFetch('/api/profile/follow/preferences', {
+      const response = await fetch('/api/profile/follow/preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileUserId, ...nextPrefs }),

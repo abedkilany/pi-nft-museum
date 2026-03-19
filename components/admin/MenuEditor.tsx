@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { MenuItem } from '@/lib/menu';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function MenuEditor({ initialItems }: { initialItems: MenuItem[] }) {
   const [items, setItems] = useState<MenuItem[]>(initialItems);
@@ -27,7 +26,7 @@ export function MenuEditor({ initialItems }: { initialItems: MenuItem[] }) {
     event.preventDefault();
     setLoading(true);
     setMessage('');
-    const response = await piApiFetch('/api/admin/menu/update', {
+    const response = await fetch('/api/admin/menu/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items })

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 
 import { prisma } from '@/lib/prisma';
 import { STAFF_ROLES } from '@/lib/roles';

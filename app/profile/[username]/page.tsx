@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { PiConnectButton } from '@/components/PiConnectButton';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getCurrentUser } from '@/lib/current-user';
@@ -66,7 +65,7 @@ export default async function PublicProfilePage({ params }: { params: { username
                   isSelf={followState.isSelf}
                 />
               ) : (
-                <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
+                <Link href="/login" className="button primary">Login with Pi to follow</Link>
               )}
             </div>
           ) : (

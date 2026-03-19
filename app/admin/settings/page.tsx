@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { SITE_SETTING_DEFINITIONS, getSiteSettingsMap } from '@/lib/site-settings';
 
 const GROUP_TITLES: Record<string, string> = {

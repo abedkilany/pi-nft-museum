@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { authenticateWithPi, createPiPayment } from '@/lib/pi';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 type Props = {
   artworkId: number;
@@ -49,7 +48,7 @@ export function PiPaymentButton({
             try {
               setMessage('Payment created. Waiting for server approval...');
 
-              const response = await piApiFetch('/api/pi/payments/approve', {
+              const response = await fetch('/api/pi/payments/approve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
@@ -76,7 +75,7 @@ export function PiPaymentButton({
             try {
               setMessage('Blockchain transaction submitted. Finalizing...');
 
-              const response = await piApiFetch('/api/pi/payments/complete', {
+              const response = await fetch('/api/pi/payments/complete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',

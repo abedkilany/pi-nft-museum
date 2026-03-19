@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { piApiFetch } from '../../lib/pi-auth-client';
 
 type Props = {
   targetUserId: number;
@@ -27,7 +26,7 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
     setError(null);
     try {
       const action = isFollowing ? 'unfollow' : 'follow';
-      const response = await piApiFetch('/api/follows', {
+      const response = await fetch('/api/follows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUserId, action }),
