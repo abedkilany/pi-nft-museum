@@ -2,11 +2,6 @@ import type { NextRequest, NextResponse } from 'next/server';
 import type { RequestCookies } from 'next/dist/compiled/@edge-runtime/cookies';
 
 const AUTH_COOKIE_NAME = 'pi_nft_auth';
-const LEGACY_COOKIE_NAMES = [
-  '__Secure-pi_nft_auth_cross',
-  '__Secure-pi_nft_auth_client_cross',
-  'pi_nft_auth_client',
-];
 
 function isSecureRequest(request: Request) {
   const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -23,64 +18,31 @@ export function getAuthCookieName() {
   return AUTH_COOKIE_NAME;
 }
 
-export function getAuthCookieOptions(request: Request) {
-  const secure = isSecureRequest(request);
-
-  return {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure,
-    path: '/',
-    maxAge: 60 * 60 * 12,
-  };
-}
-
-function expireCookie(response: NextResponse, name: string, request: Request, httpOnly = true) {
-  const secure = isSecureRequest(request);
-
-  response.cookies.set(name, '', {
-    httpOnly,
-    sameSite: 'lax',
-    secure,
-    path: '/',
-    maxAge: 0,
-    expires: new Date(0),
-  });
-
-  response.cookies.set(name, '', {
-    httpOnly,
-    sameSite: 'none',
-    secure: true,
-    path: '/',
-    maxAge: 0,
-    expires: new Date(0),
-  });
-}
-
 export function setAuthCookies(
   response: NextResponse,
   request: Request,
   token: string
 ) {
-  for (const legacyName of LEGACY_COOKIE_NAMES) {
-    expireCookie(response, legacyName, request, true);
-    expireCookie(response, legacyName, request, false);
-  }
+  const secure = isSecureRequest(request);
 
-  response.cookies.set(
-    AUTH_COOKIE_NAME,
-    token,
-    getAuthCookieOptions(request)
-  );
+  response.cookies.set(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: true,             // مهم جدًا
+    sameSite: 'none',         // الحل الحقيقي هنا
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  });
 }
 
 export function clearAuthCookies(response: NextResponse, request: Request) {
-  expireCookie(response, AUTH_COOKIE_NAME, request, true);
-
-  for (const legacyName of LEGACY_COOKIE_NAMES) {
-    expireCookie(response, legacyName, request, true);
-    expireCookie(response, legacyName, request, false);
-  }
+  response.cookies.set(AUTH_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }
 
 export function readAuthTokenFromCookieStore(
