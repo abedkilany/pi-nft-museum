@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
 import AuthSessionBridge from '@/components/auth/AuthSessionBridge';
@@ -21,8 +22,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <PiScript />
-        <AuthSessionBridge />
-        <AutoPiAuth />
+        <Suspense fallback={null}>
+          <AuthSessionBridge />
+        </Suspense>
+        <Suspense fallback={null}>
+          <AutoPiAuth />
+        </Suspense>
         <div className="page-shell">
           <NavBar />
           <main className="container">{children}</main>
