@@ -3,25 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
-import { setPiAuthToken } from '@/lib/pi-auth-client';
+import { setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
 
 type LoginState = 'checking-sdk' | 'ready' | 'authenticating' | 'signing-in' | 'confirming-session' | 'redirecting' | 'error';
 
 const SESSION_CONFIRM_ATTEMPTS = 5;
 const SESSION_CONFIRM_DELAYS_MS = [250, 500, 800, 1200, 1600];
-const AUTH_COOKIE_NAME = 'pi_nft_auth';
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function storeClientToken(token: string) {
   if (typeof window === 'undefined') return;
-
   setPiAuthToken(token);
-
-  const maxAge = 60 * 60 * 12;
-  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=None; Secure`;
+  syncPiAuthCookie(token);
 }
 
 function getStoredToken() {
@@ -57,9 +52,8 @@ async function confirmSession() {
   return null;
 }
 
-function buildRedirectUrl(path: string, token: string | null) {
+function buildRedirectUrl(path: string) {
   const url = new URL(path, window.location.origin);
-  if (token) url.searchParams.set('authToken', token);
   return url.toString();
 }
 
@@ -113,7 +107,7 @@ export function PiLoginCard() {
       const target = confirmed.user.role === 'admin' || confirmed.user.role === 'superadmin' ? '/admin' : nextUrl;
       setState('redirecting');
       setMessage('Connection successful. Redirecting...');
-      window.location.assign(buildRedirectUrl(target, confirmed.token));
+      window.location.assign(buildRedirectUrl(target));
     } catch (error) {
       setState('error');
       setMessage(error instanceof Error ? error.message : 'Pi login failed.');

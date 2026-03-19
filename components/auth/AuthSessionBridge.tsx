@@ -1,79 +1,30 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { getPiAuthToken, setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
 
 export default function AuthSessionBridge() {
-  const hasRun = useRef(false);
+  const pathname = usePathname();
 
   useEffect(() => {
-    // منع التشغيل أكثر من مرة
-    if (hasRun.current) return;
-    hasRun.current = true;
+    if (typeof window === 'undefined') return;
 
-    const run = async () => {
-      try {
-        // 🔹 إذا عندك token مخزن → لا تعيد login
-        const existingToken = localStorage.getItem("authToken");
+    const currentUrl = new URL(window.location.href);
+    const tokenFromUrl = currentUrl.searchParams.get('authToken');
 
-        if (existingToken) {
-          console.log("🟢 Already authenticated → skip Pi login");
-          return;
-        }
+    if (tokenFromUrl) {
+      setPiAuthToken(tokenFromUrl);
+      currentUrl.searchParams.delete('authToken');
+      window.history.replaceState(window.history.state, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+      return;
+    }
 
-        console.log("🟡 No token → starting Pi authentication");
+    const storedToken = getPiAuthToken();
+    if (!storedToken) return;
 
-        // @ts-ignore
-        if (!window.Pi) {
-          console.log("❌ Pi SDK not found");
-          return;
-        }
-
-        // @ts-ignore
-        const scopes = ["username", "payments"];
-
-        // @ts-ignore
-        const auth = await window.Pi.authenticate(scopes);
-
-        if (!auth?.accessToken) {
-          console.log("❌ No accessToken");
-          return;
-        }
-
-        console.log("✅ Pi auth success");
-
-        // إرسال للسيرفر
-        const res = await fetch("/api/auth/pi/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            accessToken: auth.accessToken,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!data?.token) {
-          console.log("❌ No app token returned");
-          return;
-        }
-
-        // 🔥 تخزين التوكن
-        localStorage.setItem("authToken", data.token);
-
-        console.log("✅ App session created");
-
-        // redirect مرة واحدة فقط
-        window.location.href = "/admin";
-
-      } catch (err) {
-        console.error("❌ Auth error:", err);
-      }
-    };
-
-    run();
-  }, []);
+    syncPiAuthCookie(storedToken);
+  }, [pathname]);
 
   return null;
 }

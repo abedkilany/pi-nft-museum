@@ -3,20 +3,13 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
-import { getPiAuthToken, piApiFetch, setPiAuthToken } from '@/lib/pi-auth-client';
+import { getPiAuthToken, piApiFetch, setPiAuthToken, syncPiAuthCookie } from '@/lib/pi-auth-client';
 
-const AUTH_COOKIE_NAME = 'pi_nft_auth';
 const ELIGIBLE_PATHS = new Set(['/', '/login']);
+const AUTO_AUTH_LOCK_KEY = 'pi_auto_auth_lock';
 
-function storeClientToken(token: string) {
-  setPiAuthToken(token);
-  const maxAge = 60 * 60 * 12;
-  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=None; Secure`;
-}
-
-function buildRedirectUrl(path: string, token: string | null) {
+function buildRedirectUrl(path: string) {
   const url = new URL(path, window.location.origin);
-  if (token) url.searchParams.set('authToken', token);
   return url.toString();
 }
 
@@ -35,12 +28,13 @@ export function AutoPiAuth() {
     async function run() {
       const token = getPiAuthToken();
       if (token) {
+        syncPiAuthCookie(token);
         const existing = await piApiFetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).then((res) => res.json()).catch(() => null);
         if (cancelled) return;
         if (existing?.ok && existing?.user) {
           if (pathname === '/login') {
             const nextUrl = searchParams.get('next') || (existing.user.role === 'admin' || existing.user.role === 'superadmin' ? '/admin' : '/account');
-            window.location.replace(buildRedirectUrl(nextUrl, token));
+            window.location.replace(buildRedirectUrl(nextUrl));
           } else {
             router.refresh();
           }
@@ -48,10 +42,14 @@ export function AutoPiAuth() {
         }
       }
 
+      const lockValue = window.sessionStorage.getItem(AUTO_AUTH_LOCK_KEY);
+      if (lockValue === 'running') return;
+
       const sdkReady = await waitForPiSdk(5000, 250);
       if (cancelled || !sdkReady) return;
 
       startedRef.current = true;
+      window.sessionStorage.setItem(AUTO_AUTH_LOCK_KEY, 'running');
 
       try {
         const authResult = await authenticateWithPi(['username']);
@@ -65,21 +63,20 @@ export function AutoPiAuth() {
         });
 
         const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.ok || !data?.token) return;
+        if (!response.ok || !data?.ok || !data?.token) {
+          return;
+        }
 
-        storeClientToken(data.token);
+        setPiAuthToken(data.token);
+        syncPiAuthCookie(data.token);
 
         const me = await piApiFetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).then((res) => res.json()).catch(() => null);
         if (cancelled || !me?.ok || !me?.user) return;
 
-        if (pathname === '/login') {
-          const nextUrl = searchParams.get('next') || (me.user.role === 'admin' || me.user.role === 'superadmin' ? '/admin' : '/account');
-          window.location.replace(buildRedirectUrl(nextUrl, data.token));
-          return;
-        }
-
-        router.refresh();
-      } catch {
+        const nextUrl = searchParams.get('next') || (me.user.role === 'admin' || me.user.role === 'superadmin' ? '/admin' : '/account');
+        window.location.replace(buildRedirectUrl(nextUrl));
+      } finally {
+        window.sessionStorage.removeItem(AUTO_AUTH_LOCK_KEY);
       }
     }
 
