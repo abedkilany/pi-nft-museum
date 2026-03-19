@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { PiConnectButton } from '@/components/PiConnectButton';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { clearPiAuthToken } from '@/lib/pi-auth-client';
@@ -45,9 +46,9 @@ export function NavUserMenu({ user, showAdmin }: Props) {
   if (!user) {
     return (
       <div className="nav-auth">
-        <Link href="/login" className="button primary nav-connect-button">
+        <PiConnectButton className="button primary nav-connect-button">
           Connect with Pi
-        </Link>
+        </PiConnectButton>
       </div>
     );
   }
