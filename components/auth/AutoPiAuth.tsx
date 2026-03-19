@@ -5,19 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { authenticateWithPi, waitForPiSdk } from '@/lib/pi';
 import { getPiAuthToken, piApiFetch, setPiAuthToken } from '@/lib/pi-auth-client';
 
-const AUTH_COOKIE_NAME = 'pi_nft_auth';
 const ELIGIBLE_PATHS = new Set(['/', '/login']);
 
-function storeClientToken(token: string) {
-  setPiAuthToken(token);
-  const maxAge = 60 * 60 * 12;
-  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=None; Secure`;
-}
-
-function buildRedirectUrl(path: string, token: string | null) {
-  const url = new URL(path, window.location.origin);
-  if (token) url.searchParams.set('authToken', token);
-  return url.toString();
+function buildRedirectUrl(path: string) {
+  return new URL(path, window.location.origin).toString();
 }
 
 export function AutoPiAuth() {
@@ -40,7 +31,7 @@ export function AutoPiAuth() {
         if (existing?.ok && existing?.user) {
           if (pathname === '/login') {
             const nextUrl = searchParams.get('next') || (existing.user.role === 'admin' || existing.user.role === 'superadmin' ? '/admin' : '/account');
-            window.location.replace(buildRedirectUrl(nextUrl, token));
+            window.location.replace(buildRedirectUrl(nextUrl));
           } else {
             router.refresh();
           }
@@ -67,14 +58,14 @@ export function AutoPiAuth() {
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.ok || !data?.token) return;
 
-        storeClientToken(data.token);
+        setPiAuthToken(data.token);
 
         const me = await piApiFetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).then((res) => res.json()).catch(() => null);
         if (cancelled || !me?.ok || !me?.user) return;
 
         if (pathname === '/login') {
           const nextUrl = searchParams.get('next') || (me.user.role === 'admin' || me.user.role === 'superadmin' ? '/admin' : '/account');
-          window.location.replace(buildRedirectUrl(nextUrl, data.token));
+          window.location.replace(buildRedirectUrl(nextUrl));
           return;
         }
 
