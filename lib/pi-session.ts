@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { fetchPiUser } from '@/lib/pi-auth';
+import type { SessionUser } from '@/lib/auth';
 
 function extractBearerToken(authHeader: string | null | undefined) {
   if (!authHeader) return null;
@@ -21,16 +22,18 @@ export async function resolvePiSessionFromToken(token: string) {
   if (!user) return null;
   if (user.status === 'BANNED' || user.status === 'SUSPENDED') return null;
 
+  const sessionUser: SessionUser = {
+    userId: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role.key,
+    piUid: user.piUid,
+    piUsername: user.piUsername,
+  };
+
   return {
     piUser,
     user,
-    sessionUser: {
-      userId: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role.key,
-      piUid: user.piUid,
-      piUsername: user.piUsername,
-    },
+    sessionUser,
   };
 }

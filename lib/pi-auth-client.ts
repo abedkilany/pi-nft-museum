@@ -1,5 +1,5 @@
 const PI_AUTH_TOKEN_KEY = 'pi_access_token';
-const PI_SESSION_COOKIE_NAME = 'pi_session_hint';
+export const PI_SESSION_HINT_COOKIE_NAME = 'pi_session_hint';
 
 function isBrowser() {
   return typeof window !== 'undefined';
@@ -64,17 +64,17 @@ export function getPiAuthToken() {
 
 export function syncPiAuthCookie(token?: string | null) {
   if (!token) {
-    deleteClientCookie(PI_SESSION_COOKIE_NAME);
+    deleteClientCookie(PI_SESSION_HINT_COOKIE_NAME);
     return;
   }
 
   // Non-HttpOnly fallback for stubborn WebViews such as Pi Browser.
   // The authoritative server session is still the signed cookie set by the backend.
-  writeClientCookie(PI_SESSION_COOKIE_NAME, token);
+  writeClientCookie(PI_SESSION_HINT_COOKIE_NAME, token);
 }
 
 export function clearPiAuthCookie() {
-  deleteClientCookie(PI_SESSION_COOKIE_NAME);
+  deleteClientCookie(PI_SESSION_HINT_COOKIE_NAME);
 }
 
 export function setPiAuthToken(token: string) {

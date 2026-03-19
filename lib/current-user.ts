@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { type SessionUser, getAuthCookieName, verifySessionToken } from './auth';
+import { PI_SESSION_HINT_COOKIE_NAME } from './pi-auth-client';
 import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
 
 async function resolveFromServerSessionCookie() {
@@ -16,6 +17,17 @@ async function resolveFromServerSessionCookie() {
   }
 }
 
+async function resolveFromPiAccessToken(token: string | null | undefined): Promise<SessionUser | null> {
+  if (!token) return null;
+
+  try {
+    const session = await resolvePiSessionFromToken(token);
+    return session?.sessionUser || null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveFromPiAccessTokenHeader() {
   try {
     const headerStore = headers();
@@ -23,10 +35,17 @@ async function resolveFromPiAccessTokenHeader() {
       extractBearerToken(headerStore.get('authorization')) ||
       headerStore.get('x-auth-token');
 
-    if (!token) return null;
+    return resolveFromPiAccessToken(token);
+  } catch {
+    return null;
+  }
+}
 
-    const session = await resolvePiSessionFromToken(token);
-    return session?.sessionUser || null;
+async function resolveFromPiHintCookie() {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get(PI_SESSION_HINT_COOKIE_NAME)?.value;
+    return resolveFromPiAccessToken(token);
   } catch {
     return null;
   }
@@ -36,5 +55,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const sessionUser = await resolveFromServerSessionCookie();
   if (sessionUser) return sessionUser;
 
-  return resolveFromPiAccessTokenHeader();
+  const headerUser = await resolveFromPiAccessTokenHeader();
+  if (headerUser) return headerUser;
+
+  return resolveFromPiHintCookie();
 }
