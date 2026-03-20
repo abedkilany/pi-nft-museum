@@ -45,11 +45,11 @@ export default async function ArtworkDetailPage({ params }: Props) {
   const commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
 
   return (
-    <div className="container" style={{ paddingTop: '40px', display: 'grid', gap: '24px' }}>
+    <div className="page-stack">
       <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
         <img src={artwork.imageUrl} alt={artwork.title} style={{ width: '100%', maxHeight: '520px', objectFit: 'cover', display: 'block' }} />
-        <div style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+        <div className="surface-section">
+          <div className="card-actions" style={{ marginTop: 0, marginBottom: 10 }}>
             <h1 style={{ margin: 0 }}>{artwork.title}</h1>
             {artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}
           </div>

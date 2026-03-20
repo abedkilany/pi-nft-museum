@@ -37,9 +37,9 @@ export default async function PublicProfilePage({ params }: { params: { username
   ]);
 
   return (
-    <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
+    <div className="page-stack">
       <section className="card" style={{ overflow: 'hidden' }}>
-        <div className="profile-cover" style={{ minHeight: '240px', backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined, position: 'relative' }}>
+        <div className="profile-cover" style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}>
           <div className="profile-avatar profile-avatar-large">
             {user.profileImage ? <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
           </div>
@@ -55,7 +55,7 @@ export default async function PublicProfilePage({ params }: { params: { username
             </div>
           </div>
           {!followState.isSelf ? (
-            <div style={{ position: 'absolute', right: 24, bottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div className="profile-cover-actions">
               <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
               <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
               {currentUser ? (
@@ -70,7 +70,7 @@ export default async function PublicProfilePage({ params }: { params: { username
               )}
             </div>
           ) : (
-            <div style={{ position: 'absolute', right: 24, bottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div className="profile-cover-actions">
               <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
               <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
             </div>
@@ -85,7 +85,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       </section>
 
 
-      <section className="card" style={{ padding: '24px' }}>
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Community</span>
@@ -94,10 +94,10 @@ export default async function PublicProfilePage({ params }: { params: { username
           <p>Followers, comments, replies, and likes now give each creator a living public presence.</p>
         </div>
         {activities.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public activity yet.</p> : (
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="stack-sm">
             {activities.map((activity) => (
               <article key={activity.id} className="card" style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start' }}>
+                <div className="feed-item-header">
                   <div>
                     <strong>{activity.title}</strong>
                     <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{activity.message}</p>
@@ -111,7 +111,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         )}
       </section>
 
-      <section className="card" style={{ padding: '24px' }}>
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Published works</span>

@@ -49,11 +49,11 @@ export default function MyProfilePageClient() {
   }, [router]);
 
   if (loading) {
-    return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>Loading profile…</p></div></div>;
+    return <div className="page-stack"><div className="card surface-section"><p>Loading profile…</p></div></div>;
   }
 
   if (error) {
-    return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>{error}</p></div></div>;
+    return <div className="page-stack"><div className="card surface-section"><p>{error}</p></div></div>;
   }
 
   const user = data?.user;
@@ -62,23 +62,21 @@ export default function MyProfilePageClient() {
   const recentNotifications = data?.recentNotifications || [];
 
   if (!user) {
-    return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>Profile unavailable.</p></div></div>;
+    return <div className="page-stack"><div className="card surface-section"><p>Profile unavailable.</p></div></div>;
   }
 
   const displayName = user.fullName || user.username;
   const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
 
   return (
-    <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
+    <div className="page-stack">
       <section className="card" style={{ overflow: 'hidden' }}>
         <div
           className="profile-cover"
           style={{
-            minHeight: '240px',
             backgroundImage: user.coverImage
               ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})`
               : undefined,
-            position: 'relative',
           }}
         >
           <div className="profile-avatar profile-avatar-large">
@@ -104,7 +102,7 @@ export default function MyProfilePageClient() {
               <Link href="/upload" className="button primary">Upload artwork</Link>
             </div>
           </div>
-          <div style={{ position: 'absolute', right: 24, bottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div className="profile-cover-actions">
             <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
             <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
             <Link href="/notifications" className="button primary">Notifications · {unreadNotifications}</Link>
@@ -118,7 +116,7 @@ export default function MyProfilePageClient() {
         <div className="card stat-card"><strong>{user.artworks?.length || 0}</strong><span>Recent artworks</span></div>
       </section>
 
-      <section className="card" style={{ padding: '24px' }}>
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Notifications</span>
@@ -127,10 +125,10 @@ export default function MyProfilePageClient() {
           <p>Your latest follows, comments, approvals, and marketplace activity.</p>
         </div>
         {recentNotifications.length === 0 ? <p style={{ margin: 0 }}>No recent notifications.</p> : (
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="stack-sm">
             {recentNotifications.map((notification: any) => (
               <article key={notification.id} className="card" style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start' }}>
+                <div className="feed-item-header">
                   <div>
                     <strong>{notification.title}</strong>
                     <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{notification.message}</p>
@@ -144,7 +142,7 @@ export default function MyProfilePageClient() {
         )}
       </section>
 
-      <section className="card" style={{ padding: '24px' }}>
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Portfolio</span>

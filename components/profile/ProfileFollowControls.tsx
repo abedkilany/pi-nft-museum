@@ -81,8 +81,8 @@ export function ProfileFollowControls({
   };
 
   return (
-    <div style={{ display: 'grid', gap: 10, justifyItems: 'end' }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+    <div className="follow-controls-wrap">
+      <div className="follow-controls-row">
         <button className={`button ${state.isFollowing ? 'secondary' : 'primary'}`} type="button" onClick={toggleFollow} disabled={saving}>
           {state.isFollowing ? 'Following' : 'Follow'}
         </button>
@@ -91,7 +91,7 @@ export function ProfileFollowControls({
             🔔
           </button>
           {menuOpen && !bellDisabled ? (
-            <div className="card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', padding: 14, width: 280, zIndex: 30 }}>
+            <div className="card follow-popover">
               <strong style={{ display: 'block', marginBottom: 10 }}>Follow notifications</strong>
               <div style={{ display: 'grid', gap: 10 }}>
                 <label className="inline-check"><input type="checkbox" checked={preferences.muted} onChange={(e) => savePreferences({ ...preferences, muted: e.target.checked, notificationsEnabled: !e.target.checked })} />Mute everything</label>
@@ -104,7 +104,7 @@ export function ProfileFollowControls({
           ) : null}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 18, color: 'var(--muted)', fontSize: 14 }}>
+      <div className="inline-stats">
         <span><strong style={{ color: 'var(--text)' }}>{state.followersCount}</strong> followers</span>
         <span><strong style={{ color: 'var(--text)' }}>{state.followingCount}</strong> following</span>
       </div>

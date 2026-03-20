@@ -21,22 +21,22 @@ export default async function GalleryPage() {
   });
 
   return (
-    <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
-      <section className="card" style={{ padding: '24px' }}>
+    <div className="page-stack">
+      <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Gallery</h1>
         <p style={{ margin: 0, color: 'var(--muted)' }}>Only minted and published artworks appear here. Nothing enters the gallery before mint.</p>
       </section>
 
-      {!user ? <section className="card" style={{ padding: '18px' }}><div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}><p style={{ margin: 0 }}>You can browse artworks freely. Log in with Pi to react.</p><PiConnectButton className="button primary">Connect with Pi</PiConnectButton></div></section> : null}
+      {!user ? <section className="card surface-section"><div className="card-actions" style={{ marginTop: 0 }}><p style={{ margin: 0 }}>You can browse artworks freely. Log in with Pi to react.</p><PiConnectButton className="button primary">Connect with Pi</PiConnectButton></div></section> : null}
 
-      {artworks.length === 0 ? <section className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
-        <section style={{ display: 'grid', gap: '16px' }}>
+      {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
+        <section className="stack-md">
           {artworks.map((artwork) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             const myReaction = user && Array.isArray(artwork.reactions) && artwork.reactions.length > 0 ? artwork.reactions[0].type : null;
             return (
-              <article key={artwork.id} className="card" style={{ padding: '18px', display: 'grid', gridTemplateColumns: '180px 1fr 260px', gap: '18px', alignItems: 'start' }}>
-                <img src={artwork.imageUrl} alt={artwork.title} style={{ width: '180px', height: '130px', objectFit: 'cover', borderRadius: '12px' }} />
+              <article key={artwork.id} className="card split-list-card">
+                <img src={artwork.imageUrl} alt={artwork.title} className="split-list-media" />
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>
@@ -45,7 +45,7 @@ export default async function GalleryPage() {
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>
-                <ReactionButtons artworkId={artwork.id} canReact={Boolean(user)} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={myReaction} />
+                <div className="split-list-side"><ReactionButtons artworkId={artwork.id} canReact={Boolean(user)} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={myReaction} /></div>
               </article>
             );
           })}

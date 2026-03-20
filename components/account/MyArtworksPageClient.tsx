@@ -41,16 +41,16 @@ export default function MyArtworksPageClient() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (loading) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>Loading artworks…</p></div></div>;
-  if (error) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>{error}</p></div></div>;
+  if (loading) return <div className="page-stack"><div className="card surface-section"><p>Loading artworks…</p></div></div>;
+  if (error) return <div className="page-stack"><div className="card surface-section"><p>{error}</p></div></div>;
 
   const artworks = data?.artworks || [];
   const reviewHours = data?.reviewHours || 48;
   const archiveMessage = data?.archiveMessage || '';
 
   return (
-    <div style={{ paddingTop: '30px' }}>
-      <div className="card" style={{ padding: '24px' }}>
+    <div className="page-stack">
+      <div className="card surface-section">
         <div className="section-head compact">
           <div><span className="section-kicker">Artwork workflow</span><h1>My artworks</h1></div>
           <p>Private library for your own drafts, published works, premium pieces, and archived items.</p>
@@ -60,13 +60,13 @@ export default function MyArtworksPageClient() {
           <Link href="/profile" className="button secondary">Open profile</Link>
         </div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
-          <div style={{ display: 'grid', gap: '16px' }}>
+          <div className="stack-md">
             {artworks.map((artwork: any) => {
               const mintWindowStatus = getMintWindowStatus(artwork);
               const showMintButton = mintWindowStatus === 'mint_open';
               return (
-                <div key={artwork.id} className="card" style={{ padding: '18px', display: 'grid', gridTemplateColumns: 'minmax(0, 120px) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
-                  <img src={artwork.imageUrl} alt={artwork.title} style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '12px' }} />
+                <div key={artwork.id} className="card my-artwork-item">
+                  <img src={artwork.imageUrl} alt={artwork.title} className="my-artwork-thumb" />
                   <div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Status: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
@@ -75,7 +75,7 @@ export default function MyArtworksPageClient() {
                     {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
                     {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
                   </div>
-                  <div style={{ display: 'grid', gap: '10px', gridColumn: '1 / -1' }}>
+                  <div className="my-artwork-actions">
                     <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
                     <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link>
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />

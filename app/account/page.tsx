@@ -36,16 +36,16 @@ export default function AccountPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (loading) return <div style={{ paddingTop: '30px' }}><section className="card" style={{ padding: '24px' }}><p>Loading account…</p></section></div>;
-  if (error || !data?.user) return <div style={{ paddingTop: '30px' }}><section className="card" style={{ padding: '24px' }}><p>{error || 'Unable to load account.'}</p></section></div>;
+  if (loading) return <div className="page-stack"><section className="card surface-section"><p>Loading account…</p></section></div>;
+  if (error || !data?.user) return <div className="page-stack"><section className="card surface-section"><p>{error || 'Unable to load account.'}</p></section></div>;
 
   const dbUser = data.user;
   const countries = data.countries || [];
   const isAdmin = dbUser.roleKey === 'admin' || dbUser.roleKey === 'superadmin';
 
   return (
-    <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
-      <section className="card" style={{ padding: '24px' }}>
+    <div className="page-stack">
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Account hub</span>
@@ -53,13 +53,13 @@ export default function AccountPage() {
           </div>
           <p>Manage your Pi-linked profile, privacy, and marketplace access from one place.</p>
         </div>
-        <div className="form-grid">
-          <div className="card" style={{ padding: '16px' }}><strong>Pi username</strong><p style={{ color: 'var(--muted)' }}>{dbUser.piUsername || dbUser.username}</p></div>
-          <div className="card" style={{ padding: '16px' }}><strong>Pi UID</strong><p style={{ color: 'var(--muted)', wordBreak: 'break-all' }}>{dbUser.piUid || 'Not linked yet'}</p></div>
-          <div className="card" style={{ padding: '16px' }}><strong>Phone</strong><p style={{ color: 'var(--muted)' }}>{dbUser.phoneNumber || 'Not added yet'}</p></div>
-          <div className="card" style={{ padding: '16px' }}><strong>Country</strong><p style={{ color: 'var(--muted)' }}>{dbUser.country === '__OTHER__' ? (dbUser.customCountryName || 'Other country') : (dbUser.country || 'Not set')}</p></div>
-          <div className="card" style={{ padding: '16px' }}><strong>Role</strong><p style={{ color: 'var(--muted)' }}>{dbUser.roleName}</p></div>
-          <div className="card" style={{ padding: '16px' }}><strong>Linked at</strong><p style={{ color: 'var(--muted)' }}>{dbUser.linkedAt ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dbUser.linkedAt)) : 'Not linked yet'}</p></div>
+        <div className="account-summary-grid">
+          <div className="card summary-card"><strong>Pi username</strong><p style={{ color: 'var(--muted)' }}>{dbUser.piUsername || dbUser.username}</p></div>
+          <div className="card summary-card"><strong>Pi UID</strong><p style={{ color: 'var(--muted)', wordBreak: 'break-all' }}>{dbUser.piUid || 'Not linked yet'}</p></div>
+          <div className="card summary-card"><strong>Phone</strong><p style={{ color: 'var(--muted)' }}>{dbUser.phoneNumber || 'Not added yet'}</p></div>
+          <div className="card summary-card"><strong>Country</strong><p style={{ color: 'var(--muted)' }}>{dbUser.country === '__OTHER__' ? (dbUser.customCountryName || 'Other country') : (dbUser.country || 'Not set')}</p></div>
+          <div className="card summary-card"><strong>Role</strong><p style={{ color: 'var(--muted)' }}>{dbUser.roleName}</p></div>
+          <div className="card summary-card"><strong>Linked at</strong><p style={{ color: 'var(--muted)' }}>{dbUser.linkedAt ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dbUser.linkedAt)) : 'Not linked yet'}</p></div>
         </div>
         <div className="card-actions">
           <Link href={`/profile/${dbUser.username}`} className="button secondary">Open public profile</Link>
