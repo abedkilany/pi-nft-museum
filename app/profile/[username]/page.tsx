@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { PiConnectButton } from '@/components/PiConnectButton';
+import { ProfileFollowControls } from '@/components/profile/ProfileFollowControls';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getCurrentUser } from '@/lib/current-user';
 import { getFollowCounts, getFollowState } from '@/lib/follows';
-import { FollowButton } from '@/components/community/FollowButton';
 import { formatTimeAgo } from '@/lib/community';
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
@@ -55,18 +55,25 @@ export default async function PublicProfilePage({ params }: { params: { username
             </div>
           </div>
           {!followState.isSelf ? (
-            <div className="profile-cover-actions">
-              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
+            <div className="profile-cover-actions" style={{ alignItems: 'stretch', minWidth: 'min(100%, 280px)' }}>
               {currentUser ? (
-                <FollowButton
-                  targetUserId={user.id}
-                  isFollowing={followState.isFollowing}
-                  followsYou={followState.followsYou}
-                  isSelf={followState.isSelf}
+                <ProfileFollowControls
+                  profileUserId={user.id}
+                  initial={{
+                    isFollowing: followState.isFollowing,
+                    followersCount: counts.followers,
+                    followingCount: counts.following,
+                    preferences: null,
+                  }}
                 />
               ) : (
-                <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
+                  <div className="inline-stats">
+                    <Link href={`/profile/${user.username}/followers`} className="pill" style={{ textDecoration: 'none' }}>Followers · {counts.followers}</Link>
+                    <Link href={`/profile/${user.username}/following`} className="pill" style={{ textDecoration: 'none' }}>Following · {counts.following}</Link>
+                  </div>
+                </div>
               )}
             </div>
           ) : (

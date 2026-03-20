@@ -31,15 +31,13 @@ export default async function ArtworkDetailPage({ params }: Props) {
 
   if (!artwork) notFound();
 
-  const publicStatuses = ['PUBLIC_REVIEW', 'PUBLISHED', 'PREMIUM', 'SOLD'];
-
   const canView = Boolean(
     currentUser && (
       currentUser.userId === artwork.artistUserId ||
       currentUser.role === 'admin' ||
       currentUser.role === 'superadmin'
     )
-  ) || publicStatuses.includes(artwork.status);
+  ) || ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(artwork.status);
 
   if (!canView) notFound();
 
