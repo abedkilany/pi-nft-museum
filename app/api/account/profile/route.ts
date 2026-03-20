@@ -9,17 +9,27 @@ import {
   validateOptionalUrl,
 } from '@/lib/validators';
 import { saveUploadedImage } from '@/lib/uploads';
+import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 
 function toBoolean(value: FormDataEntryValue | null) {
   return String(value || '') === 'true';
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
+
+    const rateLimitError = applyRateLimit(request, [currentUser.userId], 'account-profile-update', [
+      { limit: 10, windowMs: 60 * 1000 },
+      { limit: 40, windowMs: 60 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
 
     const formData = await request.formData();
     const fullName = String(formData.get('fullName') || '').trim();

@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
+import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  const body = await request.json();
+
+  const rateLimitError = applyRateLimit(request, [currentUser.userId], 'profile-follow-preferences', [
+    { limit: 20, windowMs: 60 * 1000 },
+    { limit: 80, windowMs: 60 * 60 * 1000 },
+  ]);
+  if (rateLimitError) return rateLimitError;
+
+  const body = await request.json().catch(() => ({}));
   const profileUserId = Number(body.profileUserId);
   if (!profileUserId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
 

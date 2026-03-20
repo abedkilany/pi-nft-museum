@@ -1,0 +1,35 @@
+Profile improvements included in this package
+==========================================
+
+1) Security hardening
+- Added Same-Origin CSRF checks to profile update and follow-related POST/DELETE routes.
+- Added rate limiting to profile update, follow, unfollow, and follow-preferences routes.
+- Reduced public-profile data exposure by switching to explicit safe Prisma selects.
+- Reduced member profile payload to a safer DTO instead of returning the full user record.
+
+2) Profile page cleanup
+- Rebuilt member profile page to be cleaner and easier to scan.
+- Added explicit typed payload handling instead of loose any usage.
+- Improved fallbacks for missing profile image, cover image, and profile text.
+- Added quick links and clearer artwork status labels.
+- Added artwork totals summary for published / premium / under-review.
+
+3) Public profile cleanup
+- Rebuilt public profile page to expose only intended public data.
+- Removed direct public email/phone exposure from the public profile page.
+- Kept public links limited to website / X / Instagram when present.
+
+4) Follow UX
+- Follow button now uses the hardened toggle endpoint.
+- Added optimistic UI update with rollback on failure.
+
+Files mainly changed
+- lib/profile.ts
+- app/api/profile/me/route.ts
+- app/profile/[username]/page.tsx
+- components/profile/MyProfilePageClient.tsx
+- components/community/FollowButton.tsx
+- app/api/account/profile/route.ts
+- app/api/follows/route.ts
+- app/api/profile/follow/route.ts
+- app/api/profile/follow/preferences/route.ts
