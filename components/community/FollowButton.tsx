@@ -23,24 +23,21 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
   const className = isFollowing ? 'button secondary' : 'button primary';
 
   async function handleClick() {
-    const previous = isFollowing;
     setBusy(true);
     setError(null);
-    setIsFollowing(!previous);
-
     try {
-      const response = await piApiFetch('/api/follows/toggle', {
+      const action = isFollowing ? 'unfollow' : 'follow';
+      const response = await piApiFetch('/api/follows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId }),
+        body: JSON.stringify({ targetUserId, action }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setIsFollowing(previous);
         setError(response.status === 401 ? 'Please log in with Pi to follow creators.' : data?.error || 'Unable to update follow status.');
         return;
       }
-      setIsFollowing(Boolean(data?.following));
+      setIsFollowing(action === 'follow');
       router.refresh();
     } finally {
       setBusy(false);
@@ -49,7 +46,7 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
 
   return (
     <div style={{ display: 'grid', gap: 6 }}>
-      <button type="button" className={className} onClick={handleClick} disabled={busy} aria-pressed={isFollowing}>
+      <button type="button" className={className} onClick={handleClick} disabled={busy}>
         {busy ? 'Please wait…' : label}
       </button>
       {error ? <span style={{ fontSize: 12, color: '#f87171' }}>{error}</span> : null}

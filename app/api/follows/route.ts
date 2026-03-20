@@ -4,11 +4,8 @@ import { getCurrentUser } from '@/lib/current-user';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { isCommunityEnabled } from '@/lib/community-access';
-import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 
 export async function POST(req: Request) {
-  const csrfError = assertSameOrigin(req);
-  if (csrfError) return csrfError;
   if (!(await isCommunityEnabled())) {
     return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
   }
@@ -17,12 +14,6 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
-
-  const rateLimitError = applyRateLimit(req, [currentUser.userId], 'follow-write', [
-    { limit: 20, windowMs: 60 * 1000 },
-    { limit: 100, windowMs: 60 * 60 * 1000 },
-  ]);
-  if (rateLimitError) return rateLimitError;
 
   const body = await req.json().catch(() => ({}));
   const targetUserId = Number(body.targetUserId ?? body.followingId ?? body.profileUserId);

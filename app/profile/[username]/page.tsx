@@ -7,20 +7,25 @@ import { getCurrentUser } from '@/lib/current-user';
 import { getFollowCounts, getFollowState } from '@/lib/follows';
 import { FollowButton } from '@/components/community/FollowButton';
 import { formatTimeAgo } from '@/lib/community';
-import { getDisplayName, getInitials, getPublicCountry, getStatusLabel, publicProfileUserSelect } from '@/lib/profile';
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const currentUser = await getCurrentUser();
   const user = await prisma.user.findUnique({
     where: { username: params.username },
-    select: publicProfileUserSelect,
+    include: {
+      role: true,
+      artworks: {
+        where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
+        orderBy: { publishedAt: 'desc' },
+        take: 12,
+        include: { category: true }
+      }
+    }
   });
 
   if (!user) notFound();
-
-  const displayName = getDisplayName(user);
-  const publicCountry = getPublicCountry(user);
-
+  const displayName = user.fullName || user.username;
+  const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
   const [counts, followState, activities] = await Promise.all([
     getFollowCounts(user.id),
     getFollowState(currentUser?.userId ?? null, user.id),
@@ -28,49 +33,32 @@ export default async function PublicProfilePage({ params }: { params: { username
       where: { OR: [{ actorId: user.id }, { subjectUserId: user.id }] },
       orderBy: { createdAt: 'desc' },
       take: 8,
-      select: {
-        id: true,
-        title: true,
-        message: true,
-        linkUrl: true,
-        createdAt: true,
-      },
     }),
   ]);
-
-  const publicLinks = [
-    user.websiteUrl ? { href: user.websiteUrl, label: 'Website' } : null,
-    user.twitterUrl ? { href: user.twitterUrl, label: 'X / Twitter' } : null,
-    user.instagramUrl ? { href: user.instagramUrl, label: 'Instagram' } : null,
-  ].filter(Boolean) as Array<{ href: string; label: string }>;
 
   return (
     <div className="page-stack">
       <section className="card" style={{ overflow: 'hidden' }}>
         <div className="profile-cover" style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}>
           <div className="profile-avatar profile-avatar-large">
-            {user.profileImage ? <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{getInitials(displayName)}</span>}
+            {user.profileImage ? <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
           </div>
           <div>
             <span className="section-kicker">Public creator profile</span>
             <h1 style={{ margin: '6px 0 8px' }}>{displayName}</h1>
-            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>@{user.username} · {user.role.name}{publicCountry ? ` · ${publicCountry}` : ''}</p>
+            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>@{user.username} · {user.role.name}{publicCountry && user.showCountryPublic ? ` · ${publicCountry}` : ''}</p>
             <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7 }}>{user.headline || user.bio || 'No public bio has been added yet.'}</p>
-            {publicLinks.length > 0 ? (
-              <div className="card-actions" style={{ marginTop: 16 }}>
-                {publicLinks.map((item) => (
-                  <a key={item.label} className="button secondary" href={item.href} target="_blank" rel="noreferrer">
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+            <div className="card-actions" style={{ marginTop: 16 }}>
+              {user.showEmailPublic ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
+              {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
+              {user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
+            </div>
           </div>
-          <div className="profile-cover-actions">
-            <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-            <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
-            {!followState.isSelf ? (
-              currentUser ? (
+          {!followState.isSelf ? (
+            <div className="profile-cover-actions">
+              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
+              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
+              {currentUser ? (
                 <FollowButton
                   targetUserId={user.id}
                   isFollowing={followState.isFollowing}
@@ -79,9 +67,14 @@ export default async function PublicProfilePage({ params }: { params: { username
                 />
               ) : (
                 <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
-              )
-            ) : null}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="profile-cover-actions">
+              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
+              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -91,13 +84,14 @@ export default async function PublicProfilePage({ params }: { params: { username
         <div className="card stat-card"><strong>{user.artworks.length}</strong><span>Public artworks</span></div>
       </section>
 
+
       <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Community</span>
             <h2>Recent activity</h2>
           </div>
-          <p>Followers, comments, replies, and likes build each creator&apos;s public story.</p>
+          <p>Followers, comments, replies, and likes now give each creator a living public presence.</p>
         </div>
         {activities.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public activity yet.</p> : (
           <div className="stack-sm">
@@ -139,10 +133,6 @@ export default async function PublicProfilePage({ params }: { params: { username
                     {artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}
                   </div>
                   <p className="art-description">{artwork.description}</p>
-                  <div className="inline-stats">
-                    <span>{getStatusLabel(artwork.status)}</span>
-                    <span>{formatTimeAgo(artwork.publishedAt || artwork.createdAt)}</span>
-                  </div>
                   <div className="card-actions" style={{ marginTop: 16 }}>
                     <Link href={`/artwork/${artwork.id}`} className="button secondary">Open artwork</Link>
                   </div>

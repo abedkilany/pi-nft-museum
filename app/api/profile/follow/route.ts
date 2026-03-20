@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { createNotification } from '@/lib/notifications';
 import { isCommunityEnabled } from '@/lib/community-access';
-import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 
 async function buildState(currentUserId: number, profileUserId: number) {
   const [follow, followersCount, followingCount] = await Promise.all([
@@ -30,22 +29,12 @@ async function buildState(currentUserId: number, profileUserId: number) {
 }
 
 export async function POST(request: Request) {
-  const csrfError = assertSameOrigin(request);
-  if (csrfError) return csrfError;
-
   if (!(await isCommunityEnabled())) {
     return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
   }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-
-  const rateLimitError = applyRateLimit(request, [currentUser.userId], 'profile-follow-write', [
-    { limit: 20, windowMs: 60 * 1000 },
-    { limit: 100, windowMs: 60 * 60 * 1000 },
-  ]);
-  if (rateLimitError) return rateLimitError;
-
   const { profileUserId } = await request.json();
   const targetId = Number(profileUserId);
   if (!targetId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
@@ -78,21 +67,12 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const csrfError = assertSameOrigin(request);
-  if (csrfError) return csrfError;
   if (!(await isCommunityEnabled())) {
     return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
   }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-
-  const rateLimitError = applyRateLimit(request, [currentUser.userId], 'profile-follow-delete', [
-    { limit: 20, windowMs: 60 * 1000 },
-    { limit: 100, windowMs: 60 * 60 * 1000 },
-  ]);
-  if (rateLimitError) return rateLimitError;
-
   const { profileUserId } = await request.json();
   const targetId = Number(profileUserId);
   if (!targetId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
