@@ -31,6 +31,16 @@ export default async function ArtworkDetailPage({ params }: Props) {
 
   if (!artwork) notFound();
 
+  const canView = Boolean(
+    currentUser && (
+      currentUser.userId === artwork.artistUserId ||
+      currentUser.role === 'admin' ||
+      currentUser.role === 'superadmin'
+    )
+  ) || ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(artwork.status);
+
+  if (!canView) notFound();
+
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   const commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
 

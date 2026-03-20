@@ -1,5 +1,5 @@
 import MyArtworksPageClient from '@/components/account/MyArtworksPageClient';
 
-export default function AccountArtworksPage() {
+export default function ArtworkPage() {
   return <MyArtworksPageClient />;
 }

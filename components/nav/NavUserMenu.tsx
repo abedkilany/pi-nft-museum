@@ -107,7 +107,7 @@ export function NavUserMenu({ user, showAdmin }: Props) {
             <Link href="/account" className="button secondary nav-user-link">
               Account
             </Link>
-            <Link href="/account/artworks" className="button secondary nav-user-link">
+            <Link href="/artwork" className="button secondary nav-user-link">
               My artworks
             </Link>
             {showAdmin ? (

@@ -57,7 +57,7 @@ export default function AccountPage() {
         <div className="card-actions">
           <Link href={`/profile/${dbUser.username}`} className="button secondary">Open public profile</Link>
           <Link href="/profile" className="button secondary">Open member dashboard</Link>
-          <Link href="/account/artworks" className="button secondary">My artworks</Link>
+          <Link href="/artwork" className="button secondary">My artworks</Link>
           <Link href="/upload" className="button primary">Upload artwork</Link>
           {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
         </div>
