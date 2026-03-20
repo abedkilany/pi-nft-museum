@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButton';
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
@@ -12,6 +13,7 @@ import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions'
 import { piApiFetch } from '@/lib/pi-auth-client';
 
 export default function MyArtworksPageClient() {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,6 +24,11 @@ export default function MyArtworksPageClient() {
       const response = await piApiFetch('/api/account/artworks', { method: 'GET', cache: 'no-store' }).catch(() => null);
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
+      if (response?.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
       if (!response?.ok || !payload?.ok) {
         setError(payload?.error || 'Failed to load artworks.');
         setLoading(false);
@@ -32,7 +39,7 @@ export default function MyArtworksPageClient() {
     }
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [router]);
 
   if (loading) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>Loading artworks…</p></div></div>;
   if (error) return <div style={{ paddingTop: '30px' }}><div className="card" style={{ padding: '24px' }}><p>{error}</p></div></div>;
@@ -58,7 +65,7 @@ export default function MyArtworksPageClient() {
               const mintWindowStatus = getMintWindowStatus(artwork);
               const showMintButton = mintWindowStatus === 'mint_open';
               return (
-                <div key={artwork.id} className="card" style={{ padding: '18px', display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: '16px', alignItems: 'start' }}>
+                <div key={artwork.id} className="card" style={{ padding: '18px', display: 'grid', gridTemplateColumns: 'minmax(0, 120px) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
                   <img src={artwork.imageUrl} alt={artwork.title} style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '12px' }} />
                   <div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
@@ -68,7 +75,7 @@ export default function MyArtworksPageClient() {
                     {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
                     {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
                   </div>
-                  <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'grid', gap: '10px', gridColumn: '1 / -1' }}>
                     <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
                     <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link>
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />

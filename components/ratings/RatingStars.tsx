@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function RatingStars({
@@ -19,9 +19,32 @@ export function RatingStars({
   const [hovered, setHovered] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [resolvedCanRate, setResolvedCanRate] = useState(canRate);
+
+  useEffect(() => {
+    setResolvedCanRate(canRate);
+  }, [canRate]);
+
+  async function ensureAuthenticated() {
+    if (resolvedCanRate) return true;
+
+    const response = await piApiFetch('/api/auth/me', {
+      method: 'GET',
+      cache: 'no-store',
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => null) : null;
+
+    if (response?.ok && data?.authenticated) {
+      setResolvedCanRate(true);
+      return true;
+    }
+
+    return false;
+  }
 
   async function submitRating(value: number) {
-    if (!canRate) {
+    const authenticated = await ensureAuthenticated();
+    if (!authenticated) {
       setMessage('Please log in to rate artworks.');
       return;
     }

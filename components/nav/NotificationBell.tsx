@@ -99,14 +99,14 @@ export function NotificationBell() {
   }
 
   async function markOneAsRead(id: number) {
-    const response = await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+    const response = await piApiFetch(`/api/notifications/${id}/read`, { method: 'POST' });
     if (!response.ok) return;
     setNotifications((items) => items.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
     setUnreadCount((count) => Math.max(0, count - 1));
   }
 
   async function deleteOne(id: number) {
-    const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+    const response = await piApiFetch(`/api/notifications/${id}`, { method: 'DELETE' });
     if (!response.ok) return;
     setNotifications((items) => items.filter((item) => item.id !== id));
   }

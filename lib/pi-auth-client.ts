@@ -5,17 +5,20 @@ function isBrowser() {
   return typeof window !== 'undefined';
 }
 
-function getStorage() {
-  if (!isBrowser()) return null;
+function getStorages() {
+  if (!isBrowser()) return [];
+
+  const storages: Storage[] = [];
+
   try {
-    return window.sessionStorage;
-  } catch {
-    try {
-      return window.localStorage;
-    } catch {
-      return null;
-    }
-  }
+    storages.push(window.sessionStorage);
+  } catch {}
+
+  try {
+    storages.push(window.localStorage);
+  } catch {}
+
+  return storages;
 }
 
 function isSecureContextForCookie() {
@@ -59,7 +62,12 @@ function deleteClientCookie(name: string) {
 }
 
 export function getPiAuthToken() {
-  return getStorage()?.getItem(PI_AUTH_TOKEN_KEY) || null;
+  for (const storage of getStorages()) {
+    const token = storage.getItem(PI_AUTH_TOKEN_KEY);
+    if (token) return token;
+  }
+
+  return null;
 }
 
 export function syncPiAuthCookie(token?: string | null) {
@@ -78,12 +86,18 @@ export function clearPiAuthCookie() {
 }
 
 export function setPiAuthToken(token: string) {
-  getStorage()?.setItem(PI_AUTH_TOKEN_KEY, token);
+  for (const storage of getStorages()) {
+    storage.setItem(PI_AUTH_TOKEN_KEY, token);
+  }
+
   syncPiAuthCookie(token);
 }
 
 export function clearPiAuthToken() {
-  getStorage()?.removeItem(PI_AUTH_TOKEN_KEY);
+  for (const storage of getStorages()) {
+    storage.removeItem(PI_AUTH_TOKEN_KEY);
+  }
+
   clearPiAuthCookie();
 }
 
@@ -95,10 +109,55 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   };
 }
 
+function isRelativeApiRequest(input: RequestInfo | URL) {
+  if (typeof input === 'string') return input.startsWith('/api/');
+  if (input instanceof URL) return input.pathname.startsWith('/api/');
+  return false;
+}
+
+async function tryRehydrateSession() {
+  const authResponse = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: getPiAuthHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+  }).catch(() => null);
+
+  if (authResponse?.ok) return true;
+
+  const bootstrapResponse = await fetch('/api/auth/bootstrap?returnTo=/', {
+    method: 'GET',
+    credentials: 'include',
+    redirect: 'follow',
+    cache: 'no-store',
+  }).catch(() => null);
+
+  return Boolean(bootstrapResponse?.ok);
+}
+
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  return fetch(input, {
+  const execute = () => fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
     credentials: 'include',
   });
+
+  let response = await execute();
+
+  if (response.status !== 401 || !isBrowser() || !isRelativeApiRequest(input)) {
+    return response;
+  }
+
+  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.pathname : '';
+  if (requestUrl.startsWith('/api/auth/')) {
+    return response;
+  }
+
+  const rehydrated = await tryRehydrateSession();
+  if (!rehydrated) {
+    return response;
+  }
+
+  response = await execute();
+  return response;
 }

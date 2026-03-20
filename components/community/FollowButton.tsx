@@ -34,7 +34,7 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(data?.error || 'Unable to update follow status.');
+        setError(response.status === 401 ? 'Please log in with Pi to follow creators.' : data?.error || 'Unable to update follow status.');
         return;
       }
       setIsFollowing(action === 'follow');

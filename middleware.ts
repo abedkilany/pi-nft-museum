@@ -4,9 +4,7 @@ import { getAuthCookieName } from '@/lib/auth';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 
 const EXCLUDED_PREFIXES = [
-  '/api/auth/bootstrap',
-  '/api/auth/pi/login',
-  '/api/auth/logout',
+  '/api',
   '/_next',
   '/favicon',
   '/robots.txt',
@@ -40,5 +38,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

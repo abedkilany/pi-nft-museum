@@ -42,7 +42,7 @@ export function ProfileFollowControls({
         body: JSON.stringify({ profileUserId }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'Request failed');
+      if (!response.ok) throw new Error(response.status === 401 ? 'Please log in with Pi to follow this profile.' : payload.error || 'Request failed');
       setState(payload.state);
       if (method === 'DELETE') setMenuOpen(false);
     } catch (err) {
@@ -62,7 +62,7 @@ export function ProfileFollowControls({
         body: JSON.stringify({ profileUserId, ...nextPrefs }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'Unable to save notification preferences.');
+      if (!response.ok) throw new Error(response.status === 401 ? 'Please log in with Pi to manage follow notifications.' : payload.error || 'Unable to save notification preferences.');
       setState((current) => ({ ...current, preferences: payload.preferences }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to save preferences.');

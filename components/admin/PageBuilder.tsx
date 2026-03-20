@@ -142,7 +142,7 @@ function PageCard({ page, isNew = false }: { page: PageRecord; isNew?: boolean }
   async function savePage() {
     setBusy(true);
     setMessage('');
-    const response = await fetch(isNew ? '/api/admin/pages/create' : '/api/admin/pages/update', {
+    const response = await piApiFetch(isNew ? '/api/admin/pages/create' : '/api/admin/pages/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

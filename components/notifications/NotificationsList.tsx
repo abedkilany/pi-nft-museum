@@ -23,7 +23,7 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
   }
 
   async function markAsRead(id: number) {
-    const response = await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+    const response = await piApiFetch(`/api/notifications/${id}/read`, { method: 'POST' });
     if (!response.ok) return;
     setItems((current) => current.map((item) => item.id === id ? { ...item, isRead: true } : item));
   }
@@ -35,7 +35,7 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
   }
 
   async function deleteItem(id: number) {
-    const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+    const response = await piApiFetch(`/api/notifications/${id}`, { method: 'DELETE' });
     if (!response.ok) return;
     setItems((current) => current.filter((item) => item.id !== id));
   }

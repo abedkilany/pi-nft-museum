@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProfileForms } from '@/components/account/ProfileForms';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
 export default function AccountPage() {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,6 +19,11 @@ export default function AccountPage() {
       const response = await piApiFetch('/api/account/summary', { method: 'GET', cache: 'no-store' }).catch(() => null);
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
+      if (response?.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
       if (!response?.ok || !payload?.ok) {
         setError(payload?.error || 'Failed to load your account.');
         setLoading(false);
@@ -27,7 +34,7 @@ export default function AccountPage() {
     }
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [router]);
 
   if (loading) return <div style={{ paddingTop: '30px' }}><section className="card" style={{ padding: '24px' }}><p>Loading account…</p></section></div>;
   if (error || !data?.user) return <div style={{ paddingTop: '30px' }}><section className="card" style={{ padding: '24px' }}><p>{error || 'Unable to load account.'}</p></section></div>;
