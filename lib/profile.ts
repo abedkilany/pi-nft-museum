@@ -103,12 +103,22 @@ export function getStatusLabel(status: string) {
       return 'Published';
     case 'PREMIUM':
       return 'Premium';
-    case 'UNDER_REVIEW':
-      return 'Under review';
+    case 'PENDING':
+      return 'Pending';
+    case 'PUBLIC_REVIEW':
+      return 'Public review';
+    case 'MINTING':
+      return 'Minting';
     case 'REJECTED':
       return 'Needs changes';
-    case 'MINTED':
-      return 'Minted';
+    case 'APPROVED':
+      return 'Approved';
+    case 'ARCHIVED':
+      return 'Archived';
+    case 'HIDDEN':
+      return 'Hidden';
+    case 'SOLD':
+      return 'Sold';
     default:
       return status.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
   }

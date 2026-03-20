@@ -38,7 +38,7 @@ export async function GET() {
     }),
     prisma.artwork.groupBy({
       by: ['status'],
-      where: { artistId: user.id },
+      where: { artistUserId: user.id },
       _count: { status: true },
     }),
   ]);
@@ -58,10 +58,10 @@ export async function GET() {
       total: Object.values(artworkTotals).reduce((sum, value) => sum + value, 0),
       published: artworkTotals.PUBLISHED || 0,
       premium: artworkTotals.PREMIUM || 0,
-      underReview: artworkTotals.UNDER_REVIEW || 0,
+      pending: artworkTotals.PENDING || 0,
+      publicReview: artworkTotals.PUBLIC_REVIEW || 0,
       rejected: artworkTotals.REJECTED || 0,
       drafted: artworkTotals.DRAFT || 0,
-      minted: artworkTotals.MINTED || 0,
     },
   });
 }

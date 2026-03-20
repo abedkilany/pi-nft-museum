@@ -54,10 +54,10 @@ type ProfilePayload = {
     total: number;
     published: number;
     premium: number;
-    underReview: number;
+    pending: number;
+    publicReview: number;
     rejected: number;
     drafted: number;
-    minted: number;
   };
 };
 
@@ -197,7 +197,7 @@ export default function MyProfilePageClient() {
       <section className="stats-grid">
         <div className="card stat-card"><strong>{artworkTotals?.published || 0}</strong><span>Published</span></div>
         <div className="card stat-card"><strong>{artworkTotals?.premium || 0}</strong><span>Premium</span></div>
-        <div className="card stat-card"><strong>{artworkTotals?.underReview || 0}</strong><span>Under review</span></div>
+        <div className="card stat-card"><strong>{(artworkTotals?.pending || 0) + (artworkTotals?.publicReview || 0)}</strong><span>In review</span></div>
       </section>
 
       <section className="card surface-section">
