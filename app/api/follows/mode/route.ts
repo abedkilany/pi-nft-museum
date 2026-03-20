@@ -2,12 +2,8 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { FOLLOW_NOTIFY_MODES } from '@/lib/notifications';
-import { isCommunityEnabled } from '@/lib/community-access';
 
 export async function POST(request: Request) {
-  if (!(await isCommunityEnabled())) {
-    return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
-  }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

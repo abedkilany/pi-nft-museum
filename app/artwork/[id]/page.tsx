@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
@@ -54,7 +55,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
             {artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}
           </div>
           <p style={{ margin: '0 0 8px', opacity: 0.8 }}>Artwork ID: {artwork.id}</p>
-          <p style={{ margin: '0 0 8px', opacity: 0.8 }}>Artist: {artistName}</p>
+          <p style={{ margin: '0 0 8px', opacity: 0.8 }}>Artist: {artwork.artist.username ? <Link href={`/profile/${artwork.artist.username}`} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>{artistName}</Link> : artistName}</p>
           <p style={{ margin: '0 0 8px', opacity: 0.8 }}>Category: {artwork.category?.name || 'General'}</p>
           <p style={{ margin: '0 0 16px', opacity: 0.9 }}>{artwork.description}</p>
           <div style={{ display: 'grid', gap: '8px' }}>

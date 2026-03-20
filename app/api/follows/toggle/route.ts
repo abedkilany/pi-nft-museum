@@ -3,16 +3,11 @@ import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
-import { isCommunityEnabled } from '@/lib/community-access';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-
-  if (!(await isCommunityEnabled())) {
-    return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
-  }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

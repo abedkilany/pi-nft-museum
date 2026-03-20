@@ -3,12 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
-import { isCommunityEnabled } from '@/lib/community-access';
 
 export async function POST(req: Request) {
-  if (!(await isCommunityEnabled())) {
-    return NextResponse.json({ error: 'Community is currently disabled.' }, { status: 403 });
-  }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) {
