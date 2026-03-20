@@ -97,16 +97,12 @@ export function ProfileFollowControls({
                 <label className="inline-check"><input type="checkbox" checked={preferences.muted} onChange={(e) => savePreferences({ ...preferences, muted: e.target.checked, notificationsEnabled: !e.target.checked })} />Mute everything</label>
                 <label className="inline-check"><input type="checkbox" checked={preferences.notifyAllActivity} onChange={(e) => savePreferences({ ...preferences, notifyAllActivity: e.target.checked, notificationsEnabled: true, muted: false })} />All activity</label>
                 <label className="inline-check"><input type="checkbox" checked={preferences.notifyNewArtworks} onChange={(e) => savePreferences({ ...preferences, notifyNewArtworks: e.target.checked, notificationsEnabled: true, muted: false })} />New artworks</label>
-                <label className="inline-check"><input type="checkbox" checked={preferences.notifyPremiumArtworks} onChange={(e) => savePreferences({ ...preferences, notifyPremiumArtworks: e.target.checked, notificationsEnabled: true, muted: false })} />Premium artworks</label>
+                <label className="inline-check"><input type="checkbox" checked={preferences.notifyPremiumArtworks} onChange={(e) => savePreferences({ ...preferences, notifyPremiumArtworks: e.target.checked, notificationsEnabled: true, muted: false })} />Marketplace updates</label>
                 <label className="inline-check"><input type="checkbox" checked={preferences.notifyComments} onChange={(e) => savePreferences({ ...preferences, notifyComments: e.target.checked, notificationsEnabled: true, muted: false })} />Comments & replies</label>
               </div>
             </div>
           ) : null}
         </div>
-      </div>
-      <div className="inline-stats">
-        <span><strong style={{ color: 'var(--text)' }}>{state.followersCount}</strong> followers</span>
-        <span><strong style={{ color: 'var(--text)' }}>{state.followingCount}</strong> following</span>
       </div>
       {error ? <span style={{ color: '#ffb3b3', fontSize: 13 }}>{error}</span> : null}
     </div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ProfileStatButtons from '@/components/profile/ProfileStatButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { formatTimeAgo } from '@/lib/community';
@@ -57,7 +58,7 @@ export default function MyProfilePageClient() {
   }
 
   const user = data?.user;
-  const counts = data?.counts || { followers: 0, following: 0 };
+  const counts = data?.counts || { followers: 0, following: 0, artworks: 0 };
   const unreadNotifications = data?.unreadNotifications || 0;
   const recentNotifications = data?.recentNotifications || [];
 
@@ -87,7 +88,7 @@ export default function MyProfilePageClient() {
             )}
           </div>
           <div>
-            <span className="section-kicker">Member profile</span>
+            <span className="section-kicker">My profile</span>
             <h1 style={{ margin: '6px 0 8px' }}>{displayName}</h1>
             <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>
               @{user.username} · {user.role?.name || 'Member'}
@@ -96,25 +97,27 @@ export default function MyProfilePageClient() {
             <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7 }}>
               {user.headline || user.bio || 'Complete your profile from Account settings to add your public bio.'}
             </p>
-            <div className="card-actions" style={{ marginTop: 16 }}>
-              <Link href="/account" className="button secondary">Account settings</Link>
-              <Link href="/artwork" className="button secondary">My artworks</Link>
-              <Link href="/upload" className="button primary">Upload artwork</Link>
-            </div>
-          </div>
-          <div className="profile-cover-actions">
-            <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-            <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
-            <Link href="/notifications" className="button primary">Notifications · {unreadNotifications}</Link>
           </div>
         </div>
       </section>
 
-      <section className="stats-grid">
-        <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
-        <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
-        <div className="card stat-card"><strong>{user.artworks?.length || 0}</strong><span>Recent artworks</span></div>
+      <section className="card surface-section">
+        <div className="card-actions">
+          <Link href="/account" className="button secondary">Edit profile</Link>
+          <Link href="/artwork" className="button secondary">My artworks</Link>
+          <Link href="/upload" className="button primary">Upload artwork</Link>
+          <Link href="/notifications" className="button secondary">Notifications · {unreadNotifications}</Link>
+        </div>
       </section>
+
+      <ProfileStatButtons
+        username={user.username}
+        followers={counts.followers}
+        following={counts.following}
+        artworks={counts.artworks || 0}
+        artworksHref="/artwork"
+        artworksLabel="Artworks"
+      />
 
       <section className="card surface-section">
         <div className="section-head compact">
@@ -142,7 +145,7 @@ export default function MyProfilePageClient() {
         )}
       </section>
 
-      <section className="card surface-section">
+      <section id="artworks" className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Portfolio</span>

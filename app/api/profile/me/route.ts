@@ -26,8 +26,9 @@ export async function GET() {
     return NextResponse.json({ error: 'User not found.' }, { status: 404 });
   }
 
-  const [counts, unreadNotifications, recentNotifications] = await Promise.all([
+  const [counts, artworkCount, unreadNotifications, recentNotifications] = await Promise.all([
     getFollowCounts(user.id),
+    prisma.artwork.count({ where: { userId: user.id } }),
     getUnreadNotificationCount(user.id),
     prisma.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 5 }),
   ]);
@@ -35,7 +36,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     user,
-    counts,
+    counts: { ...counts, artworks: artworkCount },
     unreadNotifications,
     recentNotifications,
   });
