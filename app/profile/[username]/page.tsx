@@ -5,9 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getCurrentUser } from '@/lib/current-user';
 import { getFollowCounts, getFollowState } from '@/lib/follows';
+import { FollowButton } from '@/components/community/FollowButton';
 import { formatTimeAgo } from '@/lib/community';
-import ProfileStatButtons from '@/components/profile/ProfileStatButtons';
-import { ProfileFollowControls } from '@/components/profile/ProfileFollowControls';
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const currentUser = await getCurrentUser();
@@ -19,18 +18,17 @@ export default async function PublicProfilePage({ params }: { params: { username
         where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
         orderBy: { publishedAt: 'desc' },
         take: 12,
-        include: { category: true },
-      },
-    },
+        include: { category: true }
+      }
+    }
   });
 
   if (!user) notFound();
   const displayName = user.fullName || user.username;
   const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
-  const [counts, followState, directFollow, activities] = await Promise.all([
+  const [counts, followState, activities] = await Promise.all([
     getFollowCounts(user.id),
     getFollowState(currentUser?.userId ?? null, user.id),
-    currentUser?.userId && currentUser.userId !== user.id ? prisma.follow.findUnique({ where: { followerId_followingId: { followerId: currentUser.userId, followingId: user.id } } }) : Promise.resolve(null),
     prisma.communityActivity.findMany({
       where: { OR: [{ actorId: user.id }, { subjectUserId: user.id }] },
       orderBy: { createdAt: 'desc' },
@@ -41,74 +39,51 @@ export default async function PublicProfilePage({ params }: { params: { username
   return (
     <div className="page-stack">
       <section className="card" style={{ overflow: 'hidden' }}>
-        <div
-          className="profile-cover"
-          style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}
-        >
+        <div className="profile-cover" style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}>
           <div className="profile-avatar profile-avatar-large">
             {user.profileImage ? <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
           </div>
           <div>
-            <span className="section-kicker">Artist profile</span>
+            <span className="section-kicker">Public creator profile</span>
             <h1 style={{ margin: '6px 0 8px' }}>{displayName}</h1>
-            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>
-              @{user.username} · {user.role?.name || 'Member'}
-              {publicCountry && user.showCountryPublic ? ` · ${publicCountry}` : ''}
-            </p>
-            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7 }}>
-              {user.headline || user.bio || 'This member has not added a public bio yet.'}
-            </p>
-            {user.showEmailPublic || user.showPhonePublic || user.showWebsitePublic ? (
-              <div className="card-actions" style={{ marginTop: 16 }}>
-                {user.showEmailPublic && user.email ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
-                {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
-                {user.showWebsitePublic && user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
-              </div>
-            ) : null}
+            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>@{user.username} · {user.role.name}{publicCountry && user.showCountryPublic ? ` · ${publicCountry}` : ''}</p>
+            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7 }}>{user.headline || user.bio || 'No public bio has been added yet.'}</p>
+            <div className="card-actions" style={{ marginTop: 16 }}>
+              {user.showEmailPublic ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
+              {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
+              {user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
+            </div>
           </div>
           {!followState.isSelf ? (
-            currentUser ? (
-              <div className="profile-cover-actions">
-                <ProfileFollowControls
-                  profileUserId={user.id}
-                  initial={{
-                    isFollowing: followState.isFollowing,
-                    followersCount: counts.followers,
-                    followingCount: counts.following,
-                    preferences: directFollow
-                      ? {
-                          notificationsEnabled: directFollow.notificationsEnabled,
-                          notifyAllActivity: directFollow.notifyAllActivity,
-                          notifyNewArtworks: directFollow.notifyNewArtworks,
-                          notifyPremiumArtworks: directFollow.notifyPremiumArtworks,
-                          notifyComments: directFollow.notifyComments,
-                          muted: directFollow.muted,
-                        }
-                      : null,
-                  }}
+            <div className="profile-cover-actions">
+              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
+              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
+              {currentUser ? (
+                <FollowButton
+                  targetUserId={user.id}
+                  isFollowing={followState.isFollowing}
+                  followsYou={followState.followsYou}
+                  isSelf={followState.isSelf}
                 />
-              </div>
-            ) : (
-              <div className="profile-cover-actions">
+              ) : (
                 <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
-              </div>
-            )
+              )}
+            </div>
           ) : (
             <div className="profile-cover-actions">
-              <Link href="/account" className="button secondary">Edit profile</Link>
+              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
+              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
             </div>
           )}
         </div>
       </section>
 
-      <ProfileStatButtons
-        username={user.username}
-        followers={counts.followers}
-        following={counts.following}
-        artworks={user.artworks.length}
-        artworksHref="#artworks"
-        artworksLabel="Artworks"
-      />
+      <section className="stats-grid">
+        <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
+        <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
+        <div className="card stat-card"><strong>{user.artworks.length}</strong><span>Public artworks</span></div>
+      </section>
+
 
       <section className="card surface-section">
         <div className="section-head compact">
@@ -136,7 +111,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         )}
       </section>
 
-      <section id="artworks" className="card surface-section">
+      <section className="card surface-section">
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Published works</span>
