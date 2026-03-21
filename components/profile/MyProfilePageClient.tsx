@@ -108,7 +108,7 @@ export default function MyProfilePageClient() {
             </p>
             <div className="card-actions" style={{ marginTop: 16 }}>
               <Link href="/account" prefetch={false} className="button secondary">Account settings</Link>
-              <Link href="/my-artworks" prefetch={false} className="button secondary">My artworks</Link>
+              <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
               <Link href="/upload" className="button primary">Upload artwork</Link>
             </div>
           </div>

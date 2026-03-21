@@ -67,9 +67,9 @@ export default function AccountPage() {
         </div>
         <div className="card-actions">
           <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button primary">Open public profile</Link>
-          <Link href="/me" prefetch={false} className="button secondary">Edit my profile</Link>
+          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button secondary">Edit public profile</Link>
           <Link href="/notifications" className="button secondary">Notifications</Link>
-          <Link href="/my-artworks" prefetch={false} className="button secondary">My artworks</Link>
+          <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
           {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
         </div>

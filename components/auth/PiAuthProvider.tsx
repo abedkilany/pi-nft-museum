@@ -26,8 +26,8 @@ type PiAuthContextValue = {
 const PiAuthContext = createContext<PiAuthContextValue | undefined>(undefined);
 
 const PROTECTED_PREFIXES = [
-  '/me',
-  '/my-artworks',
+  '/profile',
+  '/artwork',
   '/account',
   '/admin',
   '/upload',

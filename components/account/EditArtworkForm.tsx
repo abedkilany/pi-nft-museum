@@ -61,7 +61,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
     }
 
     setMessage(draftMode ? 'Artwork updated successfully.' : 'Artwork pricing updated successfully.');
-    router.push('/my-artworks');
+    router.push('/artwork');
     router.refresh();
   }
 
