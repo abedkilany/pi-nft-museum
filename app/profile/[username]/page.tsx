@@ -1,15 +1,12 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { PiConnectButton } from '@/components/PiConnectButton';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { getCurrentUser } from '@/lib/current-user';
-import { getFollowCounts, getFollowState } from '@/lib/follows';
-import { FollowButton } from '@/components/community/FollowButton';
+import { getFollowCounts } from '@/lib/follows';
 import { scoreCommunityPost } from '@/lib/community';
 import { getAllowedCountries } from '@/lib/countries';
-import PublicProfileCommunityTabs from '@/components/profile/PublicProfileCommunityTabs';
-import ProfileEditPanel from '@/components/profile/ProfileEditPanel';
+import PublicProfileTabsClient from '@/components/profile/PublicProfileTabsClient';
+import PublicProfileViewerControls from '@/components/profile/PublicProfileViewerControls';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
 
 export const dynamic = 'force-dynamic';
@@ -76,7 +73,7 @@ function serializeComments(comments: Array<any>) {
   return roots;
 }
 
-function serializePost(post: any, viewerId: number | null): CommunityFeedPost {
+function serializePost(post: any): CommunityFeedPost {
   return {
     id: post.id,
     body: post.body,
@@ -84,7 +81,7 @@ function serializePost(post: any, viewerId: number | null): CommunityFeedPost {
     updatedAt: post.updatedAt.toISOString(),
     likesCount: post.likesCount,
     commentsCount: post.commentsCount,
-    viewerLiked: viewerId ? post.likes.length > 0 : false,
+    viewerLiked: false,
     authorId: post.authorId,
     author: post.author,
     artwork: serializeArtwork(post.artwork),
@@ -99,9 +96,6 @@ function serializePost(post: any, viewerId: number | null): CommunityFeedPost {
 }
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
-  const currentUser = await getCurrentUser();
-  const viewerId = currentUser?.userId ?? null;
-
   const user = await prisma.user.findUnique({
     where: { username: params.username },
     include: {
@@ -151,15 +145,11 @@ export default async function PublicProfilePage({ params }: { params: { username
         },
       },
     },
-    likes: viewerId ? {
-      where: { userId: viewerId },
-      select: { id: true },
-    } : false,
+    likes: false as const,
   };
 
-  const [counts, followState, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount, countries] = await Promise.all([
+  const [counts, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount, countries] = await Promise.all([
     getFollowCounts(user.id),
-    getFollowState(viewerId, user.id),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
     prisma.communityPost.findMany({
       where: { authorId: user.id, isPublished: true },
@@ -189,11 +179,11 @@ export default async function PublicProfilePage({ params }: { params: { username
     getAllowedCountries(),
   ]);
 
-  const ownPosts = ownPostsRaw.map((post) => serializePost(post, viewerId));
+  const ownPosts = ownPostsRaw.map((post) => serializePost(post));
   const likedPosts = likedPostLikesRaw
     .map((entry) => entry.post)
     .filter((post, index, array) => array.findIndex((candidate) => candidate.id === post.id) === index)
-    .map((post) => serializePost(post, viewerId));
+    .map((post) => serializePost(post));
 
   const recentRepliesAndComments = await prisma.communityPostComment.findMany({
     where: { authorId: user.id },
@@ -228,13 +218,29 @@ export default async function PublicProfilePage({ params }: { params: { username
       id: `comment-${comment.id}`,
       kind: comment.parentId ? 'reply' as const : 'comment' as const,
       title: comment.parentId ? 'Replied in community' : 'Commented in community',
-      message: `${comment.body}
-
-On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
+      message: `${comment.body}\n\nOn ${comment.post.author.fullName || comment.post.author.username}'s post.`,
       createdAt: comment.createdAt.toISOString(),
       linkUrl: `/community`,
     })),
   ].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 12);
+
+  const editableUser = {
+    username: user.username,
+    fullName: user.fullName || '',
+    email: user.email || '',
+    bio: user.bio || '',
+    country: user.country || '',
+    customCountryName: user.customCountryName || '',
+    phoneNumber: user.phoneNumber || '',
+    headline: user.headline || '',
+    profileImage: user.profileImage || '',
+    coverImage: user.coverImage || '',
+    websiteUrl: user.websiteUrl || '',
+    twitterUrl: user.twitterUrl || '',
+    instagramUrl: user.instagramUrl || '',
+    showPhonePublic: Boolean(user.showPhonePublic),
+    showCountryPublic: Boolean(user.showCountryPublic),
+  };
 
   return (
     <div className="page-stack">
@@ -252,56 +258,18 @@ On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
               {user.showEmailPublic ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
               {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
               {user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
-              {followState.isSelf ? <button type="button" className="button primary">Editing enabled below</button> : null}
             </div>
           </div>
-          {!followState.isSelf ? (
-            <div className="profile-cover-actions">
-              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
-              {currentUser ? (
-                <FollowButton
-                  targetUserId={user.id}
-                  isFollowing={followState.isFollowing}
-                  followsYou={followState.followsYou}
-                  isSelf={followState.isSelf}
-                />
-              ) : (
-                <PiConnectButton className="button primary">Login with Pi to follow</PiConnectButton>
-              )}
-            </div>
-          ) : (
-            <div className="profile-cover-actions">
-              <Link href={`/profile/${user.username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-              <Link href={`/profile/${user.username}/following`} className="button secondary">Following · {counts.following}</Link>
-            </div>
-          )}
+
+          <PublicProfileViewerControls
+            username={user.username}
+            targetUserId={user.id}
+            counts={counts}
+            user={editableUser}
+            countries={countries}
+          />
         </div>
       </section>
-
-
-      {followState.isSelf ? (
-        <ProfileEditPanel
-          user={{
-            username: user.username,
-            fullName: user.fullName || '',
-            email: user.email || '',
-            bio: user.bio || '',
-            country: user.country || '',
-            customCountryName: user.customCountryName || '',
-            phoneNumber: user.phoneNumber || '',
-            headline: user.headline || '',
-            profileImage: user.profileImage || '',
-            coverImage: user.coverImage || '',
-            websiteUrl: user.websiteUrl || '',
-            twitterUrl: user.twitterUrl || '',
-            instagramUrl: user.instagramUrl || '',
-            showPhonePublic: Boolean(user.showPhonePublic),
-            showCountryPublic: Boolean(user.showCountryPublic),
-          }}
-          countries={countries}
-        />
-      ) : null}
 
       <section className="stats-grid">
         <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
@@ -312,12 +280,10 @@ On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
         <div className="card stat-card"><strong>{commentsAuthoredCount}</strong><span>Replies & comments</span></div>
       </section>
 
-      <PublicProfileCommunityTabs
+      <PublicProfileTabsClient
         posts={ownPosts}
         likedPosts={likedPosts}
         activity={activityItems}
-        currentUserId={viewerId}
-        canInteract={Boolean(currentUser)}
       />
 
       <section className="card surface-section">
