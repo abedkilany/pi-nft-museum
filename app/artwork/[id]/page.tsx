@@ -33,6 +33,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
 
   if (!artwork) notFound();
 
+  const reviewStatuses = getReviewStatuses(settings);
   const canView = Boolean(
     currentUser && (
       currentUser.userId === artwork.artistUserId ||
@@ -45,7 +46,6 @@ export default async function ArtworkDetailPage({ params }: Props) {
 
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   const commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
-  const reviewStatuses = getReviewStatuses(settings);
 
   return (
     <div className="page-stack">
