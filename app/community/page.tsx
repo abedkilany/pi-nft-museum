@@ -9,6 +9,26 @@ import { scoreCommunityPost, scoreCreator } from '@/lib/community';
 
 export const dynamic = 'force-dynamic';
 
+
+function serializeArtwork(artwork: {
+  id: number;
+  title: string;
+  imageUrl: string;
+  status: unknown;
+  price: { toString(): string } | number | string | null;
+  currency: string;
+} | null) {
+  if (!artwork) return null;
+  return {
+    id: artwork.id,
+    title: artwork.title,
+    imageUrl: artwork.imageUrl,
+    status: String(artwork.status),
+    price: artwork.price == null ? 0 : artwork.price.toString(),
+    currency: artwork.currency,
+  };
+}
+
 function serializeComments(comments: Array<any>) {
   const byId = new Map<number, any>();
   const roots: any[] = [];
@@ -176,7 +196,7 @@ export default async function CommunityPage({
     viewerLiked: currentUser ? post.likes.length > 0 : false,
     authorId: post.authorId,
     author: post.author,
-    artwork: post.artwork,
+    artwork: serializeArtwork(post.artwork),
     feedScore: scoreCommunityPost({
       createdAt: post.createdAt,
       likesCount: post.likesCount,

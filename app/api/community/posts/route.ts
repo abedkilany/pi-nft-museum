@@ -6,6 +6,26 @@ import { scoreCommunityPost } from '@/lib/community';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+
+function serializeArtwork(artwork: {
+  id: number;
+  title: string;
+  imageUrl: string;
+  status: unknown;
+  price: { toString(): string } | number | string | null;
+  currency: string;
+} | null) {
+  if (!artwork) return null;
+  return {
+    id: artwork.id,
+    title: artwork.title,
+    imageUrl: artwork.imageUrl,
+    status: String(artwork.status),
+    price: artwork.price == null ? 0 : artwork.price.toString(),
+    currency: artwork.currency,
+  };
+}
+
 function serializeComments(comments: Array<any>) {
   const byId = new Map<number, any>();
   const roots: any[] = [];
@@ -95,7 +115,7 @@ export async function GET(request: Request) {
     commentsCount: post.commentsCount,
     authorId: post.authorId,
     author: post.author,
-    artwork: post.artwork,
+    artwork: serializeArtwork(post.artwork),
     comments: serializeComments(post.comments),
     viewerLiked: currentUser ? post.likes.length > 0 : false,
     feedScore: scoreCommunityPost({
