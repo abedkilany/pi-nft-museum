@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButton';
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
@@ -11,21 +10,28 @@ import { getArtworkStatusLabel } from '@/lib/artwork-status';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
 import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
 import { piApiFetch } from '@/lib/pi-auth-client';
+import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 export default function MyArtworksPageClient() {
-  const router = useRouter();
+  const { status } = usePiAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      return;
+    }
+
     let cancelled = false;
     async function load() {
       const response = await piApiFetch('/api/account/artworks', { method: 'GET', cache: 'no-store' }).catch(() => null);
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
       if (response?.status === 401) {
-        router.replace('/login');
+        setError('Please reconnect with Pi to load your artworks.');
+        setLoading(false);
         return;
       }
 
@@ -39,8 +45,9 @@ export default function MyArtworksPageClient() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [router]);
+  }, [status]);
 
+  if (status !== 'authenticated') return <RequirePiAuth loadingText="Loading your artworks…" />;
   if (loading) return <div className="page-stack"><div className="card surface-section"><p>Loading artworks…</p></div></div>;
   if (error) return <div className="page-stack"><div className="card surface-section"><p>{error}</p></div></div>;
 

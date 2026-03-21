@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { PiConnectButton } from '@/components/PiConnectButton';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { clearPiAuthToken } from '@/lib/pi-auth-client';
-import { piApiFetch } from '../../lib/pi-auth-client';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 type Props = {
   user: {
@@ -20,6 +19,7 @@ export function NavUserMenu({ user, showAdmin }: Props) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
+  const { logout } = usePiAuth();
 
   useEffect(() => {
     setOpen(false);
@@ -59,19 +59,7 @@ export function NavUserMenu({ user, showAdmin }: Props) {
     setIsLoggingOut(true);
 
     try {
-      clearPiAuthToken();
-
-      const response = await piApiFetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Logout failed with status ${response.status}`);
-      }
-
+      await logout();
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed', error);

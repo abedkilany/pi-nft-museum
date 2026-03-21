@@ -2,18 +2,23 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { formatTimeAgo } from '@/lib/community';
+import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 export default function MyProfilePageClient() {
-  const router = useRouter();
+  const { status } = usePiAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      return;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -23,7 +28,8 @@ export default function MyProfilePageClient() {
         if (cancelled) return;
 
         if (response?.status === 401) {
-          router.replace('/login');
+          setError('Please reconnect with Pi to load your profile.');
+          setLoading(false);
           return;
         }
 
@@ -46,7 +52,11 @@ export default function MyProfilePageClient() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [status]);
+
+  if (status !== 'authenticated') {
+    return <RequirePiAuth loadingText="Loading profile…" />;
+  }
 
   if (loading) {
     return <div className="page-stack"><div className="card surface-section"><p>Loading profile…</p></div></div>;

@@ -76,8 +76,6 @@ export function syncPiAuthCookie(token?: string | null) {
     return;
   }
 
-  // Non-HttpOnly fallback for stubborn WebViews such as Pi Browser.
-  // The authoritative server session is still the signed cookie set by the backend.
   writeClientCookie(PI_SESSION_HINT_COOKIE_NAME, token);
 }
 
@@ -109,58 +107,10 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   };
 }
 
-function isRelativeApiRequest(input: RequestInfo | URL) {
-  if (typeof input === 'string') return input.startsWith('/api/');
-  if (input instanceof URL) return input.pathname.startsWith('/api/');
-  return false;
-}
-
-async function tryRehydrateSession() {
-  const checkAuth = async () => fetch('/api/auth/me', {
-    method: 'GET',
-    headers: getPiAuthHeaders(),
-    credentials: 'include',
-    cache: 'no-store',
-  }).catch(() => null);
-
-  const authResponse = await checkAuth();
-  if (authResponse?.ok) return true;
-
-  await fetch('/api/auth/bootstrap?returnTo=/', {
-    method: 'GET',
-    headers: getPiAuthHeaders(),
-    credentials: 'include',
-    redirect: 'follow',
-    cache: 'no-store',
-  }).catch(() => null);
-
-  const postBootstrapAuthResponse = await checkAuth();
-  return Boolean(postBootstrapAuthResponse?.ok);
-}
-
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  const execute = () => fetch(input, {
+  return fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
     credentials: 'include',
   });
-
-  let response = await execute();
-
-  if (response.status !== 401 || !isBrowser() || !isRelativeApiRequest(input)) {
-    return response;
-  }
-
-  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.pathname : '';
-  if (requestUrl.startsWith('/api/auth/')) {
-    return response;
-  }
-
-  const rehydrated = await tryRehydrateSession();
-  if (!rehydrated) {
-    return response;
-  }
-
-  response = await execute();
-  return response;
 }

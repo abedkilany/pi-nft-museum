@@ -1,14 +1,23 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/current-user';
+'use client';
 
-export const dynamic = 'force-dynamic';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
+import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 
-export default async function ProfilePage() {
-  const currentUser = await getCurrentUser();
+export default function ProfilePage() {
+  const router = useRouter();
+  const { user, status } = usePiAuth();
 
-  if (!currentUser?.username) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (status === 'authenticated' && user?.username) {
+      router.replace(`/profile/${user.username}`);
+    }
+  }, [router, status, user]);
 
-  redirect(`/profile/${currentUser.username}`);
+  return (
+    <RequirePiAuth loadingText="Opening your profile…">
+      <div className="page-stack"><section className="card surface-section"><p>Opening your profile…</p></section></div>
+    </RequirePiAuth>
+  );
 }

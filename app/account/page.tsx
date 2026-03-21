@@ -2,24 +2,30 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
 import { piApiFetch } from '@/lib/pi-auth-client';
+import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 export default function AccountPage() {
-  const router = useRouter();
+  const { status } = usePiAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      return;
+    }
+
     let cancelled = false;
     async function load() {
       const response = await piApiFetch('/api/account/summary', { method: 'GET', cache: 'no-store' }).catch(() => null);
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
       if (response?.status === 401) {
-        router.replace('/login');
+        setError('Please reconnect with Pi to open your account.');
+        setLoading(false);
         return;
       }
       if (!response?.ok || !payload?.ok) {
@@ -32,8 +38,9 @@ export default function AccountPage() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [router]);
+  }, [status]);
 
+  if (status !== 'authenticated') return <RequirePiAuth loadingText="Loading account…" />;
   if (loading) return <div className="page-stack"><section className="card surface-section"><p>Loading account…</p></section></div>;
   if (error || !data?.user) return <div className="page-stack"><section className="card surface-section"><p>{error || 'Unable to load account.'}</p></section></div>;
 
