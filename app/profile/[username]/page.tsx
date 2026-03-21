@@ -261,14 +261,15 @@ export default async function PublicProfilePage({ params }: { params: { username
             </div>
           </div>
 
-          <PublicProfileViewerControls
-            username={user.username}
-            targetUserId={user.id}
-            counts={counts}
-            user={editableUser}
-            countries={countries}
-          />
         </div>
+
+        <PublicProfileViewerControls
+          username={user.username}
+          targetUserId={user.id}
+          counts={counts}
+          user={editableUser}
+          countries={countries}
+        />
       </section>
 
       <section className="stats-grid">
