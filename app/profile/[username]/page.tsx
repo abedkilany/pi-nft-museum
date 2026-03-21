@@ -6,13 +6,100 @@ import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getCurrentUser } from '@/lib/current-user';
 import { getFollowCounts, getFollowState } from '@/lib/follows';
 import { FollowButton } from '@/components/community/FollowButton';
-import { formatTimeAgo } from '@/lib/community';
-
+import { scoreCommunityPost } from '@/lib/community';
+import PublicProfileCommunityTabs from '@/components/profile/PublicProfileCommunityTabs';
+import type { CommunityFeedPost } from '@/components/community/PostCard';
 
 export const dynamic = 'force-dynamic';
 
+type SerializableArtwork = {
+  id: number;
+  title: string;
+  imageUrl: string;
+  status: string;
+  price: string;
+  currency: string;
+} | null;
+
+function serializeArtwork(artwork: {
+  id: number;
+  title: string;
+  imageUrl: string;
+  status: unknown;
+  price: { toString(): string } | number | string | null;
+  currency: string;
+} | null): SerializableArtwork {
+  if (!artwork) return null;
+  return {
+    id: artwork.id,
+    title: artwork.title,
+    imageUrl: artwork.imageUrl,
+    status: String(artwork.status),
+    price: artwork.price == null ? '0' : artwork.price.toString(),
+    currency: artwork.currency,
+  };
+}
+
+function serializeComments(comments: Array<any>) {
+  const byId = new Map<number, any>();
+  const roots: any[] = [];
+
+  for (const comment of comments) {
+    byId.set(comment.id, {
+      id: comment.id,
+      body: comment.body,
+      createdAt: comment.createdAt.toISOString(),
+      authorId: comment.authorId,
+      parentId: comment.parentId,
+      author: comment.author,
+      replies: [],
+    });
+  }
+
+  for (const comment of comments) {
+    const serialized = byId.get(comment.id);
+    if (!serialized) continue;
+    if (comment.parentId) {
+      const parent = byId.get(comment.parentId);
+      if (parent) {
+        parent.replies.push(serialized);
+      } else {
+        roots.push(serialized);
+      }
+    } else {
+      roots.push(serialized);
+    }
+  }
+
+  return roots;
+}
+
+function serializePost(post: any, viewerId: number | null): CommunityFeedPost {
+  return {
+    id: post.id,
+    body: post.body,
+    createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
+    likesCount: post.likesCount,
+    commentsCount: post.commentsCount,
+    viewerLiked: viewerId ? post.likes.length > 0 : false,
+    authorId: post.authorId,
+    author: post.author,
+    artwork: serializeArtwork(post.artwork),
+    comments: serializeComments(post.comments),
+    feedScore: scoreCommunityPost({
+      createdAt: post.createdAt,
+      likesCount: post.likesCount,
+      commentsCount: post.commentsCount,
+      linkedArtwork: Boolean(post.artworkId),
+    }),
+  };
+}
+
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const currentUser = await getCurrentUser();
+  const viewerId = currentUser?.userId ?? null;
+
   const user = await prisma.user.findUnique({
     where: { username: params.username },
     include: {
@@ -23,37 +110,128 @@ export default async function PublicProfilePage({ params }: { params: { username
         take: 12,
         include: { category: true }
       },
-      posts: {
-        where: { isPublished: true },
-        orderBy: { createdAt: 'desc' },
-        take: 8,
-        include: {
-          artwork: {
-            select: {
-              id: true,
-              title: true,
-              imageUrl: true,
-              status: true,
-            },
-          },
-        },
-      },
     }
   });
 
   if (!user) notFound();
   const displayName = user.fullName || user.username;
   const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
-  const [counts, followState, activities, publicPostCount] = await Promise.all([
+
+  const commonPostInclude = {
+    author: {
+      select: {
+        username: true,
+        fullName: true,
+        profileImage: true,
+        headline: true,
+      },
+    },
+    artwork: {
+      select: {
+        id: true,
+        title: true,
+        imageUrl: true,
+        status: true,
+        price: true,
+        currency: true,
+      },
+    },
+    comments: {
+      orderBy: { createdAt: 'asc' as const },
+      take: 30,
+      include: {
+        author: {
+          select: {
+            username: true,
+            fullName: true,
+            profileImage: true,
+          },
+        },
+      },
+    },
+    likes: viewerId ? {
+      where: { userId: viewerId },
+      select: { id: true },
+    } : false,
+  };
+
+  const [counts, followState, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
     getFollowCounts(user.id),
-    getFollowState(currentUser?.userId ?? null, user.id),
+    getFollowState(viewerId, user.id),
+    prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
+    prisma.communityPost.findMany({
+      where: { authorId: user.id, isPublished: true },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      include: commonPostInclude,
+    }),
+    prisma.communityPostLike.findMany({
+      where: {
+        userId: user.id,
+        post: { isPublished: true },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      include: {
+        post: {
+          include: commonPostInclude,
+        },
+      },
+    }),
     prisma.communityActivity.findMany({
       where: { OR: [{ actorId: user.id }, { subjectUserId: user.id }] },
       orderBy: { createdAt: 'desc' },
       take: 8,
     }),
-    prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
+    prisma.communityPostComment.count({ where: { authorId: user.id } }),
   ]);
+
+  const ownPosts = ownPostsRaw.map((post) => serializePost(post, viewerId));
+  const likedPosts = likedPostLikesRaw
+    .map((entry) => entry.post)
+    .filter((post, index, array) => array.findIndex((candidate) => candidate.id === post.id) === index)
+    .map((post) => serializePost(post, viewerId));
+
+  const recentRepliesAndComments = await prisma.communityPostComment.findMany({
+    where: { authorId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+    include: {
+      post: {
+        select: {
+          id: true,
+          body: true,
+          author: {
+            select: {
+              username: true,
+              fullName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const activityItems = [
+    ...activitiesRaw.map((activity) => ({
+      id: `activity-${activity.id}`,
+      kind: 'activity' as const,
+      title: activity.title,
+      message: activity.message,
+      createdAt: activity.createdAt.toISOString(),
+      linkUrl: activity.linkUrl,
+    })),
+    ...recentRepliesAndComments.map((comment) => ({
+      id: `comment-${comment.id}`,
+      kind: comment.parentId ? 'reply' as const : 'comment' as const,
+      title: comment.parentId ? 'Replied in community' : 'Commented in community',
+      message: `${comment.body}
+
+On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
+      createdAt: comment.createdAt.toISOString(),
+      linkUrl: `/community`,
+    })),
+  ].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 12);
 
   return (
     <div className="page-stack">
@@ -102,71 +280,17 @@ export default async function PublicProfilePage({ params }: { params: { username
         <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
         <div className="card stat-card"><strong>{user.artworks.length}</strong><span>Public artworks</span></div>
         <div className="card stat-card"><strong>{publicPostCount}</strong><span>Community posts</span></div>
+        <div className="card stat-card"><strong>{likedPosts.length}</strong><span>Recent liked posts</span></div>
+        <div className="card stat-card"><strong>{commentsAuthoredCount}</strong><span>Replies & comments</span></div>
       </section>
 
-      <section className="card surface-section">
-        <div className="section-head compact">
-          <div>
-            <span className="section-kicker">Community posts</span>
-            <h2>Recent posts</h2>
-          </div>
-          <p>Posts shared publicly by this creator, including linked artworks.</p>
-        </div>
-        {user.posts.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public community posts yet.</p> : (
-          <div className="stack-sm">
-            {user.posts.map((post: any) => (
-              <article key={post.id} className="card" style={{ padding: '16px', display: 'grid', gap: 12 }}>
-                <div className="feed-item-header">
-                  <div>
-                    <strong>{displayName}</strong>
-                    <p style={{ margin: '8px 0 0', color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{post.body}</p>
-                  </div>
-                  <span style={{ color: 'var(--muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>{formatTimeAgo(post.createdAt)}</span>
-                </div>
-                {post.artwork ? (
-                  <Link href={`/artwork/${post.artwork.id}`} className="card" style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'grid', gap: 10, gridTemplateColumns: '72px minmax(0, 1fr)' }}>
-                    <img src={post.artwork.imageUrl} alt={post.artwork.title} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 12 }} />
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      <strong>{post.artwork.title}</strong>
-                      <span style={{ color: 'var(--muted)', fontSize: 14 }}>{post.artwork.status}</span>
-                    </div>
-                  </Link>
-                ) : null}
-                <div className="card-actions" style={{ marginTop: 0 }}>
-                  <span className="pill">{post.likesCount} likes</span>
-                  <span className="pill">{post.commentsCount} comments</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="card surface-section">
-        <div className="section-head compact">
-          <div>
-            <span className="section-kicker">Community</span>
-            <h2>Recent activity</h2>
-          </div>
-          <p>Followers, comments, replies, and likes now give each creator a living public presence.</p>
-        </div>
-        {activities.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public activity yet.</p> : (
-          <div className="stack-sm">
-            {activities.map((activity: any) => (
-              <article key={activity.id} className="card" style={{ padding: '16px' }}>
-                <div className="feed-item-header">
-                  <div>
-                    <strong>{activity.title}</strong>
-                    <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{activity.message}</p>
-                  </div>
-                  <span style={{ color: 'var(--muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>{formatTimeAgo(activity.createdAt)}</span>
-                </div>
-                {activity.linkUrl ? <div className="card-actions" style={{ marginTop: 12 }}><Link href={activity.linkUrl} className="button secondary">Open</Link></div> : null}
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <PublicProfileCommunityTabs
+        posts={ownPosts}
+        likedPosts={likedPosts}
+        activity={activityItems}
+        currentUserId={viewerId}
+        canInteract={Boolean(currentUser)}
+      />
 
       <section className="card surface-section">
         <div className="section-head compact">
@@ -191,7 +315,8 @@ export default async function PublicProfilePage({ params }: { params: { username
                   </div>
                   <p className="art-description">{artwork.description}</p>
                   <div className="card-actions" style={{ marginTop: 16 }}>
-                    <Link href={`/artwork/${artwork.id}`} className="button secondary">Open artwork</Link>
+                    <span className="pill">{artwork.status}</span>
+                    <Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link>
                   </div>
                 </div>
               </article>
