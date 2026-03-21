@@ -101,13 +101,13 @@ export function NavUserMenu({ user, showAdmin }: Props) {
           </div>
 
           <div className="nav-user-links">
-            <Link href="/profile" className="button secondary nav-user-link">
+            <Link href="/profile" prefetch={false} className="button secondary nav-user-link">
               Profile
             </Link>
             <Link href="/account" className="button secondary nav-user-link">
               Account
             </Link>
-            <Link href="/artwork" className="button secondary nav-user-link">
+            <Link href="/account/artworks" prefetch={false} className="button secondary nav-user-link">
               My artworks
             </Link>
             {showAdmin ? (

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
-import { ensurePiUserSession, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 export default function AccountPage() {
   const router = useRouter();
@@ -15,13 +15,6 @@ export default function AccountPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      try {
-        await ensurePiUserSession(['username', 'payments']);
-      } catch {
-        router.replace('/login');
-        return;
-      }
-
       const response = await piApiFetch('/api/account/summary', { method: 'GET', cache: 'no-store' }).catch(() => null);
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
@@ -69,7 +62,7 @@ export default function AccountPage() {
           <Link href={`/profile/${dbUser.username}`} className="button primary">Open public profile</Link>
           <Link href={`/profile/${dbUser.username}`} className="button secondary">Edit public profile</Link>
           <Link href="/notifications" className="button secondary">Notifications</Link>
-          <Link href="/artwork" className="button secondary">My artworks</Link>
+          <Link href="/account/artworks" className="button secondary">My artworks</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
           {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
         </div>

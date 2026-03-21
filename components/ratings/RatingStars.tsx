@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ensurePiUserSession, getPiAuthHeaders, piApiFetch } from '../../lib/pi-auth-client';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function RatingStars({
   artworkId,
@@ -29,9 +29,8 @@ export function RatingStars({
     if (resolvedCanRate) return true;
 
     const confirmSession = async () => {
-      const response = await fetch('/api/auth/me', {
+      const response = await piApiFetch('/api/auth/me', {
         method: 'GET',
-        headers: getPiAuthHeaders(),
         cache: 'no-store',
       }).catch(() => null);
       const data = response ? await response.json().catch(() => null) : null;
@@ -46,18 +45,24 @@ export function RatingStars({
 
     if (await confirmSession()) return true;
 
-    try {
-      await ensurePiUserSession(['username', 'payments']);
-      return confirmSession();
-    } catch {
-      return false;
-    }
+    const returnTo = typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}`
+      : '/review';
+
+    await fetch(`/api/auth/bootstrap?returnTo=${encodeURIComponent(returnTo)}`, {
+      method: 'GET',
+      credentials: 'include',
+      redirect: 'follow',
+      cache: 'no-store',
+    }).catch(() => null);
+
+    return confirmSession();
   }
 
   async function submitRating(value: number) {
     const authenticated = await ensureAuthenticated();
     if (!authenticated) {
-      setMessage('Please log in with Pi to rate artworks.');
+      setMessage('Please log in to rate artworks.');
       return;
     }
 

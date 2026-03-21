@@ -1,5 +1,7 @@
-import MyArtworksPageClient from '@/components/account/MyArtworksPageClient';
+import { redirect } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 export default function ArtworkPage() {
-  return <MyArtworksPageClient />;
+  redirect('/account/artworks');
 }

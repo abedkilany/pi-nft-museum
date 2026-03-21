@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
+import { getAuthCookieName } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 
@@ -37,7 +38,9 @@ export async function POST(request: Request) {
     });
 
     logger.warn('User deleted account', { userId: currentUser.userId, username: currentUser.username });
-    return NextResponse.json({ ok: true, message: 'Account deleted.' });
+    const response = NextResponse.json({ ok: true, message: 'Account deleted.' });
+    response.cookies.set(getAuthCookieName(), '', { path: '/', maxAge: 0 });
+    return response;
   } catch (error) {
     logger.error('Account deletion failed', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
