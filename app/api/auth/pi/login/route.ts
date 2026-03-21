@@ -9,8 +9,7 @@ import {
 } from '@/lib/pi-auth';
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { createSessionToken } from '@/lib/auth';
-import { getAuthCookieName } from '@/lib/auth-cookie';
+import { createSessionToken, getAuthCookieName } from '@/lib/auth';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 import { assertSameOrigin } from '@/lib/security';
 

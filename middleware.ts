@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getAuthCookieName } from '@/lib/auth-cookie';
+import { getAuthCookieName } from '@/lib/auth';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 
 const EXCLUDED_PREFIXES = [

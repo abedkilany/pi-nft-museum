@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { getAuthCookieName } from '@/lib/auth-cookie';
+import { getAuthCookieName } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 
