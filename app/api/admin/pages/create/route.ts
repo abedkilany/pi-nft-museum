@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
+import { assertSameOrigin } from '@/lib/security';
 
 type Payload = {
   title?: string;
@@ -27,6 +28,8 @@ function normalizeSlug(value: string) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
 

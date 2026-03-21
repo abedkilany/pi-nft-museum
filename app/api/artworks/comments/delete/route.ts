@@ -4,8 +4,11 @@ import { getCurrentUser } from '@/lib/current-user';
 import { isAdminRole } from '@/lib/roles';
 import { logger } from '@/lib/logger';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

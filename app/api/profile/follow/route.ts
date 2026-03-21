@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { createNotification } from '@/lib/notifications';
+import { assertSameOrigin } from '@/lib/security';
 
 async function buildState(currentUserId: number, profileUserId: number) {
   const [follow, followersCount, followingCount] = await Promise.all([
@@ -28,6 +29,8 @@ async function buildState(currentUserId: number, profileUserId: number) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -63,6 +66,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

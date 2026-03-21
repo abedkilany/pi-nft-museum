@@ -1,8 +1,6 @@
-import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
 const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const PINATA_API_URL = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 
@@ -69,8 +67,13 @@ function getGatewayBase() {
   return raw.replace(/\/+$/, '');
 }
 
-function shouldUseIpfs() {
-  return Boolean(getPinataJwt());
+function requirePinataJwt() {
+  const jwt = getPinataJwt();
+  if (!jwt) {
+    throw new Error('PINATA_JWT is required. Local uploads are disabled in this build.');
+  }
+
+  return jwt;
 }
 
 type SaveOptions = {
@@ -85,38 +88,11 @@ export type SavedUpload = {
   mimeType: string | null;
   cid?: string | null;
   gatewayUrl?: string | null;
-  storageProvider: 'local' | 'ipfs';
+  storageProvider: 'ipfs';
 };
 
-async function saveLocally(file: File, buffer: Uint8Array, options: SaveOptions): Promise<SavedUpload> {
-  const targetDir = options.subdir ? path.join(UPLOAD_DIR, options.subdir) : UPLOAD_DIR;
-  await mkdir(targetDir, { recursive: true });
-
-  const originalBase = path.parse(file.name).name;
-  const safeName = sanitizeFilename(originalBase);
-  const extension = extensionForMimeType(file.type);
-  const filename = `${Date.now()}-${randomUUID()}-${safeName}${extension}`;
-  const filepath = path.join(targetDir, filename);
-
-  await writeFile(filepath, buffer);
-
-  const publicPath = options.subdir ? `/uploads/${options.subdir}/${filename}` : `/uploads/${filename}`;
-
-  return {
-    url: publicPath,
-    originalName: file.name,
-    mimeType: file.type || null,
-    cid: null,
-    gatewayUrl: null,
-    storageProvider: 'local',
-  };
-}
-
 async function saveToPinata(file: File, buffer: Uint8Array): Promise<SavedUpload> {
-  const jwt = getPinataJwt();
-  if (!jwt) {
-    throw new Error('PINATA_JWT is not configured.');
-  }
+  const jwt = requirePinataJwt();
 
   const originalBase = path.parse(file.name).name;
   const safeName = sanitizeFilename(originalBase);
@@ -172,11 +148,7 @@ export async function saveUploadedFile(file: File, options: SaveOptions = {}): P
     throw new Error('Uploaded file content does not match the declared file type.');
   }
 
-  if (shouldUseIpfs()) {
-    return saveToPinata(file, buffer);
-  }
-
-  return saveLocally(file, buffer, options);
+  return saveToPinata(file, buffer);
 }
 
 export async function saveUploadedImageAsset(file: File) {

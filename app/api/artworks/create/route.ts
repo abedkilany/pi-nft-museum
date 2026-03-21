@@ -6,12 +6,15 @@ import { saveUploadedImage } from '@/lib/uploads';
 import { getSiteSettingsMap, getStringSetting } from '@/lib/site-settings';
 import { isMemberRole } from '@/lib/roles';
 import { clampNumber, validateArtworkInput } from '@/lib/validators';
+import { assertSameOrigin } from '@/lib/security';
 
 function slugify(text: string) {
   return text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in.' }, { status: 401 });

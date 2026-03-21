@@ -9,12 +9,15 @@ import {
   validateOptionalUrl,
 } from '@/lib/validators';
 import { saveUploadedImage } from '@/lib/uploads';
+import { assertSameOrigin } from '@/lib/security';
 
 function toBoolean(value: FormDataEntryValue | null) {
   return String(value || '') === 'true';
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {

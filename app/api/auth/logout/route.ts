@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookieName } from '@/lib/auth';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
+import { assertSameOrigin } from '@/lib/security';
 
 function buildSecureCookieBase(request: Request) {
   const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -14,6 +15,8 @@ function buildSecureCookieBase(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   const response = NextResponse.json({ success: true });
 
   response.cookies.set({

@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { callPiPaymentApi, ensurePaymentRecord, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {

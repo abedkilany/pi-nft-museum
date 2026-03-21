@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
+import { assertSameOrigin } from '@/lib/security';
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 

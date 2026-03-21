@@ -3,8 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     await syncExpiredPublicReviewWindows();
     const currentUser = await getCurrentUser();

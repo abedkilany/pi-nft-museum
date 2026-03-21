@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
+import { assertSameOrigin } from '@/lib/security';
 
 const normalizeSlug = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
   const formData = await request.formData();

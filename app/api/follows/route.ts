@@ -3,8 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(req: Request) {
+  const csrfError = assertSameOrigin(req);
+  if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
   if (!currentUser) {

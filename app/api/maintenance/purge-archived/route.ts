@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
+import { assertSameOrigin } from '@/lib/security';
 
 function isAuthorized(request: Request) {
   const secret = process.env.MAINTENANCE_API_SECRET || '';
@@ -10,6 +11,8 @@ function isAuthorized(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }

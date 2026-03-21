@@ -5,8 +5,11 @@ import { isAdminRole } from '@/lib/roles';
 import { logger } from '@/lib/logger';
 import { COMMENT_STANCE_OPTIONS, getCommentStanceWeightKey, recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

@@ -6,8 +6,11 @@ import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveRatings } from '@/lib/artwork-status';
 import { toSafeInt } from '@/lib/validators';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in to rate artworks.' }, { status: 401 });

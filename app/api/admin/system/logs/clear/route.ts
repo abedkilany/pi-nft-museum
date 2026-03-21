@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
 import { clearSystemLogs } from '@/lib/system-log';
 import { logger } from '@/lib/logger';
+import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
 

@@ -11,6 +11,7 @@ import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { createSessionToken, getAuthCookieName } from '@/lib/auth';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
+import { assertSameOrigin } from '@/lib/security';
 
 function buildSecureCookieBase(request: Request) {
   const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -43,6 +44,8 @@ function buildFallbackHintCookie(request: Request, accessToken: string) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
   try {
     const rateLimitError = applyRateLimit(request, ['pi-login'], 'auth-pi-login', [
       { limit: 10, windowMs: 10 * 60 * 1000 },
