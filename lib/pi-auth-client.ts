@@ -116,23 +116,26 @@ function isRelativeApiRequest(input: RequestInfo | URL) {
 }
 
 async function tryRehydrateSession() {
-  const authResponse = await fetch('/api/auth/me', {
+  const checkAuth = async () => fetch('/api/auth/me', {
     method: 'GET',
     headers: getPiAuthHeaders(),
     credentials: 'include',
     cache: 'no-store',
   }).catch(() => null);
 
+  const authResponse = await checkAuth();
   if (authResponse?.ok) return true;
 
-  const bootstrapResponse = await fetch('/api/auth/bootstrap?returnTo=/', {
+  await fetch('/api/auth/bootstrap?returnTo=/', {
     method: 'GET',
+    headers: getPiAuthHeaders(),
     credentials: 'include',
     redirect: 'follow',
     cache: 'no-store',
   }).catch(() => null);
 
-  return Boolean(bootstrapResponse?.ok);
+  const postBootstrapAuthResponse = await checkAuth();
+  return Boolean(postBootstrapAuthResponse?.ok);
 }
 
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {

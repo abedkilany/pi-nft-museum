@@ -4,6 +4,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
+type AuthMePayload = {
+  ok?: boolean;
+  authenticated?: boolean;
+  user?: {
+    username?: string | null;
+  } | null;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
 
@@ -11,15 +19,18 @@ export default function ProfilePage() {
     let cancelled = false;
 
     async function resolveProfile() {
-      const response = await piApiFetch('/api/profile/me', {
+      const response = await piApiFetch('/api/auth/me', {
         method: 'GET',
         cache: 'no-store',
       }).catch(() => null);
 
-      const payload = response ? await response.json().catch(() => null) : null;
+      const payload: AuthMePayload | null = response
+        ? await response.json().catch(() => null)
+        : null;
+
       if (cancelled) return;
 
-      if (response?.ok && payload?.ok && payload?.user?.username) {
+      if (response?.ok && payload?.ok && payload?.authenticated && payload?.user?.username) {
         router.replace(`/profile/${payload.user.username}`);
         return;
       }
@@ -29,7 +40,7 @@ export default function ProfilePage() {
         return;
       }
 
-      router.replace('/account');
+      router.replace('/');
     }
 
     void resolveProfile();
