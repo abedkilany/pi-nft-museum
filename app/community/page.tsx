@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
-import { formatTimeAgo } from '@/lib/community';
+import { getCurrentUser } from '@/lib/current-user';
+import { PostComposer } from '@/components/community/PostComposer';
+import { CommunityFeed } from '@/components/community/CommunityFeed';
 
 export default async function CommunityPage() {
   const settings = await getSiteSettingsMap();
@@ -24,59 +26,89 @@ export default async function CommunityPage() {
     );
   }
 
-  const activities = await prisma.communityActivity.findMany({
-    include: { actor: { select: { username: true, fullName: true } } },
+  const currentUser = await getCurrentUser();
+
+  const likeUserId = currentUser?.userId ?? -1;
+  const postInclude = {
+    author: {
+      select: {
+        username: true,
+        fullName: true,
+        profileImage: true,
+        headline: true,
+      },
+    },
+    comments: {
+      orderBy: { createdAt: 'asc' as const },
+      take: 10,
+      include: {
+        author: {
+          select: {
+            username: true,
+            fullName: true,
+            profileImage: true,
+          },
+        },
+      },
+    },
+    likes: {
+      where: { userId: likeUserId },
+      select: { id: true },
+    },
+  };
+
+  const posts = await prisma.communityPost.findMany({
+    where: { isPublished: true },
     orderBy: { createdAt: 'desc' },
     take: 20,
+    include: postInclude,
   });
+
+  const serializedPosts = posts.map((post) => ({
+    id: post.id,
+    body: post.body,
+    createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
+    likesCount: post.likesCount,
+    commentsCount: post.commentsCount,
+    viewerLiked: currentUser ? post.likes.length > 0 : false,
+    authorId: post.authorId,
+    author: post.author,
+    comments: post.comments.map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      createdAt: comment.createdAt.toISOString(),
+      authorId: comment.authorId,
+      author: comment.author,
+    })),
+  }));
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
       <section className="card" style={{ padding: '28px' }}>
         <span className="section-kicker">Community</span>
-        <h1 style={{ margin: '0 0 12px' }}>Activity</h1>
+        <h1 style={{ margin: '0 0 12px' }}>Creator feed</h1>
         <p style={{ color: 'var(--muted)', lineHeight: 1.8 }}>
-          Community tools are enabled. This feed highlights follows, comments, replies, and artwork reactions.
+          Publish short updates, react to posts, and start simple discussions around artworks and artists.
         </p>
         <div className="card-actions">
-          <span className="pill">Follow system active</span>
-          <span className="pill">Notifications active</span>
+          <span className="pill">Posts live</span>
+          <span className="pill">Likes live</span>
+          <span className="pill">Comments live</span>
         </div>
       </section>
 
-      <section className="card" style={{ padding: '24px' }}>
+      <PostComposer disabled={!currentUser} username={currentUser?.username || null} />
+
+      <section style={{ display: 'grid', gap: 16 }}>
         <div className="section-head compact">
           <div>
-            <span className="section-kicker">Live feed</span>
-            <h2>Recent community activity</h2>
+            <span className="section-kicker">Feed</span>
+            <h2>Latest posts</h2>
           </div>
-          <p>Posts and blog content can be added later on top of this social layer.</p>
+          <p>{currentUser ? 'Your community tools are ready.' : 'Log in to publish, like, and comment.'}</p>
         </div>
-
-        {activities.length === 0 ? (
-          <p style={{ margin: 0 }}>No activity yet.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: '12px' }}>
-            {activities.map((activity: any) => (
-              <article key={activity.id} className="card" style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start' }}>
-                  <div>
-                    <strong>{activity.title}</strong>
-                    <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>{activity.message}</p>
-                  </div>
-                  <span style={{ color: 'var(--muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                    {formatTimeAgo(activity.createdAt)}
-                  </span>
-                </div>
-                {activity.linkUrl ? (
-                  <div className="card-actions" style={{ marginTop: 12 }}>
-                    <Link href={activity.linkUrl} className="button secondary">Open</Link>
-                  </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        )}
+        <CommunityFeed posts={serializedPosts} currentUserId={currentUser?.userId || null} canInteract={Boolean(currentUser)} />
       </section>
     </div>
   );

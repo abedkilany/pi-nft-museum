@@ -125,7 +125,8 @@ model User {
   reviewedArtworkReports  ArtworkReport[] @relation("ArtworkReportReviewer")
   canEditCommentsAfterDeadline Boolean @default(false)
   commentLikes        CommentLike[]
-  
+  postLikes           CommunityPostLike[]
+  postComments        CommunityPostComment[]
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -495,19 +496,57 @@ model HomepageSlide {
 
 
 model CommunityPost {
-  id          Int       @id @default(autoincrement())
-  authorId    Int
-  title       String?
-  body        String    @db.Text
-  imageUrl    String?
-  isPublished Boolean   @default(false)
+  id             Int                    @id @default(autoincrement())
+  authorId       Int
+  title          String?
+  body           String                 @db.Text
+  imageUrl       String?
+  isPublished    Boolean                @default(true)
+  likesCount     Int                    @default(0)
+  commentsCount  Int                    @default(0)
 
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author         User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes          CommunityPostLike[]
+  comments       CommunityPostComment[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@index([authorId])
+  @@index([createdAt])
+  @@index([isPublished, createdAt])
+}
+
+model CommunityPostLike {
+  id         Int           @id @default(autoincrement())
+  postId      Int
+  userId      Int
+
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime      @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model CommunityPostComment {
+  id         Int           @id @default(autoincrement())
+  postId      Int
+  authorId    Int
+  body        String       @db.Text
+
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([createdAt])
 }
 
 model Notification {
