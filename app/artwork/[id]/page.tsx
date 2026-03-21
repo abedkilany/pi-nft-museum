@@ -6,6 +6,7 @@ import { ArtworkComments } from '@/components/artwork/ArtworkComments';
 import { ArtworkReportForm } from '@/components/artwork/ArtworkReportForm';
 import { getCurrentUser } from '@/lib/current-user';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { getReviewStatuses } from '@/lib/artwork-workflow';
 import { PiPaymentButton } from '@/components/artwork/PiPaymentButton';
 
 interface Props { params: { id: string } }
@@ -38,12 +39,13 @@ export default async function ArtworkDetailPage({ params }: Props) {
       currentUser.role === 'admin' ||
       currentUser.role === 'superadmin'
     )
-  ) || ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(artwork.status);
+  ) || ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(artwork.status) || reviewStatuses.includes(artwork.status as any);
 
   if (!canView) notFound();
 
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   const commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
+  const reviewStatuses = getReviewStatuses(settings);
 
   return (
     <div className="page-stack">

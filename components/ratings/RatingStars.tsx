@@ -28,18 +28,35 @@ export function RatingStars({
   async function ensureAuthenticated() {
     if (resolvedCanRate) return true;
 
-    const response = await piApiFetch('/api/auth/me', {
+    const confirmSession = async () => {
+      const response = await piApiFetch('/api/auth/me', {
+        method: 'GET',
+        cache: 'no-store',
+      }).catch(() => null);
+      const data = response ? await response.json().catch(() => null) : null;
+
+      if (response?.ok && data?.authenticated) {
+        setResolvedCanRate(true);
+        return true;
+      }
+
+      return false;
+    };
+
+    if (await confirmSession()) return true;
+
+    const returnTo = typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}`
+      : '/review';
+
+    await fetch(`/api/auth/bootstrap?returnTo=${encodeURIComponent(returnTo)}`, {
       method: 'GET',
+      credentials: 'include',
+      redirect: 'follow',
       cache: 'no-store',
     }).catch(() => null);
-    const data = response ? await response.json().catch(() => null) : null;
 
-    if (response?.ok && data?.authenticated) {
-      setResolvedCanRate(true);
-      return true;
-    }
-
-    return false;
+    return confirmSession();
   }
 
   async function submitRating(value: number) {

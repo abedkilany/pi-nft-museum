@@ -1,0 +1,4 @@
+Fixed artwork details access for public review statuses and improved rating auth rehydration.
+Files changed:
+- app/artwork/[id]/page.tsx
+- components/ratings/RatingStars.tsx
