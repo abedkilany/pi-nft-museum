@@ -8,6 +8,9 @@ import { getFollowCounts, getFollowState } from '@/lib/follows';
 import { FollowButton } from '@/components/community/FollowButton';
 import { formatTimeAgo } from '@/lib/community';
 
+
+export const dynamic = 'force-dynamic';
+
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const currentUser = await getCurrentUser();
   const user = await prisma.user.findUnique({
@@ -19,14 +22,29 @@ export default async function PublicProfilePage({ params }: { params: { username
         orderBy: { publishedAt: 'desc' },
         take: 12,
         include: { category: true }
-      }
+      },
+      posts: {
+        where: { isPublished: true },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        include: {
+          artwork: {
+            select: {
+              id: true,
+              title: true,
+              imageUrl: true,
+              status: true,
+            },
+          },
+        },
+      },
     }
   });
 
   if (!user) notFound();
   const displayName = user.fullName || user.username;
   const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
-  const [counts, followState, activities] = await Promise.all([
+  const [counts, followState, activities, publicPostCount] = await Promise.all([
     getFollowCounts(user.id),
     getFollowState(currentUser?.userId ?? null, user.id),
     prisma.communityActivity.findMany({
@@ -34,6 +52,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       orderBy: { createdAt: 'desc' },
       take: 8,
     }),
+    prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
   ]);
 
   return (
@@ -82,8 +101,46 @@ export default async function PublicProfilePage({ params }: { params: { username
         <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
         <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
         <div className="card stat-card"><strong>{user.artworks.length}</strong><span>Public artworks</span></div>
+        <div className="card stat-card"><strong>{publicPostCount}</strong><span>Community posts</span></div>
       </section>
 
+      <section className="card surface-section">
+        <div className="section-head compact">
+          <div>
+            <span className="section-kicker">Community posts</span>
+            <h2>Recent posts</h2>
+          </div>
+          <p>Posts shared publicly by this creator, including linked artworks.</p>
+        </div>
+        {user.posts.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public community posts yet.</p> : (
+          <div className="stack-sm">
+            {user.posts.map((post: any) => (
+              <article key={post.id} className="card" style={{ padding: '16px', display: 'grid', gap: 12 }}>
+                <div className="feed-item-header">
+                  <div>
+                    <strong>{displayName}</strong>
+                    <p style={{ margin: '8px 0 0', color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{post.body}</p>
+                  </div>
+                  <span style={{ color: 'var(--muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>{formatTimeAgo(post.createdAt)}</span>
+                </div>
+                {post.artwork ? (
+                  <Link href={`/artwork/${post.artwork.id}`} className="card" style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'grid', gap: 10, gridTemplateColumns: '72px minmax(0, 1fr)' }}>
+                    <img src={post.artwork.imageUrl} alt={post.artwork.title} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 12 }} />
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <strong>{post.artwork.title}</strong>
+                      <span style={{ color: 'var(--muted)', fontSize: 14 }}>{post.artwork.status}</span>
+                    </div>
+                  </Link>
+                ) : null}
+                <div className="card-actions" style={{ marginTop: 0 }}>
+                  <span className="pill">{post.likesCount} likes</span>
+                  <span className="pill">{post.commentsCount} comments</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="card surface-section">
         <div className="section-head compact">

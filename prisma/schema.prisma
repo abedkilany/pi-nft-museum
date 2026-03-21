@@ -241,6 +241,7 @@ model Artwork {
   comments              ArtworkComment[]
   reports               ArtworkReport[]
   payments              PiPayment[]
+  communityPosts        CommunityPost[]
 
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
@@ -498,6 +499,7 @@ model HomepageSlide {
 model CommunityPost {
   id             Int                    @id @default(autoincrement())
   authorId       Int
+  artworkId      Int?
   title          String?
   body           String                 @db.Text
   imageUrl       String?
@@ -506,6 +508,7 @@ model CommunityPost {
   commentsCount  Int                    @default(0)
 
   author         User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  artwork        Artwork?               @relation(fields: [artworkId], references: [id], onDelete: SetNull)
   likes          CommunityPostLike[]
   comments       CommunityPostComment[]
 
@@ -513,6 +516,7 @@ model CommunityPost {
   updatedAt      DateTime               @updatedAt
 
   @@index([authorId])
+  @@index([artworkId])
   @@index([createdAt])
   @@index([isPublished, createdAt])
 }

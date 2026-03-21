@@ -53,3 +53,40 @@ export function formatTimeAgo(value: Date | string) {
   const years = Math.floor(months / 12);
   return `${years}y ago`;
 }
+
+export function scoreCommunityPost(input: {
+  createdAt: Date | string;
+  likesCount?: number;
+  commentsCount?: number;
+  linkedArtwork?: boolean;
+}) {
+  const createdAt = typeof input.createdAt === 'string' ? new Date(input.createdAt) : input.createdAt;
+  const ageHours = Math.max(0, (Date.now() - createdAt.getTime()) / (1000 * 60 * 60));
+  const freshnessBoost = Math.max(0, 36 - ageHours) / 3;
+  const likeScore = (input.likesCount ?? 0) * 2;
+  const commentScore = (input.commentsCount ?? 0) * 3;
+  const artworkBoost = input.linkedArtwork ? 4 : 0;
+  return Number((likeScore + commentScore + freshnessBoost + artworkBoost).toFixed(2));
+}
+
+export function scoreCreator(input: {
+  posts: number;
+  artworks: number;
+  followers: number;
+  totalPostLikes?: number;
+  totalPostComments?: number;
+  lastPostAt?: Date | string | null;
+}) {
+  const likes = input.totalPostLikes ?? 0;
+  const comments = input.totalPostComments ?? 0;
+  const base = (input.posts * 5) + (input.artworks * 8) + (input.followers * 3) + likes + (comments * 2);
+
+  if (!input.lastPostAt) {
+    return base;
+  }
+
+  const lastPostAt = typeof input.lastPostAt === 'string' ? new Date(input.lastPostAt) : input.lastPostAt;
+  const ageHours = Math.max(0, (Date.now() - lastPostAt.getTime()) / (1000 * 60 * 60));
+  const recencyBoost = Math.max(0, 72 - ageHours) / 6;
+  return Number((base + recencyBoost).toFixed(2));
+}

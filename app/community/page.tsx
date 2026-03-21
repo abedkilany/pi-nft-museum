@@ -1,12 +1,13 @@
 import Link from 'next/link';
-
-export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
 import { getCurrentUser } from '@/lib/current-user';
 import { PostComposer } from '@/components/community/PostComposer';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
 import { ActiveCreatorCard } from '@/components/community/ActiveCreatorCard';
+import { scoreCommunityPost, scoreCreator } from '@/lib/community';
+
+export const dynamic = 'force-dynamic';
 
 function serializeComments(comments: Array<any>) {
   const byId = new Map<number, any>();
@@ -43,7 +44,11 @@ function serializeComments(comments: Array<any>) {
   return roots;
 }
 
-export default async function CommunityPage() {
+export default async function CommunityPage({
+  searchParams,
+}: {
+  searchParams?: { feed?: string };
+}) {
   const settings = await getSiteSettingsMap();
   const enabled = getBooleanSetting(settings, 'community_enabled', false);
 
@@ -66,12 +71,13 @@ export default async function CommunityPage() {
 
   const currentUser = await getCurrentUser();
   const likeUserId = currentUser?.userId ?? -1;
+  const feedMode = searchParams?.feed === 'latest' ? 'latest' : 'top';
 
-  const [posts, creators] = await Promise.all([
+  const [posts, creators, myArtworks] = await Promise.all([
     prisma.communityPost.findMany({
       where: { isPublished: true },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 30,
       include: {
         author: {
           select: {
@@ -79,6 +85,16 @@ export default async function CommunityPage() {
             fullName: true,
             profileImage: true,
             headline: true,
+          },
+        },
+        artwork: {
+          select: {
+            id: true,
+            title: true,
+            imageUrl: true,
+            status: true,
+            price: true,
+            currency: true,
           },
         },
         comments: {
@@ -108,19 +124,14 @@ export default async function CommunityPage() {
           { artworks: { some: {} } },
         ],
       },
-      take: 6,
-      orderBy: [
-        { posts: { _count: 'desc' } },
-        { followers: { _count: 'desc' } },
-        { artworks: { _count: 'desc' } },
-        { updatedAt: 'desc' },
-      ],
+      take: 20,
       select: {
         id: true,
         username: true,
         fullName: true,
         headline: true,
         profileImage: true,
+        updatedAt: true,
         _count: {
           select: {
             posts: true,
@@ -128,8 +139,31 @@ export default async function CommunityPage() {
             followers: true,
           },
         },
+        posts: {
+          where: { isPublished: true },
+          select: {
+            createdAt: true,
+            likesCount: true,
+            commentsCount: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 12,
+        },
       },
     }),
+    currentUser ? prisma.artwork.findMany({
+      where: { artistUserId: currentUser.userId },
+      orderBy: [
+        { publishedAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: 12,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+    }) : Promise.resolve([]),
   ]);
 
   const serializedPosts = posts.map((post) => ({
@@ -142,10 +176,49 @@ export default async function CommunityPage() {
     viewerLiked: currentUser ? post.likes.length > 0 : false,
     authorId: post.authorId,
     author: post.author,
+    artwork: post.artwork,
+    feedScore: scoreCommunityPost({
+      createdAt: post.createdAt,
+      likesCount: post.likesCount,
+      commentsCount: post.commentsCount,
+      linkedArtwork: Boolean(post.artworkId),
+    }),
     comments: serializeComments(post.comments),
   }));
 
-  const creatorIds = creators.map((creator) => creator.id);
+  serializedPosts.sort((a, b) => {
+    if (feedMode === 'latest') {
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    }
+    if (b.feedScore !== a.feedScore) return b.feedScore - a.feedScore;
+    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  });
+
+  const rankedCreators = creators
+    .map((creator) => {
+      const totalPostLikes = creator.posts.reduce((sum, post) => sum + post.likesCount, 0);
+      const totalPostComments = creator.posts.reduce((sum, post) => sum + post.commentsCount, 0);
+      const lastPostAt = creator.posts[0]?.createdAt ?? null;
+      const creatorScore = scoreCreator({
+        posts: creator._count.posts,
+        artworks: creator._count.artworks,
+        followers: creator._count.followers,
+        totalPostLikes,
+        totalPostComments,
+        lastPostAt,
+      });
+      return {
+        ...creator,
+        creatorScore,
+      };
+    })
+    .sort((a, b) => {
+      if (b.creatorScore !== a.creatorScore) return b.creatorScore - a.creatorScore;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    })
+    .slice(0, 6);
+
+  const creatorIds = rankedCreators.map((creator) => creator.id);
   let followingSet = new Set<number>();
   let reverseSet = new Set<number>();
 
@@ -168,20 +241,28 @@ export default async function CommunityPage() {
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
       <section className="card" style={{ padding: '28px' }}>
-        <span className="section-kicker">Community</span>
+        <span className="section-kicker">Community 2.0</span>
         <h1 style={{ margin: '0 0 12px' }}>Creator feed</h1>
         <p style={{ color: 'var(--muted)', lineHeight: 1.8 }}>
-          Publish short updates, react to posts, and start simple discussions around artworks and artists.
+          The community now prioritizes stronger posts, surfaces active creators more intelligently, and lets artists attach an artwork directly to a post.
         </p>
         <div className="card-actions">
-          <span className="pill">Posts live</span>
-          <span className="pill">Likes live</span>
-          <span className="pill">Comments live</span>
+          <span className="pill">Smart feed</span>
+          <span className="pill">Artwork sharing</span>
+          <span className="pill">Creator ranking</span>
           <span className="pill">Replies live</span>
         </div>
       </section>
 
-      <PostComposer disabled={!currentUser} username={currentUser?.username || null} />
+      <PostComposer
+        disabled={!currentUser}
+        username={currentUser?.username || null}
+        artworks={myArtworks.map((artwork) => ({
+          id: artwork.id,
+          title: artwork.title,
+          status: artwork.status,
+        }))}
+      />
 
       <section style={{ display: 'grid', gap: 16 }}>
         <div className="section-head compact">
@@ -189,12 +270,12 @@ export default async function CommunityPage() {
             <span className="section-kicker">Creators</span>
             <h2>Active creators</h2>
           </div>
-          <p>Profiles with published posts, artworks, or both now appear here instead of an empty panel.</p>
+          <p>Only the top 6 creators appear here, ranked by posts, artworks, followers, and engagement on their community posts.</p>
         </div>
 
-        {creators.length > 0 ? (
+        {rankedCreators.length > 0 ? (
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-            {creators.map((creator) => (
+            {rankedCreators.map((creator) => (
               <ActiveCreatorCard
                 key={creator.id}
                 creator={{
@@ -203,6 +284,7 @@ export default async function CommunityPage() {
                   fullName: creator.fullName,
                   headline: creator.headline,
                   profileImage: creator.profileImage,
+                  score: creator.creatorScore,
                   stats: {
                     posts: creator._count.posts,
                     artworks: creator._count.artworks,
@@ -226,9 +308,12 @@ export default async function CommunityPage() {
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Feed</span>
-            <h2>Latest posts</h2>
+            <h2>{feedMode === 'latest' ? 'Latest posts' : 'Top posts right now'}</h2>
           </div>
-          <p>{currentUser ? 'Your community tools are ready.' : 'Log in to publish, like, comment, and reply.'}</p>
+          <div className="card-actions" style={{ marginTop: 0 }}>
+            <Link href="/community?feed=top" className={feedMode === 'top' ? 'button primary' : 'button secondary'}>Top</Link>
+            <Link href="/community?feed=latest" className={feedMode === 'latest' ? 'button primary' : 'button secondary'}>Latest</Link>
+          </div>
         </div>
         <CommunityFeed posts={serializedPosts} currentUserId={currentUser?.userId || null} canInteract={Boolean(currentUser)} />
       </section>

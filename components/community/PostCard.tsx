@@ -30,12 +30,21 @@ export type CommunityFeedPost = {
   commentsCount: number;
   viewerLiked: boolean;
   authorId: number;
+  feedScore?: number;
   author: {
     username: string;
     fullName: string | null;
     profileImage: string | null;
     headline: string | null;
   };
+  artwork?: {
+    id: number;
+    title: string;
+    imageUrl: string;
+    status: string;
+    price: string | number;
+    currency: string;
+  } | null;
   comments: CommunityFeedComment[];
 };
 
@@ -204,6 +213,7 @@ export function PostCard({
                 {displayName}
               </Link>
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>@{post.author.username}</span>
+              {typeof post.feedScore === 'number' ? <span className="pill">Score {post.feedScore}</span> : null}
             </div>
             <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 14 }}>
               {formatTimeAgo(post.createdAt)}{post.updatedAt !== post.createdAt ? ' · edited' : ''}
@@ -218,6 +228,38 @@ export function PostCard({
       </div>
 
       <p style={{ margin: 0, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{post.body}</p>
+
+      {post.artwork ? (
+        <Link
+          href={`/artwork/${post.artwork.id}`}
+          className="card"
+          style={{
+            padding: 12,
+            display: 'grid',
+            gap: 12,
+            gridTemplateColumns: '96px minmax(0, 1fr)',
+            textDecoration: 'none',
+            color: 'inherit',
+            background: 'rgba(255,255,255,0.02)',
+          }}
+        >
+          <img
+            src={post.artwork.imageUrl}
+            alt={post.artwork.title}
+            style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12 }}
+          />
+          <div style={{ minWidth: 0, display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <strong style={{ fontSize: 16 }}>{post.artwork.title}</strong>
+              <span className="pill">{post.artwork.status}</span>
+            </div>
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>
+              Linked artwork · {Number(post.artwork.price).toFixed(2)} {post.artwork.currency}
+            </span>
+            <span style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600 }}>Open artwork</span>
+          </div>
+        </Link>
+      ) : null}
 
       <div className="card-actions" style={{ gap: 8, marginTop: 0 }}>
         <button className="button secondary" type="button" onClick={toggleLike} disabled={!canInteract || busyLike}>

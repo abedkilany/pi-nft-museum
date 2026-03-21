@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
+import { scoreCommunityPost } from '@/lib/community';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function serializeComments(comments: Array<any>) {
   const byId = new Map<number, any>();
@@ -33,14 +37,16 @@ function serializeComments(comments: Array<any>) {
   return roots;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const currentUser = await getCurrentUser();
-
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get('mode') === 'latest' ? 'latest' : 'top';
   const likeUserId = currentUser?.userId ?? -1;
+
   const posts = await prisma.communityPost.findMany({
     where: { isPublished: true },
     orderBy: { createdAt: 'desc' },
-    take: 20,
+    take: 30,
     include: {
       author: {
         select: {
@@ -48,6 +54,16 @@ export async function GET() {
           fullName: true,
           profileImage: true,
           headline: true,
+        },
+      },
+      artwork: {
+        select: {
+          id: true,
+          title: true,
+          imageUrl: true,
+          status: true,
+          price: true,
+          currency: true,
         },
       },
       comments: {
@@ -70,19 +86,37 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({
-    ok: true,
-    posts: posts.map((post) => ({
-      id: post.id,
-      body: post.body,
-      createdAt: post.createdAt.toISOString(),
-      updatedAt: post.updatedAt.toISOString(),
+  const mapped = posts.map((post) => ({
+    id: post.id,
+    body: post.body,
+    createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
+    likesCount: post.likesCount,
+    commentsCount: post.commentsCount,
+    authorId: post.authorId,
+    author: post.author,
+    artwork: post.artwork,
+    comments: serializeComments(post.comments),
+    viewerLiked: currentUser ? post.likes.length > 0 : false,
+    feedScore: scoreCommunityPost({
+      createdAt: post.createdAt,
       likesCount: post.likesCount,
       commentsCount: post.commentsCount,
-      authorId: post.authorId,
-      author: post.author,
-      comments: serializeComments(post.comments),
-      viewerLiked: currentUser ? post.likes.length > 0 : false,
-    })),
+      linkedArtwork: Boolean(post.artworkId),
+    }),
+  }));
+
+  const sorted = [...mapped].sort((a, b) => {
+    if (mode === 'latest') {
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    }
+    if (b.feedScore !== a.feedScore) return b.feedScore - a.feedScore;
+    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  });
+
+  return NextResponse.json({
+    ok: true,
+    mode,
+    posts: sorted,
   });
 }

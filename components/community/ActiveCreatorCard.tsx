@@ -8,6 +8,7 @@ type Props = {
     fullName: string | null;
     headline: string | null;
     profileImage: string | null;
+    score: number;
     stats: {
       posts: number;
       artworks: number;
@@ -51,6 +52,7 @@ export function ActiveCreatorCard({ creator, isFollowing, followsYou, isSelf }: 
       </div>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <span className="pill">Score {creator.score}</span>
         <span className="pill">{creator.stats.posts} post{creator.stats.posts === 1 ? '' : 's'}</span>
         <span className="pill">{creator.stats.artworks} artwork{creator.stats.artworks === 1 ? '' : 's'}</span>
         <span className="pill">{creator.stats.followers} follower{creator.stats.followers === 1 ? '' : 's'}</span>
