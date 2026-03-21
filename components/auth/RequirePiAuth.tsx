@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 type Props = {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   loadingText?: string;
   guestText?: string;
 };
