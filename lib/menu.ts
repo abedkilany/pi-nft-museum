@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
 
@@ -46,6 +47,7 @@ export function normalizeMenuItems(value: unknown): MenuItem[] {
 }
 
 export async function getMenuItems() {
+  noStore();
   const settings = await getSiteSettingsMap();
   const communityEnabled = getBooleanSetting(settings, 'community_enabled', false);
 

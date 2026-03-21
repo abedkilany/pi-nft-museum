@@ -1,4 +1,6 @@
 import Link from 'next/link';
+
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
 import { getCurrentUser } from '@/lib/current-user';

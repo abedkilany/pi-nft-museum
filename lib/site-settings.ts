@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 
 export type SettingType = 'text' | 'number' | 'boolean' | 'textarea' | 'json';
@@ -100,6 +101,7 @@ export async function ensureDefaultSiteSettings() {
 }
 
 export async function getSiteSettingsMap() {
+  noStore();
   const settings = await prisma.siteSetting.findMany({
     where: { settingKey: { in: Object.keys(DEFAULT_SITE_SETTINGS) } },
     select: { settingKey: true, settingValue: true }
