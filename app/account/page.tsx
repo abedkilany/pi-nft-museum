@@ -59,10 +59,10 @@ export default function AccountPage() {
           <div className="card summary-card"><strong>Linked at</strong><p style={{ color: 'var(--muted)' }}>{dbUser.linkedAt ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dbUser.linkedAt)) : 'Not linked yet'}</p></div>
         </div>
         <div className="card-actions">
-          <Link href={`/profile/${dbUser.username}`} className="button primary">Open public profile</Link>
-          <Link href={`/profile/${dbUser.username}`} className="button secondary">Edit public profile</Link>
+          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button primary">Open public profile</Link>
+          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button secondary">Edit public profile</Link>
           <Link href="/notifications" className="button secondary">Notifications</Link>
-          <Link href="/account/artworks" className="button secondary">My artworks</Link>
+          <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
           {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
         </div>

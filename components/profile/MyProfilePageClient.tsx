@@ -97,8 +97,8 @@ export default function MyProfilePageClient() {
               {user.headline || user.bio || 'Complete your profile from Account settings to add your public bio.'}
             </p>
             <div className="card-actions" style={{ marginTop: 16 }}>
-              <Link href="/account" className="button secondary">Account settings</Link>
-              <Link href="/account/artworks" className="button secondary">My artworks</Link>
+              <Link href="/account" prefetch={false} className="button secondary">Account settings</Link>
+              <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
               <Link href="/upload" className="button primary">Upload artwork</Link>
             </div>
           </div>

@@ -47,6 +47,7 @@ export default function MyArtworksPageClient() {
   const artworks = data?.artworks || [];
   const reviewHours = data?.reviewHours || 48;
   const archiveMessage = data?.archiveMessage || '';
+  const username = data?.user?.username || null;
 
   return (
     <div className="page-stack">
@@ -57,7 +58,7 @@ export default function MyArtworksPageClient() {
         </div>
         <div className="card-actions">
           <Link href="/upload" className="button primary">Upload new artwork</Link>
-          <Link href="/profile" className="button secondary">Open profile</Link>
+          <Link href={username ? `/profile/${username}` : "/account"} prefetch={false} className="button secondary">Open profile</Link>
         </div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
           <div className="stack-md">
