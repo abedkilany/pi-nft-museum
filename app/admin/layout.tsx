@@ -1,13 +1,61 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { getCurrentUser } from '@/lib/current-user';
-import { ADMIN_ROLES } from '@/lib/roles';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const currentUser = await getCurrentUser();
+const ADMIN_ROLES = new Set(['admin', 'superadmin']);
 
-  if (!currentUser || !ADMIN_ROLES.includes(currentUser.role as (typeof ADMIN_ROLES)[number])) {
-    redirect('/account');
+type AdminLayoutProps = {
+  children: React.ReactNode;
+};
+
+export default function AdminLayout({ children }: AdminLayoutProps) {
+  const router = useRouter();
+  const [status, setStatus] = useState<'loading' | 'allowed' | 'blocked'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccess() {
+      const response = await piApiFetch('/api/account/summary', {
+        method: 'GET',
+        cache: 'no-store',
+      }).catch(() => null);
+
+      const payload = response ? await response.json().catch(() => null) : null;
+      if (cancelled) return;
+
+      if (response?.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      const roleKey = payload?.user?.roleKey;
+      if (response?.ok && payload?.ok && roleKey && ADMIN_ROLES.has(roleKey)) {
+        setStatus('allowed');
+        return;
+      }
+
+      setStatus('blocked');
+      router.replace('/account');
+    }
+
+    void loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (status !== 'allowed') {
+    return (
+      <div className="page-stack">
+        <section className="card surface-section">
+          <p>{status === 'blocked' ? 'Redirecting…' : 'Checking admin access…'}</p>
+        </section>
+      </div>
+    );
   }
 
   return (

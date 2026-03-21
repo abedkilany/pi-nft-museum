@@ -1,12 +1,48 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/current-user';
+'use client';
 
-export const dynamic = 'force-dynamic';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
-export default async function ProfilePage() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser?.username) {
-    redirect('/login');
-  }
-  redirect(`/profile/${currentUser.username}`);
+export default function ProfilePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveProfile() {
+      const response = await piApiFetch('/api/profile/me', {
+        method: 'GET',
+        cache: 'no-store',
+      }).catch(() => null);
+
+      const payload = response ? await response.json().catch(() => null) : null;
+      if (cancelled) return;
+
+      if (response?.ok && payload?.ok && payload?.user?.username) {
+        router.replace(`/profile/${payload.user.username}`);
+        return;
+      }
+
+      if (response?.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      router.replace('/account');
+    }
+
+    void resolveProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  return (
+    <div className="page-stack">
+      <section className="card surface-section">
+        <p>Opening your profile…</p>
+      </section>
+    </div>
+  );
 }
