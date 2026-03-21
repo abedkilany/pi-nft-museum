@@ -164,3 +164,139 @@ export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {
   response = await execute();
   return response;
 }
+
+
+type PiSessionUser = {
+  id?: number;
+  username?: string | null;
+  email?: string | null;
+  role?: string | null;
+  piUid?: string | null;
+  piUsername?: string | null;
+};
+
+type EnsurePiSessionResult = {
+  ok: boolean;
+  authenticated: boolean;
+  user?: PiSessionUser | null;
+  reason?: string;
+};
+
+async function readJsonSafe<T = any>(response: Response | null): Promise<T | null> {
+  if (!response) return null;
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return null;
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function loginWithPiAccessToken(accessToken: string): Promise<EnsurePiSessionResult> {
+  const response = await piApiFetch('/api/auth/pi/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ accessToken }),
+  }).catch(() => null);
+
+  const payload = await readJsonSafe<any>(response);
+
+  if (!response?.ok || payload?.ok !== true) {
+    return {
+      ok: false,
+      authenticated: false,
+      reason: payload?.error || payload?.message || 'PI_LOGIN_FAILED',
+    };
+  }
+
+  setPiAuthToken(accessToken);
+
+  const authResponse = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: getPiAuthHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+  }).catch(() => null);
+  const authPayload = await readJsonSafe<any>(authResponse);
+
+  if (!authResponse?.ok || authPayload?.authenticated !== true) {
+    return {
+      ok: false,
+      authenticated: false,
+      reason: authPayload?.reason || 'AUTH_CONFIRMATION_FAILED',
+    };
+  }
+
+  return {
+    ok: true,
+    authenticated: true,
+    user: authPayload?.user || payload?.user || null,
+  };
+}
+
+export async function ensurePiUserSession(): Promise<EnsurePiSessionResult> {
+  const authResponse = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: getPiAuthHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+  }).catch(() => null);
+  const authPayload = await readJsonSafe<any>(authResponse);
+
+  if (authResponse?.ok && authPayload?.authenticated === true) {
+    return {
+      ok: true,
+      authenticated: true,
+      user: authPayload?.user || null,
+    };
+  }
+
+  const bootstrapRehydrated = await tryRehydrateSession();
+  if (bootstrapRehydrated) {
+    const recheckResponse = await fetch('/api/auth/me', {
+      method: 'GET',
+      headers: getPiAuthHeaders(),
+      credentials: 'include',
+      cache: 'no-store',
+    }).catch(() => null);
+    const recheckPayload = await readJsonSafe<any>(recheckResponse);
+
+    if (recheckResponse?.ok && recheckPayload?.authenticated === true) {
+      return {
+        ok: true,
+        authenticated: true,
+        user: recheckPayload?.user || null,
+      };
+    }
+  }
+
+  try {
+    const mod = await import('./pi');
+    const auth = await mod.authenticateWithPi(['username', 'payments']);
+    const accessToken = auth?.accessToken?.trim();
+
+    if (!accessToken) {
+      return {
+        ok: false,
+        authenticated: false,
+        reason: 'PI_ACCESS_TOKEN_MISSING',
+      };
+    }
+
+    return await loginWithPiAccessToken(accessToken);
+  } catch (error) {
+    return {
+      ok: false,
+      authenticated: false,
+      reason: error instanceof Error ? error.message : 'PI_AUTHENTICATION_FAILED',
+    };
+  }
+}
