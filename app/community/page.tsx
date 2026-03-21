@@ -290,11 +290,11 @@ export default async function CommunityPage({
             <span className="section-kicker">Creators</span>
             <h2>Active creators</h2>
           </div>
-          <p>Only the top 6 creators appear here, ranked by posts, artworks, followers, and engagement on their community posts.</p>
+          <p>A compact shortlist of the strongest creators right now, so visitors reach the feed quickly.</p>
         </div>
 
         {rankedCreators.length > 0 ? (
-          <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             {rankedCreators.map((creator) => (
               <ActiveCreatorCard
                 key={creator.id}

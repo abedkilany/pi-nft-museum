@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProfileForms } from '@/components/account/ProfileForms';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
@@ -23,7 +22,6 @@ export default function AccountPage() {
         router.replace('/login');
         return;
       }
-
       if (!response?.ok || !payload?.ok) {
         setError(payload?.error || 'Failed to load your account.');
         setLoading(false);
@@ -40,7 +38,6 @@ export default function AccountPage() {
   if (error || !data?.user) return <div className="page-stack"><section className="card surface-section"><p>{error || 'Unable to load account.'}</p></section></div>;
 
   const dbUser = data.user;
-  const countries = data.countries || [];
   const isAdmin = dbUser.roleKey === 'admin' || dbUser.roleKey === 'superadmin';
 
   return (
@@ -48,29 +45,49 @@ export default function AccountPage() {
       <section className="card surface-section">
         <div className="section-head compact">
           <div>
-            <span className="section-kicker">Account hub</span>
-            <h1>My Account</h1>
+            <span className="section-kicker">Account</span>
+            <h1>Private account settings</h1>
           </div>
-          <p>Manage your Pi-linked profile, privacy, and marketplace access from one place.</p>
+          <p>Profile editing now lives on your public profile page. This area is for private account details, Pi connection info, and destructive actions only.</p>
         </div>
         <div className="account-summary-grid">
           <div className="card summary-card"><strong>Pi username</strong><p style={{ color: 'var(--muted)' }}>{dbUser.piUsername || dbUser.username}</p></div>
           <div className="card summary-card"><strong>Pi UID</strong><p style={{ color: 'var(--muted)', wordBreak: 'break-all' }}>{dbUser.piUid || 'Not linked yet'}</p></div>
+          <div className="card summary-card"><strong>Wallet</strong><p style={{ color: 'var(--muted)', wordBreak: 'break-all' }}>{dbUser.piWalletAddress || 'Not connected yet'}</p></div>
           <div className="card summary-card"><strong>Phone</strong><p style={{ color: 'var(--muted)' }}>{dbUser.phoneNumber || 'Not added yet'}</p></div>
-          <div className="card summary-card"><strong>Country</strong><p style={{ color: 'var(--muted)' }}>{dbUser.country === '__OTHER__' ? (dbUser.customCountryName || 'Other country') : (dbUser.country || 'Not set')}</p></div>
           <div className="card summary-card"><strong>Role</strong><p style={{ color: 'var(--muted)' }}>{dbUser.roleName}</p></div>
           <div className="card summary-card"><strong>Linked at</strong><p style={{ color: 'var(--muted)' }}>{dbUser.linkedAt ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dbUser.linkedAt)) : 'Not linked yet'}</p></div>
         </div>
         <div className="card-actions">
-          <Link href={`/profile/${dbUser.username}`} className="button secondary">Open public profile</Link>
-          <Link href="/profile" className="button secondary">Open member dashboard</Link>
+          <Link href={`/profile/${dbUser.username}`} className="button primary">Open public profile</Link>
+          <Link href={`/profile/${dbUser.username}`} className="button secondary">Edit public profile</Link>
+          <Link href="/notifications" className="button secondary">Notifications</Link>
           <Link href="/artwork" className="button secondary">My artworks</Link>
-          <Link href="/upload" className="button primary">Upload artwork</Link>
+          <Link href="/upload" className="button secondary">Upload artwork</Link>
           {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
         </div>
       </section>
 
-      <ProfileForms user={dbUser} countries={countries} />
+      <section className="card surface-section">
+        <div className="section-head compact">
+          <div>
+            <span className="section-kicker">Separation of concerns</span>
+            <h2>What changed</h2>
+          </div>
+          <p>The app now keeps profile identity and private account tools separate.</p>
+        </div>
+        <div className="stack-sm">
+          <div className="card" style={{ padding: 16 }}>
+            <strong>Public profile</strong>
+            <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>This is the only profile page visitors see. You can edit your public info directly there.</p>
+          </div>
+          <div className="card" style={{ padding: 16 }}>
+            <strong>Account page</strong>
+            <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>This page keeps Pi-linked account details, internal actions, and account removal only.</p>
+          </div>
+        </div>
+      </section>
+
       <DeleteAccountSection />
     </div>
   );

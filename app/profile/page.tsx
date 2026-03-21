@@ -1,5 +1,12 @@
-import MyProfilePageClient from '@/components/profile/MyProfilePageClient';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/current-user';
 
-export default function ProfilePage() {
-  return <MyProfilePageClient />;
+export const dynamic = 'force-dynamic';
+
+export default async function ProfilePage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser?.username) {
+    redirect('/login');
+  }
+  redirect(`/profile/${currentUser.username}`);
 }

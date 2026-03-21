@@ -7,7 +7,9 @@ import { getCurrentUser } from '@/lib/current-user';
 import { getFollowCounts, getFollowState } from '@/lib/follows';
 import { FollowButton } from '@/components/community/FollowButton';
 import { scoreCommunityPost } from '@/lib/community';
+import { getAllowedCountries } from '@/lib/countries';
 import PublicProfileCommunityTabs from '@/components/profile/PublicProfileCommunityTabs';
+import ProfileEditPanel from '@/components/profile/ProfileEditPanel';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
 
 export const dynamic = 'force-dynamic';
@@ -155,7 +157,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     } : false,
   };
 
-  const [counts, followState, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
+  const [counts, followState, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount, countries] = await Promise.all([
     getFollowCounts(user.id),
     getFollowState(viewerId, user.id),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
@@ -184,6 +186,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       take: 8,
     }),
     prisma.communityPostComment.count({ where: { authorId: user.id } }),
+    getAllowedCountries(),
   ]);
 
   const ownPosts = ownPostsRaw.map((post) => serializePost(post, viewerId));
@@ -249,6 +252,7 @@ On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
               {user.showEmailPublic ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
               {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
               {user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
+              {followState.isSelf ? <button type="button" className="button primary">Editing enabled below</button> : null}
             </div>
           </div>
           {!followState.isSelf ? (
@@ -274,6 +278,30 @@ On ${comment.post.author.fullName || comment.post.author.username}'s post.`,
           )}
         </div>
       </section>
+
+
+      {followState.isSelf ? (
+        <ProfileEditPanel
+          user={{
+            username: user.username,
+            fullName: user.fullName || '',
+            email: user.email || '',
+            bio: user.bio || '',
+            country: user.country || '',
+            customCountryName: user.customCountryName || '',
+            phoneNumber: user.phoneNumber || '',
+            headline: user.headline || '',
+            profileImage: user.profileImage || '',
+            coverImage: user.coverImage || '',
+            websiteUrl: user.websiteUrl || '',
+            twitterUrl: user.twitterUrl || '',
+            instagramUrl: user.instagramUrl || '',
+            showPhonePublic: Boolean(user.showPhonePublic),
+            showCountryPublic: Boolean(user.showCountryPublic),
+          }}
+          countries={countries}
+        />
+      ) : null}
 
       <section className="stats-grid">
         <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
