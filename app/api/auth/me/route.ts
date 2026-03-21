@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { createSessionToken, getAuthCookieName, verifySessionToken } from '@/lib/auth';
+import { createSessionToken, verifySessionToken } from '@/lib/auth';
+import { getAuthCookieName } from '@/lib/auth-cookie';
 import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 

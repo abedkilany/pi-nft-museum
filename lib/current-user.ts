@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
-import { type SessionUser, getAuthCookieName, verifySessionToken } from './auth';
+import { type SessionUser, verifySessionToken } from './auth';
+import { getAuthCookieName } from './auth-cookie';
 import { PI_SESSION_HINT_COOKIE_NAME } from './pi-auth-client';
 import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
 

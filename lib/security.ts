@@ -4,7 +4,17 @@ import { getRequestIp, checkMultiRateLimit } from '@/lib/rate-limit';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function getRequestOrigin(request: Request) {
-  return request.headers.get('origin') || request.headers.get('referer') || '';
+  const originHeader = request.headers.get('origin');
+  if (originHeader) return originHeader;
+
+  const refererHeader = request.headers.get('referer');
+  if (!refererHeader) return '';
+
+  try {
+    return new URL(refererHeader).origin;
+  } catch {
+    return '';
+  }
 }
 
 function getExpectedOrigin(request: Request) {
@@ -22,7 +32,7 @@ export function assertSameOrigin(request: Request) {
   }
 
   const expectedOrigin = getExpectedOrigin(request);
-  if (!origin.startsWith(expectedOrigin)) {
+  if (origin !== expectedOrigin) {
     return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
   }
 

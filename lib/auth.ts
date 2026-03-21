@@ -1,8 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
-
-const AUTH_COOKIE_NAME = 'pi_nft_auth';
+import { getAuthCookieName } from './auth-cookie';
 
 export type SessionUser = {
   userId: number;
@@ -53,6 +52,3 @@ export async function verifySessionToken(token: string) {
   return payload as unknown as SessionUser;
 }
 
-export function getAuthCookieName() {
-  return AUTH_COOKIE_NAME;
-}
