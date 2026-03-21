@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { ensurePiUserSession, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 import { formatTimeAgo } from '@/lib/community';
 
 export default function MyProfilePageClient() {
@@ -23,12 +23,6 @@ export default function MyProfilePageClient() {
         if (cancelled) return;
 
         if (response?.status === 401) {
-          const ensured = await ensurePiUserSession();
-          if (cancelled) return;
-          if (ensured.ok && ensured.authenticated) {
-            void load();
-            return;
-          }
           router.replace('/login');
           return;
         }

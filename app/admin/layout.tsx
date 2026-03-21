@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { ensurePiUserSession, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 const ADMIN_ROLES = new Set(['admin', 'superadmin']);
 
@@ -58,14 +58,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         if (cancelled) return;
 
         if (response.status === 401) {
-          const ensured = await ensurePiUserSession();
-          if (cancelled) return;
-          if (ensured.ok && ensured.authenticated) {
-            void loadAccess();
-            return;
-          }
           setStatus('blocked');
-          setMessage('Your session needs Pi authentication again. Redirecting…');
+          setMessage('Your session needs to be refreshed. Redirecting…');
           router.replace('/login');
           return;
         }

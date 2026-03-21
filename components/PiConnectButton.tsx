@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { loginWithPiAccessToken } from '@/lib/pi-auth-client';
+import { setPiAuthToken, piApiFetch } from '@/lib/pi-auth-client';
 import { authenticateWithPi } from '@/lib/pi';
 
 type Props = {
@@ -25,16 +25,41 @@ export function PiConnectButton({ className = 'button primary', children, redire
         return;
       }
 
-      const result = await loginWithPiAccessToken(auth.accessToken);
+      const response = await piApiFetch('/api/auth/pi/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+        body: JSON.stringify({
+          accessToken: auth.accessToken,
+        }),
+      });
 
-      if (!result.ok || !result.authenticated) {
-        alert(result.reason || 'Server login failed.');
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.ok) {
+        alert(payload?.error || 'Server login failed.');
         return;
       }
 
-      const role = String(result.user?.role || '').trim().toLowerCase();
+      // Keep a client fallback specifically for Pi Browser / WebView quirks.
+      setPiAuthToken(auth.accessToken);
+
+      // Confirm that one follow-up request still sees the authenticated user.
+      const authCheck = await piApiFetch('/api/auth/me', {
+        method: 'GET',
+        cache: 'no-store',
+      }).catch(() => null);
+      const authCheckPayload = authCheck ? await authCheck.json().catch(() => null) : null;
+
+      if (!authCheck?.ok || !authCheckPayload?.authenticated) {
+        // Do not fail hard here; bearer fallback is still stored and may be enough inside Pi Browser.
+        console.warn('Pi login succeeded, but session confirmation did not fully stick yet.', authCheckPayload);
+      }
+
       const target = redirectTo || (
-        role === 'admin' || role === 'superadmin'
+        payload?.user?.role === 'admin' || payload?.user?.role === 'superadmin'
           ? '/admin'
           : '/account'
       );

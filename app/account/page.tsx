@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
-import { ensurePiUserSession, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 export default function AccountPage() {
   const router = useRouter();
@@ -19,12 +19,6 @@ export default function AccountPage() {
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
       if (response?.status === 401) {
-        const ensured = await ensurePiUserSession();
-        if (cancelled) return;
-        if (ensured.ok && ensured.authenticated) {
-          void load();
-          return;
-        }
         router.replace('/login');
         return;
       }

@@ -10,7 +10,7 @@ import { formatDateTime, getMintWindowStatus } from '@/lib/artwork-windows';
 import { getArtworkStatusLabel } from '@/lib/artwork-status';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
 import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
-import { ensurePiUserSession, piApiFetch } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 export default function MyArtworksPageClient() {
   const router = useRouter();
@@ -25,12 +25,6 @@ export default function MyArtworksPageClient() {
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
       if (response?.status === 401) {
-        const ensured = await ensurePiUserSession();
-        if (cancelled) return;
-        if (ensured.ok && ensured.authenticated) {
-          void load();
-          return;
-        }
         router.replace('/login');
         return;
       }
