@@ -47,7 +47,7 @@ export default async function RejectedArtworksPage() {
         <p>No rejected artworks found.</p>
       ) : (
         <div style={{ display: 'grid', gap: '16px' }}>
-          {artworks.map((artwork) => {
+          {artworks.map((artwork: any) => {
             const artistName =
               artwork.artist.artistProfile?.displayName ||
               artwork.artist.fullName ||

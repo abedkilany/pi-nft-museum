@@ -95,7 +95,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         </div>
         {activities.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No public activity yet.</p> : (
           <div className="stack-sm">
-            {activities.map((activity) => (
+            {activities.map((activity: any) => (
               <article key={activity.id} className="card" style={{ padding: '16px' }}>
                 <div className="feed-item-header">
                   <div>
@@ -121,7 +121,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         </div>
         {user.artworks.length === 0 ? <p style={{ margin: 0 }}>No public artworks yet.</p> : (
           <div className="gallery-grid">
-            {user.artworks.map((artwork) => (
+            {user.artworks.map((artwork: any) => (
               <article key={artwork.id} className="card art-card">
                 <div className="art-image-wrap"><img src={artwork.imageUrl} alt={artwork.title} className="art-image" /></div>
                 <div className="art-body">

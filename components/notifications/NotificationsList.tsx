@@ -19,28 +19,28 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
   async function markAllAsRead() {
     const response = await piApiFetch('/api/notifications/mark-all-read', { method: 'POST' });
     if (!response.ok) return;
-    setItems((current) => current.map((item) => ({ ...item, isRead: true })));
+    setItems((current) => current.map((item: any) => ({ ...item, isRead: true })));
   }
 
   async function markAsRead(id: number) {
     const response = await piApiFetch(`/api/notifications/${id}/read`, { method: 'POST' });
     if (!response.ok) return;
-    setItems((current) => current.map((item) => item.id === id ? { ...item, isRead: true } : item));
+    setItems((current) => current.map((item: any) => item.id === id ? { ...item, isRead: true } : item));
   }
 
   async function clearRead() {
     const response = await piApiFetch('/api/notifications/clear-read', { method: 'POST' });
     if (!response.ok) return;
-    setItems((current) => current.filter((item) => !item.isRead));
+    setItems((current) => current.filter((item: any) => !item.isRead));
   }
 
   async function deleteItem(id: number) {
     const response = await piApiFetch(`/api/notifications/${id}`, { method: 'DELETE' });
     if (!response.ok) return;
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((current) => current.filter((item: any) => item.id !== id));
   }
 
-  const unreadCount = items.filter((item) => !item.isRead).length;
+  const unreadCount = items.filter((item: any) => !item.isRead).length;
 
   return (
     <section className="card" style={{ padding: 24 }}>
@@ -57,7 +57,7 @@ export function NotificationsList({ initialNotifications }: { initialNotificatio
       </div>
       {items.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No notifications yet.</p> : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {items.map((item) => (
+          {items.map((item: any) => (
             <div key={item.id} className="card" style={{ padding: 16, borderColor: item.isRead ? 'var(--line)' : 'rgba(221,176,79,0.4)', background: item.isRead ? undefined : 'rgba(221,176,79,0.08)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                 <div>

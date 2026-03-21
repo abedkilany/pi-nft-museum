@@ -38,6 +38,7 @@ export const SITE_SETTING_DEFINITIONS: SiteSettingDefinition[] = [
   { key: 'home_hero_text', label: 'Homepage hero text', group: 'homepage', type: 'textarea', defaultValue: 'Curate, review, mint, and showcase Pi-native digital art on a stable platform built for future Pi Network integration.' },
 
   { key: 'menu_json', label: 'Menu JSON', group: 'navigation', type: 'json', defaultValue: JSON.stringify(DEFAULT_MENU, null, 2), description: 'Advanced fallback for the navigation menu.' },
+  { key: 'allowed_countries', label: 'Allowed countries', group: 'general', type: 'text', defaultValue: DEFAULT_COUNTRIES, description: 'Comma-separated country list used as fallback.' },
 
   { key: 'premium_min_score', label: 'Premium minimum score', group: 'business_rules', type: 'number', defaultValue: '1000' },
   { key: 'premium_like_weight', label: 'Like weight', group: 'business_rules', type: 'number', defaultValue: '1' },
@@ -79,24 +80,26 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsMap = Object.fromEntries(
 );
 
 export async function ensureDefaultSiteSettings() {
-  await Promise.all(
-    SITE_SETTING_DEFINITIONS.map((item) =>
-      prisma.siteSetting.upsert({
-        where: { settingKey: item.key },
-        update: {},
-        create: {
+  for (const item of SITE_SETTING_DEFINITIONS) {
+    const existing = await prisma.siteSetting.findUnique({
+      where: { settingKey: item.key },
+      select: { settingKey: true }
+    });
+
+    if (!existing) {
+      await prisma.siteSetting.create({
+        data: {
           settingKey: item.key,
           settingValue: item.defaultValue,
           settingGroup: item.group,
           isPublic: item.isPublic ?? false
         }
-      })
-    )
-  );
+      });
+    }
+  }
 }
 
 export async function getSiteSettingsMap() {
-  await ensureDefaultSiteSettings();
   const settings = await prisma.siteSetting.findMany({
     where: { settingKey: { in: Object.keys(DEFAULT_SITE_SETTINGS) } },
     select: { settingKey: true, settingValue: true }
@@ -133,7 +136,6 @@ export function getArraySetting(settings: SiteSettingsMap, key: string, fallback
   return values.length > 0 ? values : fallback;
 }
 
-
 export function getPublicReviewHours(settings: SiteSettingsMap) {
   return getNumberSetting(settings, 'public_review_hours', 48);
 }
@@ -158,4 +160,3 @@ export function calculatePremiumScoreFromSettings(
 export function isEligibleForPremium(score: number, settings: SiteSettingsMap) {
   return score >= getNumberSetting(settings, 'premium_min_score', 1000);
 }
-

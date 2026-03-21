@@ -39,8 +39,8 @@ export function getRequestIp(request: Request) {
 
 export function rateLimitKey(parts: Array<string | number | null | undefined>) {
   return parts
-    .map((part) => String(part ?? ''))
-    .map((part) => part.trim())
+    .map((part: any) => String(part ?? ''))
+    .map((part: any) => part.trim())
     .filter(Boolean)
     .join(':');
 }

@@ -60,7 +60,7 @@ export function ProfileForms({ user, countries }: Props) {
   const [busy, setBusy] = useState(false);
 
   const usingOtherCountry = profile.country === OTHER_COUNTRY_VALUE;
-  const selectedCountry = countries.find((item) => item.name === profile.country);
+  const selectedCountry = countries.find((item: any) => item.name === profile.country);
   const publicCountryLabel = usingOtherCountry ? profile.customCountryName : profile.country;
   const avatarPreview = useMemo(() => (avatarFile ? URL.createObjectURL(avatarFile) : profile.profileImage), [avatarFile, profile.profileImage]);
   const coverPreview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : profile.coverImage), [coverFile, profile.coverImage]);
@@ -152,7 +152,7 @@ export function ProfileForms({ user, countries }: Props) {
             <span>Country</span>
             <select value={profile.country} onChange={(e) => setProfile((current) => ({ ...current, country: e.target.value, customCountryName: e.target.value === OTHER_COUNTRY_VALUE ? current.customCountryName : '' }))}>
               <option value="">Choose country</option>
-              {countries.map((country) => <option key={country.name} value={country.name}>{country.name}</option>)}
+              {countries.map((country: any) => <option key={country.name} value={country.name}>{country.name}</option>)}
               <option value={OTHER_COUNTRY_VALUE}>Other country</option>
             </select>
           </label>

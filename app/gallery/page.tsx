@@ -31,7 +31,7 @@ export default async function GalleryPage() {
 
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
         <section className="stack-md">
-          {artworks.map((artwork) => {
+          {artworks.map((artwork: any) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             const myReaction = user && Array.isArray(artwork.reactions) && artwork.reactions.length > 0 ? artwork.reactions[0].type : null;
             return (

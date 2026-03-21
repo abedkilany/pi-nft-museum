@@ -11,7 +11,7 @@ export async function purgeExpiredArchivedArtworks() {
     select: { id: true },
   });
   if (expired.length === 0) return 0;
-  await prisma.artwork.deleteMany({ where: { id: { in: expired.map((item) => item.id) } } });
+  await prisma.artwork.deleteMany({ where: { id: { in: expired.map((item: any) => item.id) } } });
   return expired.length;
 }
 

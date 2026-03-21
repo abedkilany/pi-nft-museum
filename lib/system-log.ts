@@ -42,7 +42,7 @@ export async function readSystemLogs(limit = 250): Promise<SystemLogEntry[]> {
     take: limit
   });
 
-  return rows.map((row) => {
+  return rows.map((row: any) => {
     const payload = row.newValuesJson && typeof row.newValuesJson === 'object' && !Array.isArray(row.newValuesJson)
       ? (row.newValuesJson as Record<string, unknown>)
       : {};
@@ -73,7 +73,7 @@ export async function getSystemLogFileBuffer() {
   const content = logs
     .slice()
     .reverse()
-    .map((entry) => JSON.stringify(entry))
+    .map((entry: any) => JSON.stringify(entry))
     .join('\n');
 
   return Buffer.from(content ? `${content}\n` : '', 'utf8');

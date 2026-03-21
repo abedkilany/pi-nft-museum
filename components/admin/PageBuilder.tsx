@@ -272,7 +272,7 @@ export function PageBuilder({ pages }: { pages: PageRecord[] }) {
       />
 
       <div style={{ display: 'grid', gap: '18px' }}>
-        {pages.map((page) => (
+        {pages.map((page: any) => (
           <PageCard key={page.id} page={page} />
         ))}
       </div>

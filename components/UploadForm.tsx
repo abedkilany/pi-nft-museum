@@ -88,7 +88,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
           <span>Category</span>
           <select value={form.category} onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}>
             <option value="">Choose category</option>
-            {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
+            {categories.map((category: any) => <option key={category.id} value={category.name}>{category.name}</option>)}
           </select>
           <small className="field-help">Categories are managed from the admin dashboard.</small>
         </label>

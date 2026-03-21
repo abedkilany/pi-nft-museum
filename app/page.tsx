@@ -21,9 +21,9 @@ export default async function HomePage() {
     prisma.artwork.groupBy({ by: ['status'], _count: true })
   ]);
 
-  const pending = stats.find((item) => item.status === 'PENDING')?._count || 0;
-  const published = stats.find((item) => item.status === 'PUBLISHED')?._count || 0;
-  const premium = stats.find((item) => item.status === 'PREMIUM')?._count || 0;
+  const pending = stats.find((item: any) => item.status === 'PENDING')?._count || 0;
+  const published = stats.find((item: any) => item.status === 'PUBLISHED')?._count || 0;
+  const premium = stats.find((item: any) => item.status === 'PREMIUM')?._count || 0;
 
   return (
     <div className="home-page">
@@ -57,7 +57,7 @@ export default async function HomePage() {
           <p className="home-empty-state">No featured artworks are available yet.</p>
         ) : (
           <div className="gallery-grid home-gallery-grid">
-            {artworks.map((artwork) => {
+            {artworks.map((artwork: any) => {
               const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
               const description = artwork.description.length > 90 ? `${artwork.description.slice(0, 90)}…` : artwork.description;
 

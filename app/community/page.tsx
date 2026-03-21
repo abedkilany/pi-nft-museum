@@ -57,7 +57,7 @@ export default async function CommunityPage() {
           <p style={{ margin: 0 }}>No activity yet.</p>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
-            {activities.map((activity) => (
+            {activities.map((activity: any) => (
               <article key={activity.id} className="card" style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start' }}>
                   <div>

@@ -10,7 +10,7 @@ export function getCsvSetting(
 
   const values = raw
     .split(',')
-    .map((item) => item.trim())
+    .map((item: any) => item.trim())
     .filter(Boolean);
 
   return values.length > 0 ? values : fallback;

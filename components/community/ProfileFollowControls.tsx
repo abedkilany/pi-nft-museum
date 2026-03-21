@@ -75,7 +75,7 @@ export function ProfileFollowControls({ targetUserId, initiallyFollowing, initia
     <div ref={panelRef} className="card" style={{ position: 'fixed', top: panelStyle.top, left: panelStyle.left, width: 240, padding: 12, zIndex: 2000 }}>
       <strong style={{ display: 'block', marginBottom: 10 }}>Follow alerts</strong>
       <div style={{ display: 'grid', gap: 8 }}>
-        {OPTIONS.map((option) => (
+        {OPTIONS.map((option: any) => (
           <button key={option.value} type="button" className="button secondary" onClick={() => changeMode(option.value)} style={{ justifyContent: 'space-between', borderColor: notifyMode === option.value ? 'rgba(221,176,79,0.4)' : undefined }}>
             <span>{option.label}</span>
             <span>{notifyMode === option.value ? '✓' : ''}</span>

@@ -18,7 +18,7 @@ export default async function AdminArtworksPage() {
     }
   });
 
-  const mappedArtworks = artworks.map((artwork) => ({
+  const mappedArtworks = artworks.map((artwork: any) => ({
     id: artwork.id,
     title: artwork.title,
     imageUrl: artwork.imageUrl,

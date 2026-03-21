@@ -41,7 +41,7 @@ export default async function AdminReportsPage() {
             <h2>Artwork reports</h2>
           </div>
         </div>
-        {artworkReports.length === 0 ? <div className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No artwork reports yet.</p></div> : artworkReports.map((report) => (
+        {artworkReports.length === 0 ? <div className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No artwork reports yet.</p></div> : artworkReports.map((report: any) => (
           <article key={`art-${report.id}`} className="card" style={{ padding: '20px', display: 'grid', gap: '16px' }}>
             <div className="section-head compact">
               <div>
@@ -64,7 +64,7 @@ export default async function AdminReportsPage() {
                 <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
                   {report.originalWorkLink ? <a href={report.originalWorkLink} target="_blank">Original work link</a> : <span style={{ color: 'var(--muted)' }}>No original work link</span>}
                   {report.evidenceLink ? <a href={report.evidenceLink} target="_blank">External evidence link</a> : <span style={{ color: 'var(--muted)' }}>No extra evidence link</span>}
-                  {report.evidenceFiles.length > 0 ? report.evidenceFiles.map((file) => <a key={file.id} href={file.fileUrl} target="_blank">{file.originalName || 'Evidence file'}</a>) : <span style={{ color: 'var(--muted)' }}>No uploaded files</span>}
+                  {report.evidenceFiles.length > 0 ? report.evidenceFiles.map((file: any) => <a key={file.id} href={file.fileUrl} target="_blank">{file.originalName || 'Evidence file'}</a>) : <span style={{ color: 'var(--muted)' }}>No uploaded files</span>}
                 </div>
               </div>
             </div>
@@ -111,7 +111,7 @@ export default async function AdminReportsPage() {
             <h2>Comment reports</h2>
           </div>
         </div>
-        {commentReports.length === 0 ? <div className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No comment reports yet.</p></div> : commentReports.map((report) => (
+        {commentReports.length === 0 ? <div className="card" style={{ padding: '24px' }}><p style={{ margin: 0 }}>No comment reports yet.</p></div> : commentReports.map((report: any) => (
           <article key={`comment-${report.id}`} className="card" style={{ padding: '20px', display: 'grid', gap: '16px' }}>
             <div className="section-head compact">
               <div>

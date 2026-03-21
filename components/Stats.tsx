@@ -2,7 +2,7 @@ import { Artwork } from '@/lib/types';
 
 export function Stats({ artworks }: { artworks: Artwork[] }) {
   const artists = new Set(
-    artworks.map((art) => art.artist.name.toLowerCase())
+    artworks.map((art: any) => art.artist.name.toLowerCase())
   ).size;
 
   const total = artworks.reduce((sum, art) => sum + art.price, 0);

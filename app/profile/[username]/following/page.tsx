@@ -28,7 +28,7 @@ export default async function FollowingPage({ params }: { params: { username: st
     },
   });
 
-  const targetIds = following.map((item) => item.following.id);
+  const targetIds = following.map((item: any) => item.following.id);
   let followingSet = new Set<number>();
   let reverseSet = new Set<number>();
 
@@ -43,8 +43,8 @@ export default async function FollowingPage({ params }: { params: { username: st
         select: { followerId: true },
       }),
     ]);
-    followingSet = new Set(mine.map((item) => item.followingId));
-    reverseSet = new Set(reverse.map((item) => item.followerId));
+    followingSet = new Set(mine.map((item: any) => item.followingId));
+    reverseSet = new Set(reverse.map((item: any) => item.followerId));
   }
 
   return (
@@ -64,7 +64,7 @@ export default async function FollowingPage({ params }: { params: { username: st
           <p style={{ margin: 0 }}>This account is not following anyone yet.</p>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
-            {following.map((entry) => (
+            {following.map((entry: any) => (
               <FollowUserCard
                 key={entry.id}
                 user={entry.following}

@@ -30,7 +30,7 @@ export default async function AdminCategoriesPage() {
       </form>
 
       <div style={{ display: 'grid', gap: '14px' }}>
-        {categories.map((category) => (
+        {categories.map((category: any) => (
           <div key={category.id} className="card" style={{ padding: '18px', display: 'grid', gap: '12px' }}>
             <form action="/api/admin/categories/update" method="POST" style={{ display: 'grid', gap: '12px' }}>
               <input type="hidden" name="categoryId" value={category.id} />

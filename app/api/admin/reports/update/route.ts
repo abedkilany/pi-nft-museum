@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const comment = await prisma.artworkComment.findUnique({ where: { id: commentId } });
     if (comment) {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.commentReport.update({
           where: { id: reportId },
           data: { status, adminNote: adminNote || null, reviewedById: admin.user.userId },
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   const artworkId = Number(formData.get('artworkId'));
   const artworkAction = String(formData.get('artworkAction') || 'keep');
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     await tx.artworkReport.update({
       where: { id: reportId },
       data: {

@@ -54,8 +54,8 @@ export async function POST(request: Request) {
       where: { artworkId },
       _count: { type: true },
     });
-    const likesCount = grouped.find((row) => row.type === 'LIKE')?._count.type ?? 0;
-    const dislikesCount = grouped.find((row) => row.type === 'DISLIKE')?._count.type ?? 0;
+    const likesCount = grouped.find((row: any) => row.type === 'LIKE')?._count.type ?? 0;
+    const dislikesCount = grouped.find((row: any) => row.type === 'DISLIKE')?._count.type ?? 0;
 
     const updated = await prisma.artwork.update({ where: { id: artworkId }, data: { likesCount, dislikesCount } });
 

@@ -54,7 +54,7 @@ function extensionForMimeType(type: string) {
 }
 
 function hasMatchingSignature(buffer: Uint8Array, type: string) {
-  const signature = FILE_SIGNATURES.find((item) => item.mime === type);
+  const signature = FILE_SIGNATURES.find((item: any) => item.mime === type);
   if (!signature) return false;
   if (signature.validator) return signature.validator(buffer);
   return signature.bytes?.every((byte, index) => buffer[index] === byte) ?? false;

@@ -24,7 +24,7 @@ export async function AdminSidebar() {
           <span style={{ color: 'var(--muted)' }}>Mutations stay protected in the API.</span>
         </div>
         <nav style={{ display: 'grid', gap: '8px' }}>
-          {adminLinks.map((link) => (
+          {adminLinks.map((link: any) => (
             <Link key={link.href} href={link.href} className="button secondary" style={{ justifyContent: 'flex-start' }}>{link.label}</Link>
           ))}
           <Link href="/account" className="button secondary" style={{ justifyContent: 'flex-start' }}>Back to account</Link>

@@ -1,5 +1,6 @@
 import { SITE_SETTING_DEFINITIONS, getSiteSettingsMap } from '@/lib/site-settings';
 
+
 const GROUP_TITLES: Record<string, string> = {
   general: 'General',
   homepage: 'Homepage',
@@ -34,7 +35,7 @@ export default async function AdminSettingsPage() {
           <section key={groupKey} className="card" style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{GROUP_TITLES[groupKey] || groupKey}</h2>
             <div style={{ display: 'grid', gap: '14px' }}>
-              {definitions.map((definition) => (
+              {definitions.map((definition: any) => (
                 <label key={definition.key} style={{ display: 'grid', gap: '6px' }}>
                   <span>{definition.label}</span>
                   {definition.type === 'textarea' || definition.type === 'json' ? (

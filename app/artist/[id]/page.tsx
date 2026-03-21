@@ -25,7 +25,7 @@ export default async function ArtistPage({ params }: { params: { id: string } })
         <p style={{ marginTop: '20px', lineHeight: 1.8 }}>{user.artistProfile?.biography || user.bio || 'No biography available yet.'}</p>
         <h2 style={{ marginTop: '40px' }}>Published artworks</h2>
         <div style={{ display: 'grid', gap: '16px', marginTop: '20px' }}>
-          {user.artworks.map((artwork) => (
+          {user.artworks.map((artwork: any) => (
             <div key={artwork.id} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0 }}>{artwork.title}</h3>

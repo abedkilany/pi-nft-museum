@@ -113,7 +113,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
         currentUserId={currentUser?.userId || null}
         canModerate={currentUser?.role === 'admin' || currentUser?.role === 'superadmin'}
         canHide={Boolean(currentUser && (currentUser.userId === artwork.artistUserId || currentUser.role === 'admin' || currentUser.role === 'superadmin'))}
-        comments={artwork.comments.map((comment) => ({
+        comments={artwork.comments.map((comment: any) => ({
           id: comment.id,
           body: comment.body,
           createdAt: comment.createdAt.toISOString(),
@@ -125,7 +125,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
           hiddenByArtist: comment.hiddenByArtist,
           hiddenByModerator: comment.hiddenByModerator,
           likesCount: comment.commentLikes.length,
-          viewerLiked: Boolean(currentUser && comment.commentLikes.some((like) => like.userId === currentUser.userId)),
+          viewerLiked: Boolean(currentUser && comment.commentLikes.some((like: any) => like.userId === currentUser.userId)),
           author: {
             username: comment.author.username,
             fullName: comment.author.fullName,

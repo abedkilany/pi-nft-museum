@@ -13,5 +13,5 @@ export async function getPageContentBySlug(slug: string) {
 }
 
 export function getPrimarySectionContent(page: { sections: Array<{ content: string | null }> }) {
-  return page.sections.map((section) => section.content || '').filter(Boolean).join('\n\n');
+  return page.sections.map((section: any) => section.content || '').filter(Boolean).join('\n\n');
 }

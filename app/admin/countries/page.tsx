@@ -2,6 +2,7 @@
 import { ensureDefaultCountries } from '@/lib/countries';
 import { prisma } from '@/lib/prisma';
 
+
 export default async function AdminCountriesPage() {
   await ensureDefaultCountries();
   const countries = await prisma.country.findMany({ orderBy: [{ name: 'asc' }] });

@@ -245,7 +245,7 @@ export const DEFAULT_COUNTRIES: DefaultCountry[] = [
 
 export async function ensureDefaultCountries() {
   await Promise.all(
-    DEFAULT_COUNTRIES.map((country) =>
+    DEFAULT_COUNTRIES.map((country: any) =>
       prisma.country.upsert({
         where: { isoCode: country.isoCode },
         update: {

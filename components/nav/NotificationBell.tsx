@@ -94,27 +94,27 @@ export function NotificationBell() {
   async function markAllAsRead() {
     const response = await piApiFetch('/api/notifications/mark-all-read', { method: 'POST' });
     if (!response.ok) return;
-    setNotifications((items) => items.map((item) => ({ ...item, isRead: true })));
+    setNotifications((items) => items.map((item: any) => ({ ...item, isRead: true })));
     setUnreadCount(0);
   }
 
   async function markOneAsRead(id: number) {
     const response = await piApiFetch(`/api/notifications/${id}/read`, { method: 'POST' });
     if (!response.ok) return;
-    setNotifications((items) => items.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
+    setNotifications((items) => items.map((item: any) => (item.id === id ? { ...item, isRead: true } : item)));
     setUnreadCount((count) => Math.max(0, count - 1));
   }
 
   async function deleteOne(id: number) {
     const response = await piApiFetch(`/api/notifications/${id}`, { method: 'DELETE' });
     if (!response.ok) return;
-    setNotifications((items) => items.filter((item) => item.id !== id));
+    setNotifications((items) => items.filter((item: any) => item.id !== id));
   }
 
   async function clearRead() {
     const response = await piApiFetch('/api/notifications/clear-read', { method: 'POST' });
     if (!response.ok) return;
-    setNotifications((items) => items.filter((item) => !item.isRead));
+    setNotifications((items) => items.filter((item: any) => !item.isRead));
   }
 
   const panel = open ? (
@@ -152,7 +152,7 @@ export function NotificationBell() {
         {notifications.length === 0 ? (
           <p className="notification-empty">No notifications yet.</p>
         ) : (
-          notifications.map((item) => (
+          notifications.map((item: any) => (
             <div
               key={item.id}
               className="card notification-item"

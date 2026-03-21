@@ -43,7 +43,7 @@ export function RoleUpgradeSection({ currentRole }: { currentRole: string }) {
       </div>
 
       <div style={{ display: 'grid', gap: '12px' }}>
-        {ROLE_OPTIONS.map((option) => (
+        {ROLE_OPTIONS.map((option: any) => (
           <label key={option.key} className="field" style={{ cursor: 'pointer' }}>
             <span style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
               <input

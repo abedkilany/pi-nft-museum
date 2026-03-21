@@ -5,4 +5,5 @@ node_modules
 logs
 localhost.pem
 localhost-key.pem
+tsconfig.tsbuildinfo
 # Keep environment variables out of version control

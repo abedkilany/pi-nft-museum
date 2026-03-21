@@ -10,7 +10,7 @@ export async function GET() {
     referer: headerStore.get('referer'),
     host: headerStore.get('host'),
     userAgent: headerStore.get('user-agent'),
-    cookieNames: cookieStore.getAll().map((cookie) => cookie.name),
+    cookieNames: cookieStore.getAll().map((cookie: any) => cookie.name),
     hasAuthCookie: !!cookieStore.get('pi_nft_auth'),
     authCookieLength: cookieStore.get('pi_nft_auth')?.value?.length ?? 0,
   });

@@ -29,7 +29,7 @@ export default async function ReviewPage() {
       {!user ? <section className="card surface-section"><p style={{ margin: 0 }}>Login with Pi to rate artworks during review.</p></section> : null}
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No artworks are currently in public review.</p></section> : (
         <section className="stack-md">
-          {artworks.map((artwork) => {
+          {artworks.map((artwork: any) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             return (
               <article key={artwork.id} className="card split-list-card">

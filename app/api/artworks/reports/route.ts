@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         contactEmail: contactEmail || null,
         status: 'UNDER_REVIEW',
         evidenceFiles: {
-          create: savedFiles.map((file) => ({
+          create: savedFiles.map((file: any) => ({
             fileUrl: file.url,
             originalName: file.originalName,
             mimeType: file.mimeType

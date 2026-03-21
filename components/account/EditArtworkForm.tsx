@@ -98,7 +98,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
           <span>Category</span>
           <select value={form.category} disabled={!draftMode} onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}>
             <option value="">Choose category</option>
-            {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
+            {categories.map((category: any) => <option key={category.id} value={category.name}>{category.name}</option>)}
           </select>
         </label>
         <label>

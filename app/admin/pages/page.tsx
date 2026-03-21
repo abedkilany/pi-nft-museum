@@ -7,9 +7,9 @@ export default async function AdminPagesPage() {
     orderBy: [{ updatedAt: 'desc' }]
   });
 
-  const normalized = pages.map((page) => ({
+  const normalized = pages.map((page: any) => ({
     ...page,
-    sections: page.sections.map((section) => ({
+    sections: page.sections.map((section: any) => ({
       id: section.id,
       sectionKey: section.sectionKey,
       sectionType: (section.sectionType as 'hero' | 'rich_text' | 'image' | 'cta') || 'rich_text',
