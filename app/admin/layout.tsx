@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
@@ -31,7 +31,9 @@ async function readJsonSafe(response: Response | null) {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [status, setStatus] = useState<AccessStatus>('loading');
+  const [message, setMessage] = useState('Checking admin access…');
 
   useEffect(() => {
     let cancelled = false;
@@ -41,19 +43,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const response = await piApiFetch('/api/account/summary', {
           method: 'GET',
           cache: 'no-store',
-          credentials: 'include',
         }).catch(() => null);
 
         if (cancelled) return;
 
         if (!response) {
           setStatus('blocked');
-          router.replace('/login');
-          return;
-        }
-
-        if (response.status === 401) {
-          setStatus('blocked');
+          setMessage('Unable to verify your session. Redirecting…');
           router.replace('/login');
           return;
         }
@@ -61,18 +57,27 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const payload = await readJsonSafe(response);
         if (cancelled) return;
 
-        const roleKey = String(payload?.user?.roleKey ?? '').toLowerCase();
+        if (response.status === 401) {
+          setStatus('blocked');
+          setMessage('Your session needs to be refreshed. Redirecting…');
+          router.replace('/login');
+          return;
+        }
+
+        const roleKey = String(payload?.user?.roleKey ?? '').trim().toLowerCase();
         if (response.ok && payload?.ok === true && ADMIN_ROLES.has(roleKey)) {
           setStatus('allowed');
           return;
         }
 
         setStatus('blocked');
+        setMessage('You do not have access to the admin area. Redirecting…');
         router.replace('/account');
       } catch (error) {
         console.error('Admin access check failed:', error);
         if (cancelled) return;
         setStatus('blocked');
+        setMessage('Something went wrong while opening admin. Redirecting…');
         router.replace('/account');
       }
     }
@@ -82,13 +87,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [pathname, router]);
 
   if (status !== 'allowed') {
     return (
       <div className="page-stack">
         <section className="card surface-section">
-          <p>{status === 'blocked' ? 'Redirecting…' : 'Checking admin access…'}</p>
+          <p>{message}</p>
         </section>
       </div>
     );
