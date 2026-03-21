@@ -1,5 +1,6 @@
+import { authenticateWithPi } from '@/lib/pi';
+
 const PI_AUTH_TOKEN_KEY = 'pi_access_token';
-export const PI_SESSION_HINT_COOKIE_NAME = 'pi_session_hint';
 
 function isBrowser() {
   return typeof window !== 'undefined';
@@ -21,46 +22,6 @@ function getStorages() {
   return storages;
 }
 
-function isSecureContextForCookie() {
-  if (!isBrowser()) return false;
-  return window.location.protocol === 'https:';
-}
-
-function writeClientCookie(name: string, value: string, maxAgeSeconds = 60 * 60 * 12) {
-  if (!isBrowser()) return;
-
-  const encoded = encodeURIComponent(value);
-  const parts = [
-    `${name}=${encoded}`,
-    'Path=/',
-    `Max-Age=${maxAgeSeconds}`,
-    'SameSite=None',
-  ];
-
-  if (isSecureContextForCookie()) {
-    parts.push('Secure');
-  }
-
-  document.cookie = parts.join('; ');
-}
-
-function deleteClientCookie(name: string) {
-  if (!isBrowser()) return;
-
-  const parts = [
-    `${name}=`,
-    'Path=/',
-    'Max-Age=0',
-    'SameSite=None',
-  ];
-
-  if (isSecureContextForCookie()) {
-    parts.push('Secure');
-  }
-
-  document.cookie = parts.join('; ');
-}
-
 export function getPiAuthToken() {
   for (const storage of getStorages()) {
     const token = storage.getItem(PI_AUTH_TOKEN_KEY);
@@ -70,35 +31,16 @@ export function getPiAuthToken() {
   return null;
 }
 
-export function syncPiAuthCookie(token?: string | null) {
-  if (!token) {
-    deleteClientCookie(PI_SESSION_HINT_COOKIE_NAME);
-    return;
-  }
-
-  // Non-HttpOnly fallback for stubborn WebViews such as Pi Browser.
-  // The authoritative server session is still the signed cookie set by the backend.
-  writeClientCookie(PI_SESSION_HINT_COOKIE_NAME, token);
-}
-
-export function clearPiAuthCookie() {
-  deleteClientCookie(PI_SESSION_HINT_COOKIE_NAME);
-}
-
 export function setPiAuthToken(token: string) {
   for (const storage of getStorages()) {
     storage.setItem(PI_AUTH_TOKEN_KEY, token);
   }
-
-  syncPiAuthCookie(token);
 }
 
 export function clearPiAuthToken() {
   for (const storage of getStorages()) {
     storage.removeItem(PI_AUTH_TOKEN_KEY);
   }
-
-  clearPiAuthCookie();
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
@@ -115,34 +57,64 @@ function isRelativeApiRequest(input: RequestInfo | URL) {
   return false;
 }
 
-async function tryRehydrateSession() {
-  const checkAuth = async () => fetch('/api/auth/me', {
+export async function ensurePiUserSession(scopes: string[] = ['username', 'payments']) {
+  if (!isBrowser()) return null;
+
+  const existingToken = getPiAuthToken();
+  if (existingToken) {
+    const existingResponse = await fetch('/api/auth/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${existingToken}` },
+      cache: 'no-store',
+    }).catch(() => null);
+
+    const existingPayload = existingResponse ? await existingResponse.json().catch(() => null) : null;
+    if (existingResponse?.ok && existingPayload?.authenticated) {
+      return existingPayload;
+    }
+  }
+
+  const auth = await authenticateWithPi(scopes);
+  const accessToken = String(auth?.accessToken || '').trim();
+  if (!accessToken) {
+    throw new Error('Pi login did not return an access token.');
+  }
+
+  const loginResponse = await fetch('/api/auth/pi/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ accessToken }),
+  });
+
+  const loginPayload = await loginResponse.json().catch(() => null);
+  if (!loginResponse.ok || !loginPayload?.ok) {
+    throw new Error(loginPayload?.error || 'Server login failed.');
+  }
+
+  setPiAuthToken(accessToken);
+
+  const authResponse = await fetch('/api/auth/me', {
     method: 'GET',
-    headers: getPiAuthHeaders(),
-    credentials: 'include',
+    headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
   }).catch(() => null);
+  const authPayload = authResponse ? await authResponse.json().catch(() => null) : null;
 
-  const authResponse = await checkAuth();
-  if (authResponse?.ok) return true;
+  if (!authResponse?.ok || !authPayload?.authenticated) {
+    throw new Error(authPayload?.error || 'Pi session could not be verified.');
+  }
 
-  await fetch('/api/auth/bootstrap?returnTo=/', {
-    method: 'GET',
-    headers: getPiAuthHeaders(),
-    credentials: 'include',
-    redirect: 'follow',
-    cache: 'no-store',
-  }).catch(() => null);
-
-  const postBootstrapAuthResponse = await checkAuth();
-  return Boolean(postBootstrapAuthResponse?.ok);
+  return authPayload;
 }
 
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const execute = () => fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
-    credentials: 'include',
+    credentials: 'omit',
   });
 
   let response = await execute();
@@ -152,17 +124,24 @@ export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {
   }
 
   const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.pathname : '';
-  // Important: /api/auth/me is used across the app as a lightweight auth probe.
-  // In Pi Browser, the signed session cookie may disappear while the Pi access token
-  // still exists in storage. We must allow one bootstrap/rehydration pass for /api/auth/me,
-  // otherwise pages such as /profile will redirect to /login even though the Pioneer is
-  // still authenticated with Pi.
-  if (requestUrl.startsWith('/api/auth/') && !requestUrl.startsWith('/api/auth/me')) {
+  if (requestUrl.startsWith('/api/auth/')) {
     return response;
   }
 
-  const rehydrated = await tryRehydrateSession();
-  if (!rehydrated) {
+  const token = getPiAuthToken();
+  if (!token) {
+    return response;
+  }
+
+  const authResponse = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  }).catch(() => null);
+
+  const authPayload = authResponse ? await authResponse.json().catch(() => null) : null;
+  if (!authResponse?.ok || !authPayload?.authenticated) {
+    clearPiAuthToken();
     return response;
   }
 
