@@ -19,11 +19,11 @@ export default function EditArtworkPage() {
       const payload = response ? await response.json().catch(() => null) : null;
       if (cancelled) return;
       if (response?.status === 403) {
-        router.replace('/artwork');
+        router.replace('/my-artworks');
         return;
       }
       if (response?.status === 404) {
-        router.replace('/artwork');
+        router.replace('/my-artworks');
         return;
       }
       if (!response?.ok || !payload?.ok) {

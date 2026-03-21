@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import MyProfilePageClient from '@/components/profile/MyProfilePageClient';
-
-export default function ProfilePage() {
-  return <MyProfilePageClient />;
+export default function ProfileShortcutPage() {
+  redirect('/me');
 }

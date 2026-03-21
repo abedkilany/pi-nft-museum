@@ -65,7 +65,7 @@ export default function MyArtworksPageClient() {
         </div>
         <div className="card-actions">
           <Link href="/upload" className="button primary">Upload new artwork</Link>
-          <Link href={username ? `/profile/${username}` : "/account"} prefetch={false} className="button secondary">Open profile</Link>
+          <Link href="/me" prefetch={false} className="button secondary">Open profile</Link>
         </div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
           <div className="stack-md">
