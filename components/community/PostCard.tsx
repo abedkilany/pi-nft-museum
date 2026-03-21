@@ -7,6 +7,20 @@ import { formatTimeAgo } from '@/lib/community';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { CommentBox } from '@/components/community/CommentBox';
 
+export type CommunityFeedComment = {
+  id: number;
+  body: string;
+  createdAt: string;
+  authorId: number;
+  parentId: number | null;
+  author: {
+    username: string;
+    fullName: string | null;
+    profileImage: string | null;
+  };
+  replies?: CommunityFeedComment[];
+};
+
 export type CommunityFeedPost = {
   id: number;
   body: string;
@@ -22,21 +36,93 @@ export type CommunityFeedPost = {
     profileImage: string | null;
     headline: string | null;
   };
-  comments: Array<{
-    id: number;
-    body: string;
-    createdAt: string;
-    authorId: number;
-    author: {
-      username: string;
-      fullName: string | null;
-      profileImage: string | null;
-    };
-  }>;
+  comments: CommunityFeedComment[];
 };
 
 function avatarLabel(name: string) {
   return name.slice(0, 1).toUpperCase();
+}
+
+function CommentItem({
+  comment,
+  postId,
+  canInteract,
+  depth = 0,
+}: {
+  comment: CommunityFeedComment;
+  postId: number;
+  canInteract: boolean;
+  depth?: number;
+}) {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const commentName = comment.author.fullName || comment.author.username;
+  const replies = comment.replies || [];
+
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 14,
+        background: 'rgba(255,255,255,0.02)',
+        display: 'grid',
+        gap: 10,
+        marginLeft: depth > 0 ? 18 : 0,
+        borderLeft: depth > 0 ? '2px solid rgba(221, 176, 79, 0.18)' : undefined,
+      }}
+    >
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <Link href={`/profile/${comment.author.username}`} className="profile-avatar" style={{ width: 36, height: 36, textDecoration: 'none' }}>
+          {comment.author.profileImage ? (
+            <img src={comment.author.profileImage} alt={commentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span>{avatarLabel(commentName)}</span>
+          )}
+        </Link>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Link href={`/profile/${comment.author.username}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>
+              {commentName}
+            </Link>
+            <span style={{ color: 'var(--muted)', fontSize: 13 }}>@{comment.author.username}</span>
+            <span style={{ color: 'var(--muted)', fontSize: 13 }}>{formatTimeAgo(comment.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+
+      <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{comment.body}</p>
+
+      {depth === 0 ? (
+        <div className="card-actions" style={{ gap: 8, marginTop: 0 }}>
+          <button className="button secondary" type="button" onClick={() => setReplyOpen((value) => !value)} disabled={!canInteract}>
+            {replyOpen ? 'Cancel reply' : `Reply${replies.length ? ` · ${replies.length}` : ''}`}
+          </button>
+        </div>
+      ) : null}
+
+      {replyOpen ? (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <CommentBox
+            postId={postId}
+            parentId={comment.id}
+            disabled={!canInteract}
+            compact
+            minRows={2}
+            submitLabel="Reply"
+            placeholder={canInteract ? `Reply to @${comment.author.username}...` : 'Log in to reply.'}
+            onSuccess={() => setReplyOpen(false)}
+          />
+        </div>
+      ) : null}
+
+      {replies.length > 0 ? (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {replies.map((reply) => (
+            <CommentItem key={reply.id} comment={reply} postId={postId} canInteract={canInteract} depth={depth + 1} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function PostCard({
@@ -113,8 +199,10 @@ export function PostCard({
             )}
           </Link>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Link href={`/profile/${post.author.username}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 700 }}>{displayName}</Link>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Link href={`/profile/${post.author.username}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 700 }}>
+                {displayName}
+              </Link>
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>@{post.author.username}</span>
             </div>
             <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 14 }}>
@@ -146,30 +234,9 @@ export function PostCard({
         <div style={{ display: 'grid', gap: 12 }}>
           {post.comments.length > 0 ? (
             <div style={{ display: 'grid', gap: 10 }}>
-              {post.comments.map((comment) => {
-                const commentName = comment.author.fullName || comment.author.username;
-                return (
-                  <div key={comment.id} className="card" style={{ padding: 14, background: 'rgba(255,255,255,0.02)', display: 'grid', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      <Link href={`/profile/${comment.author.username}`} className="profile-avatar" style={{ width: 36, height: 36, textDecoration: 'none' }}>
-                        {comment.author.profileImage ? (
-                          <img src={comment.author.profileImage} alt={commentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <span>{avatarLabel(commentName)}</span>
-                        )}
-                      </Link>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <Link href={`/profile/${comment.author.username}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>{commentName}</Link>
-                          <span style={{ color: 'var(--muted)', fontSize: 13 }}>@{comment.author.username}</span>
-                          <span style={{ color: 'var(--muted)', fontSize: 13 }}>{formatTimeAgo(comment.createdAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{comment.body}</p>
-                  </div>
-                );
-              })}
+              {post.comments.map((comment) => (
+                <CommentItem key={comment.id} comment={comment} postId={post.id} canInteract={canInteract} />
+              ))}
             </div>
           ) : (
             <p style={{ margin: 0, color: 'var(--muted)' }}>No comments yet. Start the conversation.</p>
