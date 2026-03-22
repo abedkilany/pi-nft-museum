@@ -169,7 +169,7 @@ export default async function CommunityPage({
         },
       },
     }),
-    Promise.resolve([]),
+    Promise.resolve<Array<{ id: number; title: string; status: string }>>([]),
   ]);
 
   const serializedPosts = posts.map((post) => ({
