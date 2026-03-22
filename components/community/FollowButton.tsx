@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 type Props = {
@@ -11,11 +11,20 @@ type Props = {
   isSelf?: boolean;
 };
 
-export function FollowButton({ targetUserId, isFollowing: initialFollowing, followsYou, isSelf }: Props) {
+export function FollowButton({ targetUserId, isFollowing: initialFollowing, followsYou: initialFollowsYou, isSelf }: Props) {
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
+  const [followsYou, setFollowsYou] = useState(initialFollowsYou);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsFollowing(initialFollowing);
+  }, [initialFollowing]);
+
+  useEffect(() => {
+    setFollowsYou(initialFollowsYou);
+  }, [initialFollowsYou]);
 
   if (isSelf) return null;
 
@@ -38,6 +47,7 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
         return;
       }
       setIsFollowing(action === 'follow');
+      setFollowsYou(initialFollowsYou);
       router.refresh();
     } finally {
       setBusy(false);

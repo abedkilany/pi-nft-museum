@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { PiConnectButton } from '@/components/PiConnectButton';
 import { FollowButton } from '@/components/community/FollowButton';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
@@ -31,7 +32,9 @@ const defaultViewerState: ViewerState = {
 
 export default function PublicProfileViewerControls({ username, targetUserId, counts }: Props) {
   const { status } = usePiAuth();
+  const searchParams = useSearchParams();
   const [viewerState, setViewerState] = useState<ViewerState>(defaultViewerState);
+  const isPublicPreview = searchParams.get('view') === 'public';
 
   useEffect(() => {
     let cancelled = false;
@@ -88,10 +91,14 @@ export default function PublicProfileViewerControls({ username, targetUserId, co
     <div className="profile-cover-actions">
       {links}
       {viewerState.isSelf ? (
-        <>
-          <Link href="/account#edit-public-profile" className="button primary">Edit profile</Link>
-          <Link href="/account/artworks" className="button secondary">My artworks</Link>
-        </>
+        isPublicPreview ? (
+          <Link href={`/profile/${username}`} className="button primary">Back to My Profile</Link>
+        ) : (
+          <>
+            <Link href="/account#edit-public-profile" className="button primary">Edit profile</Link>
+            <Link href={`/profile/${username}?view=public`} className="button secondary">View public profile</Link>
+          </>
+        )
       ) : status === 'authenticated' ? (
         <FollowButton
           targetUserId={targetUserId}
