@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
 
 type AuthUser = {
   id: number;
@@ -79,7 +79,12 @@ async function authenticateAndResolveUser() {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  return fetchCurrentUser();
+  const resolvedUser = await fetchCurrentUser();
+  if (!resolvedUser) {
+    throw new Error('Pi login succeeded, but the session could not be restored.');
+  }
+
+  return resolvedUser;
 }
 
 export function PiAuthProvider({ children }: { children: React.ReactNode }) {
@@ -87,50 +92,33 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'guest'>('loading');
   const [error, setError] = useState('');
-  const bootstrappedRef = useRef(false);
   const requestRef = useRef<Promise<AuthUser | null> | null>(null);
+  const lastForcedPathRef = useRef<string | null>(null);
 
-  const runAuthFlow = useCallback(async (forcePiAuth = false) => {
+  const resolveUser = useCallback(async (forcePiAuth = false) => {
     if (requestRef.current) return requestRef.current;
 
     requestRef.current = (async () => {
       try {
         setError('');
 
-        if (!forcePiAuth) {
-          const restoredUser = await fetchCurrentUser();
-          if (restoredUser) {
-            setUser(restoredUser);
-            setStatus('authenticated');
-            return restoredUser;
-          }
+        const restoredUser = await fetchCurrentUser();
+        if (restoredUser) {
+          setUser(restoredUser);
+          setStatus('authenticated');
+          return restoredUser;
         }
 
-        const hasStoredToken = Boolean(getPiAuthToken());
         if (!forcePiAuth) {
-          if (!hasStoredToken) {
-            setUser(null);
-            setStatus('guest');
-            return null;
-          }
-
-          clearPiAuthToken();
           setUser(null);
           setStatus('guest');
           return null;
         }
 
         const authenticatedUser = await authenticateAndResolveUser();
-        if (authenticatedUser) {
-          setUser(authenticatedUser);
-          setStatus('authenticated');
-          return authenticatedUser;
-        }
-
-        clearPiAuthToken();
-        setUser(null);
-        setStatus('guest');
-        return null;
+        setUser(authenticatedUser);
+        setStatus('authenticated');
+        return authenticatedUser;
       } catch (authError) {
         clearPiAuthToken();
         setUser(null);
@@ -147,12 +135,12 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     setStatus('loading');
-    const restoredUser = await runAuthFlow(false);
+    const restoredUser = await resolveUser(false);
     if (!restoredUser) {
       setStatus('guest');
     }
     return restoredUser;
-  }, [runAuthFlow]);
+  }, [resolveUser]);
 
   const ensureAuthenticated = useCallback(async () => {
     if (user) {
@@ -161,12 +149,12 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setStatus('loading');
-    const restoredUser = await runAuthFlow(true);
+    const restoredUser = await resolveUser(true);
     if (!restoredUser) {
       setStatus('guest');
     }
     return restoredUser;
-  }, [runAuthFlow, user]);
+  }, [resolveUser, user]);
 
   const logout = useCallback(async () => {
     clearPiAuthToken();
@@ -178,24 +166,57 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setStatus('guest');
     setError('');
+    lastForcedPathRef.current = null;
   }, []);
 
   useEffect(() => {
-    if (bootstrappedRef.current) return;
-    bootstrappedRef.current = true;
-
     let active = true;
+    const protectedPath = isProtectedPath(pathname);
+
     (async () => {
-      const shouldForce = isProtectedPath(pathname);
-      const resolvedUser = await runAuthFlow(shouldForce);
+      setStatus((current) => (current === 'authenticated' ? current : 'loading'));
+
+      const restoredUser = await resolveUser(false);
       if (!active) return;
-      setStatus(resolvedUser ? 'authenticated' : 'guest');
+
+      if (restoredUser) {
+        lastForcedPathRef.current = null;
+        setStatus('authenticated');
+        return;
+      }
+
+      if (!protectedPath) {
+        setStatus('guest');
+        return;
+      }
+
+      if (lastForcedPathRef.current === pathname) {
+        setStatus('guest');
+        return;
+      }
+
+      const hasStoredToken = Boolean(getPiAuthToken());
+      if (!hasStoredToken && pathname !== '/login') {
+        lastForcedPathRef.current = pathname;
+      }
+
+      const forcedUser = await resolveUser(true);
+      if (!active) return;
+
+      if (forcedUser) {
+        lastForcedPathRef.current = null;
+        setStatus('authenticated');
+        return;
+      }
+
+      lastForcedPathRef.current = pathname;
+      setStatus('guest');
     })();
 
     return () => {
       active = false;
     };
-  }, [pathname, runAuthFlow]);
+  }, [pathname, resolveUser]);
 
   const value = useMemo<PiAuthContextValue>(() => ({
     user,

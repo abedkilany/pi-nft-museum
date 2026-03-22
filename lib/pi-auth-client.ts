@@ -30,10 +30,40 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   };
 }
 
+async function rehydrateServerSession() {
+  const token = getPiAuthToken();
+  if (!token) return false;
+
+  const response = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: 'include',
+    cache: 'no-store',
+  }).catch(() => null);
+
+  return Boolean(response?.ok);
+}
+
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  return fetch(input, {
+  const doFetch = () => fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
     credentials: 'include',
   });
+
+  let response = await doFetch();
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const restored = await rehydrateServerSession();
+  if (!restored) {
+    return response;
+  }
+
+  response = await doFetch();
+  return response;
 }
