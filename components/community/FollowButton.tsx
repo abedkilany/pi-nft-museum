@@ -14,7 +14,6 @@ type Props = {
 export function FollowButton({ targetUserId, isFollowing: initialFollowing, followsYou: initialFollowsYou, isSelf }: Props) {
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
-  const [followsYou, setFollowsYou] = useState(initialFollowsYou);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,13 +21,10 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
     setIsFollowing(initialFollowing);
   }, [initialFollowing]);
 
-  useEffect(() => {
-    setFollowsYou(initialFollowsYou);
-  }, [initialFollowsYou]);
 
   if (isSelf) return null;
 
-  const label = isFollowing ? 'Following' : followsYou ? 'Follow back' : 'Follow';
+  const label = isFollowing ? 'Unfollow' : 'Follow';
   const className = isFollowing ? 'button secondary' : 'button primary';
 
   async function handleClick() {
@@ -47,7 +43,6 @@ export function FollowButton({ targetUserId, isFollowing: initialFollowing, foll
         return;
       }
       setIsFollowing(action === 'follow');
-      setFollowsYou(initialFollowsYou);
       router.refresh();
     } finally {
       setBusy(false);

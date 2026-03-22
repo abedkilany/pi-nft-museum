@@ -80,16 +80,8 @@ export default function PublicProfileViewerControls({ username, targetUserId, co
     };
   }, [status, username]);
 
-  const links = (
-    <>
-      <Link href={`/profile/${username}/followers`} className="button secondary">Followers · {counts.followers}</Link>
-      <Link href={`/profile/${username}/following`} className="button secondary">Following · {counts.following}</Link>
-    </>
-  );
-
   return (
     <div className="profile-cover-actions">
-      {links}
       {viewerState.isSelf ? (
         isPublicPreview ? (
           <Link href={`/profile/${username}`} className="button primary">Back to My Profile</Link>
