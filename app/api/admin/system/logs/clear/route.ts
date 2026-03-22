@@ -8,10 +8,11 @@ import { assertSameOrigin } from '@/lib/security';
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
+
   const admin = await requireAdminApi(PERMISSIONS.logsView);
   if ('error' in admin) return admin.error;
 
   await clearSystemLogs();
   logger.info('System logs cleared', { userId: admin.user.userId });
-  return NextResponse.redirect(new URL('/admin/system', request.url));
+  return NextResponse.json({ ok: true });
 }

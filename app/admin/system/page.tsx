@@ -1,148 +1,127 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
-type SystemLog = {
+type SystemLogEntry = {
   timestamp: string;
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   meta?: unknown;
 };
 
+type SystemPayload = {
+  ok?: boolean;
+  logs?: SystemLogEntry[];
+};
+
+type DashboardPayload = {
+  ok?: boolean;
+  stats?: {
+    auditCount?: number;
+  };
+};
+
 export default function AdminSystemPage() {
-  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [logs, setLogs] = useState<SystemLogEntry[]>([]);
   const [auditCount, setAuditCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState<'clear' | 'download' | ''>('');
+
+  async function loadAll() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const [logsResponse, dashboardResponse] = await Promise.all([
+        piApiFetch('/api/admin/system/logs', { method: 'GET', cache: 'no-store' }).catch(() => null),
+        piApiFetch('/api/admin/dashboard', { method: 'GET', cache: 'no-store' }).catch(() => null),
+      ]);
+
+      if (!logsResponse) {
+        setError('فشل تحميل سجلات النظام.');
+        setLogs([]);
+        return;
+      }
+
+      const logsPayload = (await logsResponse.json().catch(() => null)) as SystemPayload | null;
+      if (!logsResponse.ok) {
+        setError('فشل تحميل سجلات النظام.');
+        setLogs([]);
+      } else {
+        setLogs(Array.isArray(logsPayload?.logs) ? logsPayload.logs : []);
+      }
+
+      if (dashboardResponse?.ok) {
+        const dashboardPayload = (await dashboardResponse.json().catch(() => null)) as DashboardPayload | null;
+        setAuditCount(dashboardPayload?.stats?.auditCount ?? 0);
+      }
+    } catch (error) {
+      console.error('Failed to load system logs:', error);
+      setError('حدث خطأ أثناء تحميل سجلات النظام.');
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setError('');
-
-        const [logsResponse, auditResponse] = await Promise.all([
-          piApiFetch('/api/admin/system/logs', { cache: 'no-store' }).catch(() => null),
-          piApiFetch('/api/admin/system/logs?type=audit', { cache: 'no-store' }).catch(() => null),
-        ]);
-
-        if (cancelled) return;
-
-        if (!logsResponse) {
-          setError('Unable to load system logs.');
-          setLogs([]);
-          return;
-        }
-
-        const logsPayload = await logsResponse.json().catch(() => null);
-        if (!logsResponse.ok) {
-          setError(logsPayload?.error || 'Failed to load system logs.');
-          setLogs([]);
-          return;
-        }
-
-        setLogs(Array.isArray(logsPayload?.logs) ? logsPayload.logs : []);
-
-        if (auditResponse?.ok) {
-          const auditPayload = await auditResponse.json().catch(() => null);
-          setAuditCount(Array.isArray(auditPayload?.auditLogs) ? auditPayload.auditLogs.length : 0);
-        } else {
-          setAuditCount(0);
-        }
-      } catch (error) {
-        console.error('Failed to load system page:', error);
-        if (!cancelled) {
-          setError('Something went wrong while loading system records.');
-          setLogs([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
+    void loadAll();
   }, []);
 
   async function handleClearLogs() {
-    const confirmed = window.confirm('Clear all system log entries?');
-    if (!confirmed) return;
-
     try {
-      setBusy('clear');
-      const response = await piApiFetch('/api/admin/system/logs', {
+      setWorking(true);
+      setError('');
+
+      const response = await piApiFetch('/api/admin/system/logs/clear', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       }).catch(() => null);
 
-      if (!response) {
-        setError('Unable to clear logs right now.');
+      if (!response || !response.ok) {
+        setError('تعذر مسح سجلات النظام.');
         return;
       }
 
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        setError(payload?.error || 'Failed to clear logs.');
-        return;
-      }
-
-      setLogs([]);
-      setError('');
+      await loadAll();
     } catch (error) {
       console.error('Failed to clear system logs:', error);
-      setError('Failed to clear logs.');
+      setError('حدث خطأ أثناء مسح السجلات.');
     } finally {
-      setBusy('');
+      setWorking(false);
     }
   }
 
   async function handleDownloadLogs() {
     try {
-      setBusy('download');
+      setWorking(true);
+      setError('');
+
       const response = await piApiFetch('/api/admin/system/logs/download', {
         method: 'GET',
       }).catch(() => null);
 
-      if (!response) {
-        setError('Unable to download the log file right now.');
-        return;
-      }
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        setError(payload?.error || 'Failed to download the log file.');
+      if (!response || !response.ok) {
+        setError('تعذر تنزيل ملف السجلات.');
         return;
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      const disposition = response.headers.get('Content-Disposition') || '';
-      const fileNameMatch = disposition.match(/filename="?([^\"]+)"?/i);
       link.href = url;
-      link.download = fileNameMatch?.[1] || `system-${new Date().toISOString().slice(0, 10)}.log`;
+      link.download = `system-${new Date().toISOString().slice(0, 10)}.log`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      setError('');
     } catch (error) {
       console.error('Failed to download system logs:', error);
-      setError('Failed to download the log file.');
+      setError('حدث خطأ أثناء تنزيل ملف السجلات.');
     } finally {
-      setBusy('');
+      setWorking(false);
     }
   }
 
@@ -157,12 +136,12 @@ export default function AdminSystemPage() {
           <p>Review recent warnings and errors, clear logs, download the log file, and jump into governance records.</p>
         </div>
         <div className="card-actions">
-          <button type="button" className="button secondary" onClick={handleDownloadLogs} disabled={busy !== ''}>
-            {busy === 'download' ? 'Downloading…' : 'Download log file'}
+          <button onClick={handleDownloadLogs} className="button secondary" type="button" disabled={working}>
+            Download log file
           </button>
           <Link href="/admin/audit" className="button secondary">Open audit trail ({auditCount})</Link>
-          <button type="button" className="button primary" onClick={handleClearLogs} disabled={busy !== ''}>
-            {busy === 'clear' ? 'Clearing…' : 'Clear logs'}
+          <button onClick={handleClearLogs} className="button primary" type="button" disabled={working}>
+            Clear logs
           </button>
         </div>
         {error ? <p style={{ margin: '12px 0 0', color: '#ffb4b4' }}>{error}</p> : null}

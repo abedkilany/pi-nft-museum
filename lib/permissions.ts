@@ -61,8 +61,15 @@ export const ROLE_PERMISSION_DEFAULTS: Record<string, PermissionKey[]> = {
   superadmin: Object.values(PERMISSIONS),
 };
 
+function uniquePermissions(values: (string | null | undefined)[]): PermissionKey[] {
+  return Array.from(new Set(values.filter(Boolean))) as PermissionKey[];
+}
+
 export async function getRolePermissions(roleKey: string | null | undefined): Promise<PermissionKey[]> {
   if (!roleKey) return [];
+  if (isSuperadminRole(roleKey)) return Object.values(PERMISSIONS);
+
+  const fallback = ROLE_PERMISSION_DEFAULTS[roleKey] ?? [];
 
   try {
     const role = await prisma.role.findUnique({
@@ -70,14 +77,11 @@ export async function getRolePermissions(roleKey: string | null | undefined): Pr
       include: { permissions: { include: { permission: true } } },
     });
 
-    if (role?.permissions?.length) {
-      return role.permissions.map((entry) => entry.permission.key as PermissionKey);
-    }
+    const dbPermissions = role?.permissions?.map((entry) => entry.permission.key) ?? [];
+    return uniquePermissions([...fallback, ...dbPermissions]);
   } catch {
-    // Fallback to defaults when role/permission tables are not ready yet.
+    return fallback;
   }
-
-  return ROLE_PERMISSION_DEFAULTS[roleKey] ?? [];
 }
 
 export async function hasPermissionForRole(roleKey: string | null | undefined, permission: PermissionKey): Promise<boolean> {

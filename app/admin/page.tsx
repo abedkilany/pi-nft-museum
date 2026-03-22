@@ -1,26 +1,105 @@
-import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserAccess } from '@/lib/permissions';
-import { buildAdminSections } from '@/lib/admin-sections';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { AdminSectionCards } from '@/components/admin/AdminSectionCards';
+import type { AdminSectionKey } from '@/lib/admin-sections';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
-export default async function AdminDashboardPage() {
-  const access = await getCurrentUserAccess();
-  const sections = buildAdminSections(access?.permissions ?? []);
+const EMPTY_SECTIONS: Record<AdminSectionKey, boolean> = {
+  moderation: false,
+  members: false,
+  content: false,
+  operations: false,
+  system: false,
+};
 
-  const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount, staffCount, auditCount] = await Promise.all([
-    prisma.user.count(),
-    prisma.artwork.count(),
-    prisma.artwork.count({ where: { status: 'PENDING' } }),
-    prisma.artwork.count({ where: { status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
-    prisma.page.count(),
-    prisma.artworkCategory.count(),
-    prisma.country.count(),
-    prisma.artworkComment.count(),
-    prisma.artworkReport.count(),
-    prisma.user.count({ where: { role: { key: { in: ['moderator', 'admin', 'superadmin'] } } } }),
-    prisma.auditLog.count(),
-  ]);
+type DashboardPayload = {
+  ok?: boolean;
+  access?: {
+    sections?: Record<AdminSectionKey, boolean>;
+  };
+  stats?: {
+    usersCount: number;
+    artworksCount: number;
+    pendingArtworksCount: number;
+    publishedCount: number;
+    pagesCount: number;
+    categoriesCount: number;
+    countriesCount: number;
+    commentsCount: number;
+    reportsCount: number;
+    staffCount: number;
+    auditCount: number;
+  };
+};
+
+const EMPTY_STATS: NonNullable<DashboardPayload['stats']> = {
+  usersCount: 0,
+  artworksCount: 0,
+  pendingArtworksCount: 0,
+  publishedCount: 0,
+  pagesCount: 0,
+  categoriesCount: 0,
+  countriesCount: 0,
+  commentsCount: 0,
+  reportsCount: 0,
+  staffCount: 0,
+  auditCount: 0,
+};
+
+export default function AdminDashboardPage() {
+  const [sections, setSections] = useState<Record<AdminSectionKey, boolean>>(EMPTY_SECTIONS);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboard() {
+      try {
+        setLoading(true);
+        setError('');
+
+        const response = await piApiFetch('/api/admin/dashboard', {
+          method: 'GET',
+          cache: 'no-store',
+        }).catch(() => null);
+
+        if (cancelled) return;
+
+        if (!response) {
+          setError('تعذر تحميل بيانات لوحة التحكم.');
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as DashboardPayload | null;
+
+        if (!response.ok || payload?.ok !== true) {
+          setError('فشل تحميل بيانات لوحة التحكم.');
+          return;
+        }
+
+        setSections(payload.access?.sections ?? EMPTY_SECTIONS);
+        setStats(payload.stats ?? EMPTY_STATS);
+      } catch (error) {
+        console.error('Failed to load admin dashboard:', error);
+        if (!cancelled) {
+          setError('حدث خطأ أثناء تحميل لوحة التحكم.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
@@ -32,40 +111,37 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
+      {error ? (
+        <div className="card" style={{ padding: '20px', color: '#ffb4b4' }}>{error}</div>
+      ) : null}
+
       <AdminSectionCards sections={sections} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-        <div className="card" style={{ padding: '20px' }}><h3>Members</h3><p>{usersCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Staff accounts</h3><p>{staffCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>All artworks</h3><p>{artworksCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Review queue</h3><p>{pendingArtworksCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Published</h3><p>{publishedCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Reports</h3><p>{reportsCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Pages</h3><p>{pagesCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Categories</h3><p>{categoriesCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Countries</h3><p>{countriesCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Comments</h3><p>{commentsCount}</p></div>
-        <div className="card" style={{ padding: '20px' }}><h3>Audit entries</h3><p>{auditCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Members</h3><p>{loading ? '…' : stats.usersCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Staff accounts</h3><p>{loading ? '…' : stats.staffCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>All artworks</h3><p>{loading ? '…' : stats.artworksCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Review queue</h3><p>{loading ? '…' : stats.pendingArtworksCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Published</h3><p>{loading ? '…' : stats.publishedCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Reports</h3><p>{loading ? '…' : stats.reportsCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Pages</h3><p>{loading ? '…' : stats.pagesCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Categories</h3><p>{loading ? '…' : stats.categoriesCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Countries</h3><p>{loading ? '…' : stats.countriesCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Comments</h3><p>{loading ? '…' : stats.commentsCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Audit entries</h3><p>{loading ? '…' : stats.auditCount}</p></div>
       </div>
 
       <div className="card" style={{ padding: '24px' }}>
         <h2 style={{ marginBottom: '12px' }}>Governance model</h2>
-        <div style={{ display: 'grid', gap: '12px' }}>
-          <p style={{ margin: 0 }}><strong>Moderator:</strong> handles reports, artwork review, and community moderation.</p>
-          <p style={{ margin: 0 }}><strong>Admin:</strong> manages members, content structure, publishing operations, and site settings.</p>
-          <p style={{ margin: 0 }}><strong>Super Admin:</strong> manages staff access, audit visibility, and sensitive system tools.</p>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: '24px' }}>
-        <h2 style={{ marginBottom: '16px' }}>Quick Actions</h2>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {sections.moderation ? <Link href="/admin/artworks" className="button primary">Open review queue</Link> : null}
-          {sections.moderation ? <Link href="/admin/reports" className="button secondary">Handle reports</Link> : null}
-          {sections.members ? <Link href="/admin/users" className="button secondary">Review members</Link> : null}
-          {sections.operations ? <Link href="/admin/settings" className="button secondary">Site operations</Link> : null}
-          {sections.system ? <Link href="/admin/audit" className="button secondary">Open audit trail</Link> : null}
-        </div>
+        <p style={{ marginBottom: '12px', color: 'var(--muted)' }}>
+          This dashboard now reads the current staff session from the browser token instead of relying on a server-side page request.
+          That keeps admin visibility aligned with the same authenticated session used by the rest of the staff workspace.
+        </p>
+        <ul style={{ margin: 0, paddingInlineStart: '20px', color: 'var(--muted)' }}>
+          <li>Dashboard visibility follows the same permission summary used by the sidebar.</li>
+          <li>Superadmin keeps full effective access even if database permissions drift.</li>
+          <li>Audit and system pages now read through protected API endpoints using the Pi access token.</li>
+        </ul>
       </div>
     </div>
   );

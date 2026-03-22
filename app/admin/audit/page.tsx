@@ -7,7 +7,7 @@ type AuditEntry = {
   id: number;
   action: string;
   targetType: string;
-  targetId: number | string | null;
+  targetId: string | null;
   oldValuesJson: unknown;
   newValuesJson: unknown;
   createdAt: string;
