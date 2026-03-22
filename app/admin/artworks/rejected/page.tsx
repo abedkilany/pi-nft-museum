@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function RejectedArtworksPage() {
+  await requireAdminPage();
   const artworks = await prisma.artwork.findMany({
     where: {
       status: 'REJECTED'

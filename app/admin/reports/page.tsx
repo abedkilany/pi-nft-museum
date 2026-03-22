@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminReportsPage() {
+  await requireAdminPage();
   const [artworkReports, commentReports] = await Promise.all([
     prisma.artworkReport.findMany({
       orderBy: { createdAt: 'desc' },

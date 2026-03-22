@@ -14,7 +14,7 @@ export function PiScript() {
           if (w.Pi && !w.__pi_initialized__) {
             w.Pi.init({
               version: '2.0',
-              sandbox: false,
+              sandbox: process.env.NEXT_PUBLIC_PI_SANDBOX === 'true',
             });
             w.__pi_initialized__ = true;
             console.log('Pi SDK initialized');

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminCategoriesPage() {
+  await requireAdminPage();
   const categories = await prisma.artworkCategory.findMany({
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: { _count: { select: { artworks: true } } }

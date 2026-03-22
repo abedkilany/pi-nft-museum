@@ -9,29 +9,9 @@ import {
 } from '@/lib/pi-auth';
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { createSessionToken, getAuthCookieName } from '@/lib/auth';
+import { createSessionToken } from '@/lib/auth';
 import { assertSameOrigin } from '@/lib/security';
-
-function buildSecureCookieBase(request: Request) {
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const isSecure = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
-
-  return {
-    secure: isSecure,
-    sameSite: 'none' as const,
-    path: '/',
-    maxAge: 60 * 60 * 12,
-  };
-}
-
-function buildSessionCookie(request: Request, token: string) {
-  return {
-    name: getAuthCookieName(),
-    value: token,
-    httpOnly: true,
-    ...buildSecureCookieBase(request),
-  };
-}
+import { setAuthCookies } from '@/lib/auth-cookie';
 
 
 export async function POST(request: Request) {
@@ -188,7 +168,7 @@ export async function POST(request: Request) {
       },
     });
 
-    response.cookies.set(buildSessionCookie(request, sessionToken));
+    setAuthCookies(response, request, sessionToken);
     return response;
   } catch (error) {
     logger.error('Pi login failed', error);

@@ -1,7 +1,9 @@
 import { AdminArtworksTable } from '@/components/admin/AdminArtworksTable';
 import { prisma } from '@/lib/prisma';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminArtworksPage() {
+  await requireAdminPage();
   const artworks = await prisma.artwork.findMany({
     where: {
       status: 'PENDING'

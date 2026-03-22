@@ -1,14 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
 import { FollowUserCard } from '@/components/community/FollowUserCard';
 
 export default async function FollowingPage({ params }: { params: { username: string } }) {
-  const [profileUser, currentUser] = await Promise.all([
-    prisma.user.findUnique({ where: { username: params.username }, select: { id: true, username: true, fullName: true } }),
-    getCurrentUser(),
-  ]);
+  const profileUser = await prisma.user.findUnique({ where: { username: params.username }, select: { id: true, username: true, fullName: true } });
 
   if (!profileUser) notFound();
 
@@ -27,25 +23,6 @@ export default async function FollowingPage({ params }: { params: { username: st
       },
     },
   });
-
-  const targetIds = following.map((item: any) => item.following.id);
-  let followingSet = new Set<number>();
-  let reverseSet = new Set<number>();
-
-  if (currentUser) {
-    const [mine, reverse] = await Promise.all([
-      prisma.follow.findMany({
-        where: { followerId: currentUser.userId, followingId: { in: targetIds } },
-        select: { followingId: true },
-      }),
-      prisma.follow.findMany({
-        where: { followerId: { in: targetIds }, followingId: currentUser.userId },
-        select: { followerId: true },
-      }),
-    ]);
-    followingSet = new Set(mine.map((item: any) => item.followingId));
-    reverseSet = new Set(reverse.map((item: any) => item.followerId));
-  }
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
@@ -68,9 +45,9 @@ export default async function FollowingPage({ params }: { params: { username: st
               <FollowUserCard
                 key={entry.id}
                 user={entry.following}
-                isFollowing={followingSet.has(entry.following.id)}
-                followsYou={reverseSet.has(entry.following.id)}
-                isSelf={currentUser?.userId === entry.following.id}
+                isFollowing={false}
+                followsYou={false}
+                isSelf={false}
               />
             ))}
           </div>

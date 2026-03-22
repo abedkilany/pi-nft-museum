@@ -1,5 +1,5 @@
 import { SITE_SETTING_DEFINITIONS, getSiteSettingsMap } from '@/lib/site-settings';
-
+import { requireAdminPage } from '@/lib/admin';
 
 const GROUP_TITLES: Record<string, string> = {
   general: 'General',
@@ -11,6 +11,8 @@ const GROUP_TITLES: Record<string, string> = {
 };
 
 export default async function AdminSettingsPage() {
+  await requireAdminPage();
+
   const settings = await getSiteSettingsMap();
   const groups = SITE_SETTING_DEFINITIONS.reduce<Record<string, typeof SITE_SETTING_DEFINITIONS>>((acc, definition) => {
     acc[definition.group] ||= [];
@@ -36,28 +38,21 @@ export default async function AdminSettingsPage() {
             <h2 style={{ marginTop: 0 }}>{GROUP_TITLES[groupKey] || groupKey}</h2>
             <div style={{ display: 'grid', gap: '14px' }}>
               {definitions.map((definition: any) => (
-                <label key={definition.key} style={{ display: 'grid', gap: '6px' }}>
-                  <span>{definition.label}</span>
-                  {definition.type === 'textarea' || definition.type === 'json' ? (
-                    <textarea
-                      name={definition.key}
-                      rows={definition.type === 'json' ? 8 : 4}
-                      defaultValue={settings[definition.key]}
-                    />
-                  ) : definition.type === 'boolean' ? (
-                    <select name={definition.key} defaultValue={settings[definition.key]}>
+                <label key={definition.key} style={{ display: 'grid', gap: '8px' }}>
+                  <span style={{ fontWeight: 600 }}>{definition.label}</span>
+                  <span style={{ color: 'var(--muted)', fontSize: '14px' }}>{definition.description}</span>
+                  {definition.type === 'boolean' ? (
+                    <select name={definition.key} defaultValue={settings[definition.key] || definition.defaultValue || 'false'}>
                       <option value="true">Enabled</option>
                       <option value="false">Disabled</option>
                     </select>
+                  ) : definition.type === 'number' ? (
+                    <input type="number" step="0.01" name={definition.key} defaultValue={settings[definition.key] || definition.defaultValue || ''} />
+                  ) : definition.type === 'textarea' ? (
+                    <textarea name={definition.key} defaultValue={settings[definition.key] || definition.defaultValue || ''} rows={4} />
                   ) : (
-                    <input
-                      name={definition.key}
-                      type={definition.type === 'number' ? 'number' : 'text'}
-                      step={definition.type === 'number' ? 'any' : undefined}
-                      defaultValue={settings[definition.key]}
-                    />
+                    <input type="text" name={definition.key} defaultValue={settings[definition.key] || definition.defaultValue || ''} />
                   )}
-                  {definition.description ? <small style={{ color: 'var(--muted)' }}>{definition.description}</small> : null}
                 </label>
               ))}
             </div>
@@ -65,12 +60,8 @@ export default async function AdminSettingsPage() {
         ))}
 
         <div className="card-actions">
-          <button className="button primary" type="submit">Save settings</button>
+          <button type="submit" className="button primary">Save settings</button>
         </div>
-      </form>
-
-      <form action="/api/admin/settings/recalculate-review-windows" method="POST">
-        <button className="button secondary" type="submit">Recalculate review and mint windows</button>
       </form>
     </div>
   );

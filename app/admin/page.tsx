@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminDashboardPage() {
+  await requireAdminPage();
   const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount] = await Promise.all([
     prisma.user.count(),
     prisma.artwork.count(),

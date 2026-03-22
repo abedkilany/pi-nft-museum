@@ -1,6 +1,8 @@
 import { readSystemLogs } from '@/lib/system-log';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminSystemPage() {
+  await requireAdminPage();
   const logs = await readSystemLogs(300);
 
   return (

@@ -1,30 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { createSessionToken, getAuthCookieName, verifySessionToken } from '@/lib/auth';
+import { createSessionToken, verifySessionToken } from '@/lib/auth';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
+import { clearAuthCookies, readAuthTokenFromCookieStore, setAuthCookies } from '@/lib/auth-cookie';
 
 export const dynamic = 'force-dynamic';
 
-function buildSecureCookieBase(request: NextRequest) {
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const isSecure = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
-
-  return {
-    secure: isSecure,
-    sameSite: 'none' as const,
-    path: '/',
-    maxAge: 60 * 60 * 12,
-  };
-}
-
-function attachSessionCookie(response: NextResponse, request: NextRequest, sessionToken: string) {
-  response.cookies.set({
-    name: getAuthCookieName(),
-    value: sessionToken,
-    httpOnly: true,
-    ...buildSecureCookieBase(request),
-  });
-}
 
 export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID();
@@ -32,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     const bearerToken = extractBearerToken(authHeader);
-    const sessionCookie = request.cookies.get(getAuthCookieName())?.value;
+    const sessionCookie = readAuthTokenFromCookieStore(request.cookies);
 
     logger.info('AUTH_ME_START', {
       requestId,
@@ -87,7 +68,7 @@ export async function GET(request: NextRequest) {
       });
 
       const sessionToken = await createSessionToken(session.sessionUser);
-      attachSessionCookie(response, request, sessionToken);
+      setAuthCookies(response, request, sessionToken);
       return response;
     }
 
@@ -107,10 +88,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (!sessionUser) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { ok: false, authenticated: false, reason: 'INVALID_SESSION_COOKIE' },
         { status: 401 }
       );
+      clearAuthCookies(response, request);
+      return response;
     }
 
     return NextResponse.json({

@@ -3,7 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { STAFF_ROLES } from '@/lib/roles';
 import { getAllowedCountries } from '@/lib/countries';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminUsersPage() {
+  await requireAdminPage();
   const [users, roles, countries] = await Promise.all([
     prisma.user.findMany({ include: { role: true, artworks: true }, orderBy: { createdAt: 'desc' } }),
     prisma.role.findMany({ orderBy: { name: 'asc' } }),

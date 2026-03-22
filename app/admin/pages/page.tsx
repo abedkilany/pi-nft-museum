@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { PageBuilder } from '@/components/admin/PageBuilder';
 
+import { requireAdminPage } from '@/lib/admin';
 export default async function AdminPagesPage() {
+  await requireAdminPage();
   const pages = await prisma.page.findMany({
     include: { sections: { orderBy: { sortOrder: 'asc' } } },
     orderBy: [{ updatedAt: 'desc' }]

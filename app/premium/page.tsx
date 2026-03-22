@@ -1,13 +1,11 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { timeToPremium } from '@/lib/timeToPremium';
-import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 
 export default async function PremiumPage() {
-  const user = await getCurrentUser();
   const settings = await getSiteSettingsMap();
   const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
 
@@ -20,14 +18,7 @@ export default async function PremiumPage() {
         }
       },
       category: true,
-      reactions: user
-        ? {
-            where: {
-              userId: user.userId
-            },
-            take: 1
-          }
-        : false
+      reactions: false
     },
     orderBy: { premiumScore: 'desc' }
   });
@@ -54,9 +45,7 @@ export default async function PremiumPage() {
               art.artist.username;
 
             const myReaction =
-              user && Array.isArray(art.reactions) && art.reactions.length > 0
-                ? art.reactions[0].type
-                : null;
+              null;
 
             return (
               <div
@@ -112,7 +101,7 @@ export default async function PremiumPage() {
                 <div style={{ minWidth: '240px' }}>
                   <ReactionButtons
                     artworkId={art.id}
-                    canReact={Boolean(user)}
+                    canReact={false}
                     likesCount={art.likesCount}
                     dislikesCount={art.dislikesCount}
                     myReaction={myReaction}
