@@ -171,7 +171,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   const [counts, followState, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
     getFollowCounts(user.id),
     getFollowState(currentUser?.userId ?? null, user.id),
-    prisma.artwork.count({ where: { artistId: user.id, status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
+    prisma.artwork.count({ where: { artistUserId: user.id, status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
     prisma.communityPostLike.count({ where: { userId: user.id, post: { isPublished: true } } }),
     prisma.communityPost.findMany({
