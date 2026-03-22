@@ -8,6 +8,12 @@ import { scoreCommunityPost, scoreCreator } from '@/lib/community';
 
 export const dynamic = 'force-dynamic';
 
+type ComposerArtworkOption = {
+  id: number;
+  title: string;
+  status: string;
+};
+
 
 function serializeArtwork(artwork: {
   id: number;
@@ -169,7 +175,7 @@ export default async function CommunityPage({
         },
       },
     }),
-    Promise.resolve([]),
+    Promise.resolve<ComposerArtworkOption[]>([]),
   ]);
 
   const serializedPosts = posts.map((post) => ({
