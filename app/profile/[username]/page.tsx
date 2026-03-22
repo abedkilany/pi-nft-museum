@@ -2,15 +2,20 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { getFollowCounts } from '@/lib/follows';
+import { getFollowCounts, getFollowState } from '@/lib/follows';
 import { scoreCommunityPost } from '@/lib/community';
 import { getAllowedCountries } from '@/lib/countries';
+import { getCurrentUser } from '@/lib/current-user';
 import PublicProfileTabsClient from '@/components/profile/PublicProfileTabsClient';
 import PublicProfileViewerControls from '@/components/profile/PublicProfileViewerControls';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
+
+const PUBLIC_ARTWORK_PREVIEW_LIMIT = 12;
+const PUBLIC_POST_PREVIEW_LIMIT = 12;
+const ACTIVITY_PREVIEW_LIMIT = 8;
 
 type SerializableArtwork = {
   id: number;
@@ -96,24 +101,14 @@ function serializePost(post: any): CommunityFeedPost {
   };
 }
 
+function normalizeExternalUrl(url: string | null | undefined) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://${value}`;
+}
+
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
-  const user = await prisma.user.findUnique({
-    where: { username: params.username },
-    include: {
-      role: true,
-      artworks: {
-        where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
-        orderBy: { publishedAt: 'desc' },
-        take: 12,
-        include: { category: true }
-      },
-    }
-  });
-
-  if (!user) notFound();
-  const displayName = user.fullName || user.username;
-  const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
-
   const commonPostInclude = {
     author: {
       select: {
@@ -149,13 +144,40 @@ export default async function PublicProfilePage({ params }: { params: { username
     likes: false as const,
   };
 
-  const [counts, publicPostCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount, countries] = await Promise.all([
+  const [user, currentUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { username: params.username },
+      include: {
+        role: true,
+        artworks: {
+          where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
+          orderBy: { publishedAt: 'desc' },
+          take: PUBLIC_ARTWORK_PREVIEW_LIMIT,
+          include: { category: true },
+        },
+      },
+    }),
+    getCurrentUser(),
+  ]);
+
+  if (!user) notFound();
+
+  const displayName = user.fullName || user.username;
+  const publicCountry = user.country === '__OTHER__' ? user.customCountryName : user.country;
+  const websiteUrl = normalizeExternalUrl(user.websiteUrl);
+  const twitterUrl = normalizeExternalUrl(user.twitterUrl);
+  const instagramUrl = normalizeExternalUrl(user.instagramUrl);
+
+  const [counts, followState, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
     getFollowCounts(user.id),
+    getFollowState(currentUser?.userId ?? null, user.id),
+    prisma.artwork.count({ where: { artistId: user.id, status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
+    prisma.communityPostLike.count({ where: { userId: user.id, post: { isPublished: true } } }),
     prisma.communityPost.findMany({
       where: { authorId: user.id, isPublished: true },
       orderBy: { createdAt: 'desc' },
-      take: 12,
+      take: PUBLIC_POST_PREVIEW_LIMIT,
       include: commonPostInclude,
     }),
     prisma.communityPostLike.findMany({
@@ -164,7 +186,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         post: { isPublished: true },
       },
       orderBy: { createdAt: 'desc' },
-      take: 12,
+      take: PUBLIC_POST_PREVIEW_LIMIT,
       include: {
         post: {
           include: commonPostInclude,
@@ -174,10 +196,32 @@ export default async function PublicProfilePage({ params }: { params: { username
     prisma.communityActivity.findMany({
       where: { OR: [{ actorId: user.id }, { subjectUserId: user.id }] },
       orderBy: { createdAt: 'desc' },
-      take: 8,
+      take: ACTIVITY_PREVIEW_LIMIT,
     }),
     prisma.communityPostComment.count({ where: { authorId: user.id } }),
-    getAllowedCountries(),
+  ]);
+
+  const [countries, recentRepliesAndComments] = await Promise.all([
+    currentUser?.userId === user.id ? getAllowedCountries() : Promise.resolve([]),
+    prisma.communityPostComment.findMany({
+      where: { authorId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: ACTIVITY_PREVIEW_LIMIT,
+      include: {
+        post: {
+          select: {
+            id: true,
+            body: true,
+            author: {
+              select: {
+                username: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+      },
+    }),
   ]);
 
   const ownPosts = ownPostsRaw.map((post) => serializePost(post));
@@ -185,26 +229,6 @@ export default async function PublicProfilePage({ params }: { params: { username
     .map((entry) => entry.post)
     .filter((post, index, array) => array.findIndex((candidate) => candidate.id === post.id) === index)
     .map((post) => serializePost(post));
-
-  const recentRepliesAndComments = await prisma.communityPostComment.findMany({
-    where: { authorId: user.id },
-    orderBy: { createdAt: 'desc' },
-    take: 8,
-    include: {
-      post: {
-        select: {
-          id: true,
-          body: true,
-          author: {
-            select: {
-              username: true,
-              fullName: true,
-            },
-          },
-        },
-      },
-    },
-  });
 
   const activityItems = [
     ...activitiesRaw.map((activity) => ({
@@ -221,72 +245,72 @@ export default async function PublicProfilePage({ params }: { params: { username
       title: comment.parentId ? 'Replied in community' : 'Commented in community',
       message: `${comment.body}\n\nOn ${comment.post.author.fullName || comment.post.author.username}'s post.`,
       createdAt: comment.createdAt.toISOString(),
-      linkUrl: `/community`,
+      linkUrl: '/community',
     })),
-  ].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 12);
-
-  const editableUser = {
-    username: user.username,
-    fullName: user.fullName || '',
-    email: user.email || '',
-    bio: user.bio || '',
-    country: user.country || '',
-    customCountryName: user.customCountryName || '',
-    phoneNumber: user.phoneNumber || '',
-    headline: user.headline || '',
-    profileImage: user.profileImage || '',
-    coverImage: user.coverImage || '',
-    websiteUrl: user.websiteUrl || '',
-    twitterUrl: user.twitterUrl || '',
-    instagramUrl: user.instagramUrl || '',
-    showPhonePublic: Boolean(user.showPhonePublic),
-    showCountryPublic: Boolean(user.showCountryPublic),
-  };
+  ]
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 12);
 
   return (
     <div className="page-stack">
       <section className="card" style={{ overflow: 'hidden' }}>
-        <div className="profile-cover" style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}>
+        <div
+          className="profile-cover"
+          style={{
+            backgroundImage: user.coverImage
+              ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${getDisplayImageUrl(user.coverImage)})`
+              : undefined,
+          }}
+        >
           <div className="profile-avatar profile-avatar-large">
-            {user.profileImage ? <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
+            {user.profileImage ? (
+              <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span>{displayName.slice(0, 1).toUpperCase()}</span>
+            )}
           </div>
           <div>
             <span className="section-kicker">Public creator profile</span>
             <h1 style={{ margin: '6px 0 8px' }}>{displayName}</h1>
-            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>@{user.username} · {user.role.name}{publicCountry && user.showCountryPublic ? ` · ${publicCountry}` : ''}</p>
+            <p style={{ margin: '0 0 8px', color: 'var(--muted)' }}>
+              @{user.username} · {user.role.name}
+              {publicCountry && user.showCountryPublic ? ` · ${publicCountry}` : ''}
+            </p>
             <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7 }}>{user.headline || user.bio || 'No public bio has been added yet.'}</p>
             <div className="card-actions" style={{ marginTop: 16 }}>
               {user.showEmailPublic ? <a className="button secondary" href={`mailto:${user.email}`}>Email</a> : null}
               {user.showPhonePublic && user.phoneNumber ? <a className="button secondary" href={`tel:${user.phoneNumber}`}>Call</a> : null}
-              {user.websiteUrl ? <a className="button secondary" href={user.websiteUrl} target="_blank">Website</a> : null}
+              {websiteUrl ? <a className="button secondary" href={websiteUrl} target="_blank" rel="noopener noreferrer">Website</a> : null}
+              {twitterUrl ? <a className="button secondary" href={twitterUrl} target="_blank" rel="noopener noreferrer">X / Twitter</a> : null}
+              {instagramUrl ? <a className="button secondary" href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram</a> : null}
             </div>
           </div>
-
         </div>
 
         <PublicProfileViewerControls
           username={user.username}
           targetUserId={user.id}
           counts={counts}
-          user={editableUser}
-          countries={countries}
+          viewerState={{
+            authenticated: Boolean(currentUser),
+            currentUserId: currentUser?.userId ?? null,
+            isSelf: followState.isSelf,
+            isFollowing: followState.isFollowing,
+            followsYou: followState.followsYou,
+          }}
         />
       </section>
 
       <section className="stats-grid">
         <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
         <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
-        <div className="card stat-card"><strong>{user.artworks.length}</strong><span>Public artworks</span></div>
+        <div className="card stat-card"><strong>{publicArtworkCount}</strong><span>Public artworks</span></div>
         <div className="card stat-card"><strong>{publicPostCount}</strong><span>Community posts</span></div>
-        <div className="card stat-card"><strong>{likedPosts.length}</strong><span>Recent liked posts</span></div>
+        <div className="card stat-card"><strong>{likedPostsCount}</strong><span>Total liked posts</span></div>
         <div className="card stat-card"><strong>{commentsAuthoredCount}</strong><span>Replies & comments</span></div>
       </section>
 
-      <PublicProfileTabsClient
-        posts={ownPosts}
-        likedPosts={likedPosts}
-        activity={activityItems}
-      />
+      <PublicProfileTabsClient posts={ownPosts} likedPosts={likedPosts} activity={activityItems} />
 
       <section className="card surface-section">
         <div className="section-head compact">
@@ -294,9 +318,13 @@ export default async function PublicProfilePage({ params }: { params: { username
             <span className="section-kicker">Published works</span>
             <h2>Gallery</h2>
           </div>
-          <p>{user.artworks.length} public artwork{user.artworks.length === 1 ? '' : 's'}</p>
+          <p>
+            Showing the latest {Math.min(user.artworks.length, PUBLIC_ARTWORK_PREVIEW_LIMIT)} of {publicArtworkCount} public artwork{publicArtworkCount === 1 ? '' : 's'}.
+          </p>
         </div>
-        {user.artworks.length === 0 ? <p style={{ margin: 0 }}>No public artworks yet.</p> : (
+        {user.artworks.length === 0 ? (
+          <p style={{ margin: 0 }}>No public artworks yet.</p>
+        ) : (
           <div className="gallery-grid">
             {user.artworks.map((artwork: any) => (
               <article key={artwork.id} className="card art-card">

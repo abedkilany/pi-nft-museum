@@ -16,9 +16,9 @@ type ActivityItem = {
 };
 
 const TAB_LABELS = {
-  posts: 'Posts',
-  liked: 'Liked posts',
-  activity: 'Activity',
+  posts: 'Recent posts',
+  liked: 'Recent liked posts',
+  activity: 'Recent activity',
 } as const;
 
 type TabKey = keyof typeof TAB_LABELS;
@@ -48,9 +48,9 @@ export default function PublicProfileCommunityTabs({
       <div className="section-head compact">
         <div>
           <span className="section-kicker">Community</span>
-          <h2>Public presence</h2>
+          <h2>Recent public presence</h2>
         </div>
-        <p>Browse this creator&apos;s posts, liked posts, and recent activity from one place.</p>
+        <p>This section shows a recent preview of posts, liked posts, and activity.</p>
       </div>
 
       <div className="card-actions" style={{ gap: 8, marginTop: 0, flexWrap: 'wrap' }}>
