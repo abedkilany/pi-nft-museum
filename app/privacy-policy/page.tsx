@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
         <section style={{ marginBottom: 24 }}>
           <h2>4. Cookies and Session Data</h2>
           <p>
-            We use cookies and similar session technologies to keep you signed in, maintain secure sessions,
+            We do not use login cookies for authentication. Sign-in is handled with Pi access tokens stored on your device,
             and support authentication flows, including Pi-related login functionality.
           </p>
         </section>

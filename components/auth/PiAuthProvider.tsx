@@ -43,7 +43,6 @@ async function fetchCurrentUser() {
     method: 'GET',
     headers: getPiAuthHeaders(),
     cache: 'no-store',
-    credentials: 'include',
   }).catch(() => null);
 
   const payload = response ? await response.json().catch(() => null) : null;
@@ -69,7 +68,6 @@ async function authenticateAndResolveUser() {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${auth.accessToken}`,
     },
-    credentials: 'include',
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
 
@@ -172,8 +170,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     clearPiAuthToken();
     await fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
+        headers: getPiAuthHeaders({ Accept: 'application/json' }),
     }).catch(() => null);
     setUser(null);
     setStatus('guest');

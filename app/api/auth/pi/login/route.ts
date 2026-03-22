@@ -9,39 +9,7 @@ import {
 } from '@/lib/pi-auth';
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { createSessionToken, getAuthCookieName } from '@/lib/auth';
-import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 import { assertSameOrigin } from '@/lib/security';
-
-function buildSecureCookieBase(request: Request) {
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const isSecure = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
-
-  return {
-    secure: isSecure,
-    sameSite: 'none' as const,
-    path: '/',
-    maxAge: 60 * 60 * 12,
-  };
-}
-
-function buildSessionCookie(request: Request, token: string) {
-  return {
-    name: getAuthCookieName(),
-    value: token,
-    httpOnly: true,
-    ...buildSecureCookieBase(request),
-  };
-}
-
-function buildFallbackHintCookie(request: Request, accessToken: string) {
-  return {
-    name: PI_SESSION_HINT_COOKIE_NAME,
-    value: accessToken,
-    httpOnly: false,
-    ...buildSecureCookieBase(request),
-  };
-}
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -60,7 +28,8 @@ export async function POST(request: Request) {
       origin: request.headers.get('origin'),
       referer: request.headers.get('referer'),
       forwardedProto: request.headers.get('x-forwarded-proto'),
-      forwardedHost: request.headers.get('x-forwarded-host')
+      forwardedHost: request.headers.get('x-forwarded-host'),
+      authMode: 'token-only',
     });
 
     if (!accessToken) {
@@ -169,26 +138,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
-    const sessionToken = await createSessionToken({
-      userId: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role.key,
-      piUid: user.piUid,
-      piUsername: user.piUsername,
-    });
-
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
       targetType: 'USER',
       targetId: user.id,
-      newValues: { role: user.role.key, piUid: user.piUid },
+      newValues: { role: user.role.key, piUid: user.piUid, authMode: 'token-only' },
     });
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
+      authMode: 'token-only',
       user: {
         id: user.id,
         username: user.username,
@@ -196,10 +157,6 @@ export async function POST(request: Request) {
         piUsername: user.piUsername,
       },
     });
-
-    response.cookies.set(buildSessionCookie(request, sessionToken));
-    response.cookies.set(buildFallbackHintCookie(request, accessToken));
-    return response;
   } catch (error) {
     logger.error('Pi login failed', error);
     return NextResponse.json(

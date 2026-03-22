@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
+import { extractBearerToken } from '@/lib/pi-session';
 
 export async function GET() {
-  const cookieStore = cookies();
   const headerStore = headers();
+  const authorization = headerStore.get('authorization');
+  const bearerToken = extractBearerToken(authorization);
 
   return NextResponse.json({
     origin: headerStore.get('origin'),
     referer: headerStore.get('referer'),
     host: headerStore.get('host'),
     userAgent: headerStore.get('user-agent'),
-    cookieNames: cookieStore.getAll().map((cookie: any) => cookie.name),
-    hasAuthCookie: !!cookieStore.get('pi_nft_auth'),
-    authCookieLength: cookieStore.get('pi_nft_auth')?.value?.length ?? 0,
+    authHeaderPresent: Boolean(authorization),
+    bearerTokenPresent: Boolean(bearerToken),
+    authMode: 'token-only',
   });
 }
