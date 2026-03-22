@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 
   const isOwner = currentUser.userId === artwork.artistUserId;
-  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+  const isAdmin = currentUser.role === 'moderator' || currentUser.role === 'admin' || currentUser.role === 'superadmin';
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ ok: false, error: 'Not allowed.' }, { status: 403 });
   }

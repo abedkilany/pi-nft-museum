@@ -1,42 +1,103 @@
-
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const roles = [
+  { key: 'superadmin', name: 'Super Admin', description: 'Full system access and staff governance' },
+  { key: 'admin', name: 'Admin', description: 'Operations, members, content, and site management' },
+  { key: 'moderator', name: 'Moderator', description: 'Reports, review queues, and community moderation' },
+  { key: 'artist_or_trader', name: 'Artist or Trader', description: 'Connected marketplace member account' },
+  { key: 'visitor', name: 'Visitor', description: 'Guest browsing role' },
+];
+
+const permissions = [
+  { key: 'users.view', name: 'View users', description: 'Open the members area and user records' },
+  { key: 'users.edit', name: 'Edit users', description: 'Update public profile and account fields for users' },
+  { key: 'users.status.manage', name: 'Manage user status', description: 'Suspend, ban, or restore accounts' },
+  { key: 'users.roles.manage', name: 'Manage user roles', description: 'Change member and staff role assignments' },
+  { key: 'artworks.view', name: 'View artworks workspace', description: 'Open the review queue and moderation tools' },
+  { key: 'artworks.review', name: 'Review artworks', description: 'Approve, return, or moderate artworks' },
+  { key: 'artworks.publish', name: 'Publish artworks', description: 'Finalize and promote artworks into public states' },
+  { key: 'artworks.reject', name: 'Reject artworks', description: 'Reject or hide submitted artworks' },
+  { key: 'reports.view', name: 'View reports', description: 'Open member reports and abuse queues' },
+  { key: 'reports.resolve', name: 'Resolve reports', description: 'Take action on member and content reports' },
+  { key: 'community.moderate', name: 'Moderate community', description: 'Moderate posts, comments, and visible community activity' },
+  { key: 'pages.manage', name: 'Manage pages', description: 'Create and update public pages' },
+  { key: 'menu.manage', name: 'Manage menu', description: 'Edit the public navigation menu' },
+  { key: 'categories.manage', name: 'Manage categories', description: 'Create and maintain artwork categories' },
+  { key: 'countries.manage', name: 'Manage countries', description: 'Maintain country availability and phone metadata' },
+  { key: 'settings.view', name: 'View settings', description: 'Open site operations and settings pages' },
+  { key: 'settings.update', name: 'Update settings', description: 'Change site settings and operational windows' },
+  { key: 'logs.view', name: 'View logs', description: 'Read and export system logs' },
+  { key: 'audit.view', name: 'View audit trail', description: 'Open audit and governance history' },
+  { key: 'staff.manage', name: 'Manage staff', description: 'Promote, demote, and govern moderator/admin access' },
+];
+
+const permissionSetsByRole = {
+  visitor: [],
+  artist_or_trader: [],
+  moderator: [
+    'artworks.view',
+    'artworks.review',
+    'artworks.reject',
+    'reports.view',
+    'reports.resolve',
+    'community.moderate',
+  ],
+  admin: [
+    'users.view',
+    'users.edit',
+    'users.status.manage',
+    'artworks.view',
+    'artworks.review',
+    'artworks.publish',
+    'artworks.reject',
+    'reports.view',
+    'reports.resolve',
+    'community.moderate',
+    'pages.manage',
+    'menu.manage',
+    'categories.manage',
+    'countries.manage',
+    'settings.view',
+    'settings.update',
+  ],
+  superadmin: permissions.map((permission) => permission.key),
+};
+
 async function main() {
-  const roles = [
-    { key: 'superadmin', name: 'Super Admin', description: 'Full system access' },
-    { key: 'admin', name: 'Admin', description: 'Administrative access' },
-    { key: 'artist_or_trader', name: 'Artist or Trader', description: 'Connected marketplace member account' },
-    { key: 'visitor', name: 'Visitor', description: 'Guest browsing role' },
-  ];
-
   for (const role of roles) {
-    await prisma.role.upsert({ where: { key: role.key }, update: { name: role.name, description: role.description }, create: role });
+    await prisma.role.upsert({
+      where: { key: role.key },
+      update: { name: role.name, description: role.description },
+      create: role,
+    });
   }
-
-  const permissions = [
-    { key: 'manage_users', name: 'Manage Users' },
-    { key: 'manage_roles', name: 'Manage Roles' },
-    { key: 'manage_artworks', name: 'Manage Artworks' },
-    { key: 'manage_pages', name: 'Manage Pages' },
-    { key: 'manage_settings', name: 'Manage Settings' },
-    { key: 'view_system_logs', name: 'View System Logs' }
-  ];
 
   for (const permission of permissions) {
-    await prisma.permission.upsert({ where: { key: permission.key }, update: { name: permission.name }, create: permission });
+    await prisma.permission.upsert({
+      where: { key: permission.key },
+      update: { name: permission.name, description: permission.description },
+      create: permission,
+    });
   }
 
-  const superadminRole = await prisma.role.findUnique({ where: { key: 'superadmin' } });
-  const adminRole = await prisma.role.findUnique({ where: { key: 'admin' } });
-  const allPermissions = await prisma.permission.findMany();
-  for (const role of [superadminRole, adminRole].filter(Boolean)) {
-    for (const permission of allPermissions) {
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
-        update: {},
-        create: { roleId: role.id, permissionId: permission.id }
+  const rolesFromDb = await prisma.role.findMany();
+  const permissionsFromDb = await prisma.permission.findMany();
+  const permissionByKey = new Map(permissionsFromDb.map((permission) => [permission.key, permission]));
+
+  for (const role of rolesFromDb) {
+    const targetPermissionKeys = permissionSetsByRole[role.key] || [];
+    const targetPermissionIds = targetPermissionKeys
+      .map((key) => permissionByKey.get(key))
+      .filter(Boolean)
+      .map((permission) => permission.id);
+
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+
+    for (const permissionId of targetPermissionIds) {
+      await prisma.rolePermission.create({
+        data: { roleId: role.id, permissionId },
       });
     }
   }
@@ -116,7 +177,8 @@ async function main() {
   }
 
   console.log('Seed completed successfully.');
-  console.log('Pi-only login is enabled. Guests browse as Visitors. Connected Pi users are created as Artist or Trader by default. To grant admin access, add your Pi username or Pi UID in .env before first login.');
+  console.log('Roles configured: Visitor, Artist or Trader, Moderator, Admin, Super Admin.');
+  console.log('Pi-only login is enabled. Use PI_MODERATOR_USERNAMES / PI_MODERATOR_UIDS, PI_ADMIN_USERNAMES / PI_ADMIN_UIDS, and PI_SUPERADMIN_USERNAMES / PI_SUPERADMIN_UIDS in .env to grant staff access on first login.');
 }
 
 main().catch((error) => {

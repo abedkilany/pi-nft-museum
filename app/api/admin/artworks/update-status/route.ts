@@ -3,12 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { requireAdminApi } from '@/lib/admin';
+import { PERMISSIONS } from '@/lib/permissions';
 import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-  const admin = await requireAdminApi();
+  const admin = await requireAdminApi(PERMISSIONS.artworksReview);
   if ('error' in admin) return admin.error;
 
   try {

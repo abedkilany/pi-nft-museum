@@ -99,14 +99,14 @@ export function serializeArtworkDetail(artwork: any, currentUser: SessionUser | 
 export function buildArtworkViewerState(artwork: any, currentUser: SessionUser | null, commentsEnabled: boolean): ArtworkViewerStateDto {
   const role = currentUser?.role || null;
   const isOwner = Boolean(currentUser && currentUser.userId === artwork.artistUserId);
-  const canModerate = role === 'admin' || role === 'superadmin';
+  const canModerate = role === 'moderator' || role === 'admin' || role === 'superadmin';
   const canHide = Boolean(currentUser && (isOwner || canModerate));
 
   const paymentDisabled = (
     !currentUser ||
     isOwner ||
     !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status)) ||
-    !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
+    !['artist_or_trader', 'moderator', 'admin', 'superadmin'].includes(String(role || ''))
   );
 
   const paymentDisabledReason = !currentUser
@@ -115,7 +115,7 @@ export function buildArtworkViewerState(artwork: any, currentUser: SessionUser |
       ? 'You cannot buy your own artwork.'
       : !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status))
         ? 'Only published or premium artworks can be paid for right now.'
-        : !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
+        : !['artist_or_trader', 'moderator', 'admin', 'superadmin'].includes(String(role || ''))
           ? 'Your current role cannot make payments.'
           : null;
 

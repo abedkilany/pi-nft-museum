@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
+import { requireAdminApi } from '@/lib/admin';
+import { PERMISSIONS } from '@/lib/permissions';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-  const currentUser = await getCurrentUser();
-
-  if (!currentUser || !['superadmin', 'admin'].includes(currentUser.role)) {
-    return NextResponse.redirect(new URL('/account', request.url));
-  }
+  const currentUser = await requireAdminApi(PERMISSIONS.settingsUpdate);
+  if ('error' in currentUser) return currentUser.error;
 
   const artworks = await prisma.artwork.findMany({
     where: {

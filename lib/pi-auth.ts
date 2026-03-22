@@ -75,6 +75,8 @@ export async function resolvePiRole(piUser: PiMeResponse) {
   const superadminUids = parseCsvEnv(process.env.PI_SUPERADMIN_UIDS);
   const adminRole = parseCsvEnv(process.env.PI_ADMIN_USERNAMES);
   const adminUids = parseCsvEnv(process.env.PI_ADMIN_UIDS);
+  const moderatorRole = parseCsvEnv(process.env.PI_MODERATOR_USERNAMES);
+  const moderatorUids = parseCsvEnv(process.env.PI_MODERATOR_UIDS);
 
   if (superadminRole.includes(piUser.username || '') || superadminUids.includes(piUser.uid)) {
     return 'superadmin';
@@ -82,6 +84,10 @@ export async function resolvePiRole(piUser: PiMeResponse) {
 
   if (adminRole.includes(piUser.username || '') || adminUids.includes(piUser.uid)) {
     return 'admin';
+  }
+
+  if (moderatorRole.includes(piUser.username || '') || moderatorUids.includes(piUser.uid)) {
+    return 'moderator';
   }
 
   return 'artist_or_trader';

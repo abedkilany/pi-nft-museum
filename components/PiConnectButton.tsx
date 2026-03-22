@@ -24,7 +24,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
         return;
       }
 
-      const target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
+      const target = redirectTo || ((user.role === 'moderator' || user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
       window.location.href = target;
     } catch (error) {
       console.error('Pi login error:', error);

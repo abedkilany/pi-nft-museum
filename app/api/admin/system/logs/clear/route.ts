@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
+import { PERMISSIONS } from '@/lib/permissions';
 import { clearSystemLogs } from '@/lib/system-log';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
@@ -7,7 +8,7 @@ import { assertSameOrigin } from '@/lib/security';
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-  const admin = await requireAdminApi();
+  const admin = await requireAdminApi(PERMISSIONS.logsView);
   if ('error' in admin) return admin.error;
 
   await clearSystemLogs();
