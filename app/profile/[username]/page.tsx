@@ -2,10 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { getFollowCounts, getFollowState } from '@/lib/follows';
+import { getFollowCounts } from '@/lib/follows';
 import { scoreCommunityPost } from '@/lib/community';
-import { getAllowedCountries } from '@/lib/countries';
-import { getCurrentUser } from '@/lib/current-user';
 import PublicProfileTabsClient from '@/components/profile/PublicProfileTabsClient';
 import PublicProfileViewerControls from '@/components/profile/PublicProfileViewerControls';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
@@ -144,21 +142,18 @@ export default async function PublicProfilePage({ params }: { params: { username
     likes: false as const,
   };
 
-  const [user, currentUser] = await Promise.all([
-    prisma.user.findUnique({
-      where: { username: params.username },
-      include: {
-        role: true,
-        artworks: {
-          where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
-          orderBy: { publishedAt: 'desc' },
-          take: PUBLIC_ARTWORK_PREVIEW_LIMIT,
-          include: { category: true },
-        },
+  const user = await prisma.user.findUnique({
+    where: { username: params.username },
+    include: {
+      role: true,
+      artworks: {
+        where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
+        orderBy: { publishedAt: 'desc' },
+        take: PUBLIC_ARTWORK_PREVIEW_LIMIT,
+        include: { category: true },
       },
-    }),
-    getCurrentUser(),
-  ]);
+    },
+  });
 
   if (!user) notFound();
 
@@ -168,9 +163,8 @@ export default async function PublicProfilePage({ params }: { params: { username
   const twitterUrl = normalizeExternalUrl(user.twitterUrl);
   const instagramUrl = normalizeExternalUrl(user.instagramUrl);
 
-  const [counts, followState, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
+  const [counts, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
     getFollowCounts(user.id),
-    getFollowState(currentUser?.userId ?? null, user.id),
     prisma.artwork.count({ where: { artistUserId: user.id, status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
     prisma.communityPostLike.count({ where: { userId: user.id, post: { isPublished: true } } }),
@@ -201,9 +195,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     prisma.communityPostComment.count({ where: { authorId: user.id } }),
   ]);
 
-  const [countries, recentRepliesAndComments] = await Promise.all([
-    currentUser?.userId === user.id ? getAllowedCountries() : Promise.resolve([]),
-    prisma.communityPostComment.findMany({
+  const recentRepliesAndComments = await prisma.communityPostComment.findMany({
       where: { authorId: user.id },
       orderBy: { createdAt: 'desc' },
       take: ACTIVITY_PREVIEW_LIMIT,
@@ -221,8 +213,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           },
         },
       },
-    }),
-  ]);
+    });
 
   const ownPosts = ownPostsRaw.map((post) => serializePost(post));
   const likedPosts = likedPostLikesRaw
@@ -291,13 +282,6 @@ export default async function PublicProfilePage({ params }: { params: { username
           username={user.username}
           targetUserId={user.id}
           counts={counts}
-          viewerState={{
-            authenticated: Boolean(currentUser),
-            currentUserId: currentUser?.userId ?? null,
-            isSelf: followState.isSelf,
-            isFollowing: followState.isFollowing,
-            followsYou: followState.followsYou,
-          }}
         />
       </section>
 
