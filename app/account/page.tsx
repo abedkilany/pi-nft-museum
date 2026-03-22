@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
+import { ProfileForms } from '@/components/account/ProfileForms';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
@@ -37,7 +38,9 @@ export default function AccountPage() {
       setLoading(false);
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [status]);
 
   if (status !== 'authenticated') return <RequirePiAuth loadingText="Loading account…" />;
@@ -53,9 +56,9 @@ export default function AccountPage() {
         <div className="section-head compact">
           <div>
             <span className="section-kicker">Account</span>
-            <h1>Private account settings</h1>
+            <h1>Account & profile settings</h1>
           </div>
-          <p>Profile editing now lives on your public profile page. This area is for private account details, Pi connection info, and destructive actions only.</p>
+          <p>This area combines your private Pi-linked account details with the full form for editing your public profile.</p>
         </div>
         <div className="account-summary-grid">
           <div className="card summary-card"><strong>Pi username</strong><p style={{ color: 'var(--muted)' }}>{dbUser.piUsername || dbUser.username}</p></div>
@@ -66,8 +69,8 @@ export default function AccountPage() {
           <div className="card summary-card"><strong>Linked at</strong><p style={{ color: 'var(--muted)' }}>{dbUser.linkedAt ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dbUser.linkedAt)) : 'Not linked yet'}</p></div>
         </div>
         <div className="card-actions">
-          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button primary">Open public profile</Link>
-          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button secondary">Edit public profile</Link>
+          <Link href={`/profile/${dbUser.username}`} prefetch={false} className="button secondary">Open public profile</Link>
+          <Link href="#edit-public-profile" className="button primary">Edit public profile</Link>
           <Link href="/notifications" className="button secondary">Notifications</Link>
           <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
@@ -75,24 +78,8 @@ export default function AccountPage() {
         </div>
       </section>
 
-      <section className="card surface-section">
-        <div className="section-head compact">
-          <div>
-            <span className="section-kicker">Separation of concerns</span>
-            <h2>What changed</h2>
-          </div>
-          <p>The app now keeps profile identity and private account tools separate.</p>
-        </div>
-        <div className="stack-sm">
-          <div className="card" style={{ padding: 16 }}>
-            <strong>Public profile</strong>
-            <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>This is the only profile page visitors see. You can edit your public info directly there.</p>
-          </div>
-          <div className="card" style={{ padding: 16 }}>
-            <strong>Account page</strong>
-            <p style={{ margin: '8px 0 0', color: 'var(--muted)' }}>This page keeps Pi-linked account details, internal actions, and account removal only.</p>
-          </div>
-        </div>
+      <section id="edit-public-profile" className="surface-section">
+        <ProfileForms user={dbUser} countries={data.countries || []} />
       </section>
 
       <DeleteAccountSection />

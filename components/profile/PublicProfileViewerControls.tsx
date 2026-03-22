@@ -89,7 +89,7 @@ export default function PublicProfileViewerControls({ username, targetUserId, co
       {links}
       {viewerState.isSelf ? (
         <>
-          <Link href="/account" className="button primary">Edit profile</Link>
+          <Link href="/account#edit-public-profile" className="button primary">Edit profile</Link>
           <Link href="/account/artworks" className="button secondary">My artworks</Link>
         </>
       ) : status === 'authenticated' ? (
