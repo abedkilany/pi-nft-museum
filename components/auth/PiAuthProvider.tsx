@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -44,7 +43,7 @@ async function fetchCurrentUser() {
     method: 'GET',
     headers: getPiAuthHeaders(),
     cache: 'no-store',
-    credentials: 'omit',
+    credentials: 'include',
   }).catch(() => null);
 
   const payload = response ? await response.json().catch(() => null) : null;
@@ -69,9 +68,8 @@ async function authenticateAndResolveUser() {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${auth.accessToken}`,
-      'X-Requested-With': 'XMLHttpRequest',
     },
-    credentials: 'omit',
+    credentials: 'include',
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
 
@@ -89,6 +87,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'guest'>('loading');
   const [error, setError] = useState('');
+  const bootstrappedRef = useRef(false);
   const requestRef = useRef<Promise<AuthUser | null> | null>(null);
 
   const runAuthFlow = useCallback(async (forcePiAuth = false) => {
@@ -98,8 +97,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setError('');
 
-        const storedToken = getPiAuthToken();
-        if (storedToken) {
+        if (!forcePiAuth) {
           const restoredUser = await fetchCurrentUser();
           if (restoredUser) {
             setUser(restoredUser);
@@ -108,7 +106,15 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        const hasStoredToken = Boolean(getPiAuthToken());
         if (!forcePiAuth) {
+          if (!hasStoredToken) {
+            setUser(null);
+            setStatus('guest');
+            return null;
+          }
+
+          clearPiAuthToken();
           setUser(null);
           setStatus('guest');
           return null;
@@ -166,8 +172,8 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     clearPiAuthToken();
     await fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'omit',
-      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
     }).catch(() => null);
     setUser(null);
     setStatus('guest');
@@ -175,6 +181,9 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+
     let active = true;
     (async () => {
       const shouldForce = isProtectedPath(pathname);

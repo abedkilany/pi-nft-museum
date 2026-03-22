@@ -1,18 +1,13 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
+import { getCurrentUser } from '@/lib/current-user';
 import { PostComposer } from '@/components/community/PostComposer';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
 import { ActiveCreatorCard } from '@/components/community/ActiveCreatorCard';
 import { scoreCommunityPost, scoreCreator } from '@/lib/community';
 
 export const dynamic = 'force-dynamic';
-
-type ComposerArtworkOption = {
-  id: number;
-  title: string;
-  status: string;
-};
 
 
 function serializeArtwork(artwork: {
@@ -94,7 +89,8 @@ export default async function CommunityPage({
     );
   }
 
-  const likeUserId = -1;
+  const currentUser = await getCurrentUser();
+  const likeUserId = currentUser?.userId ?? -1;
   const feedMode = searchParams?.feed === 'latest' ? 'latest' : 'top';
 
   const [posts, creators, myArtworks] = await Promise.all([
@@ -175,7 +171,19 @@ export default async function CommunityPage({
         },
       },
     }),
-    Promise.resolve<ComposerArtworkOption[]>([]),
+    currentUser ? prisma.artwork.findMany({
+      where: { artistUserId: currentUser.userId },
+      orderBy: [
+        { publishedAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: 12,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+    }) : Promise.resolve([]),
   ]);
 
   const serializedPosts = posts.map((post) => ({
@@ -185,7 +193,7 @@ export default async function CommunityPage({
     updatedAt: post.updatedAt.toISOString(),
     likesCount: post.likesCount,
     commentsCount: post.commentsCount,
-    viewerLiked: false,
+    viewerLiked: currentUser ? post.likes.length > 0 : false,
     authorId: post.authorId,
     author: post.author,
     artwork: serializeArtwork(post.artwork),
@@ -234,6 +242,21 @@ export default async function CommunityPage({
   let followingSet = new Set<number>();
   let reverseSet = new Set<number>();
 
+  if (currentUser && creatorIds.length > 0) {
+    const [mine, reverse] = await Promise.all([
+      prisma.follow.findMany({
+        where: { followerId: currentUser.userId, followingId: { in: creatorIds } },
+        select: { followingId: true },
+      }),
+      prisma.follow.findMany({
+        where: { followerId: { in: creatorIds }, followingId: currentUser.userId },
+        select: { followerId: true },
+      }),
+    ]);
+
+    followingSet = new Set(mine.map((item) => item.followingId));
+    reverseSet = new Set(reverse.map((item) => item.followerId));
+  }
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
@@ -252,8 +275,8 @@ export default async function CommunityPage({
       </section>
 
       <PostComposer
-        disabled={true}
-        username={null}
+        disabled={!currentUser}
+        username={currentUser?.username || null}
         artworks={myArtworks.map((artwork) => ({
           id: artwork.id,
           title: artwork.title,
@@ -290,7 +313,7 @@ export default async function CommunityPage({
                 }}
                 isFollowing={followingSet.has(creator.id)}
                 followsYou={reverseSet.has(creator.id)}
-                isSelf={false}
+                isSelf={currentUser?.userId === creator.id}
               />
             ))}
           </div>
@@ -312,7 +335,7 @@ export default async function CommunityPage({
             <Link href="/community?feed=latest" className={feedMode === 'latest' ? 'button primary' : 'button secondary'}>Latest</Link>
           </div>
         </div>
-        <CommunityFeed posts={serializedPosts} currentUserId={null} canInteract={false} />
+        <CommunityFeed posts={serializedPosts} currentUserId={currentUser?.userId || null} canInteract={Boolean(currentUser)} />
       </section>
     </div>
   );

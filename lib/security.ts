@@ -7,14 +7,6 @@ function getRequestOrigin(request: Request) {
   return request.headers.get('origin') || request.headers.get('referer') || '';
 }
 
-function normalizeOrigin(value: string) {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return '';
-  }
-}
-
 function getExpectedOrigin(request: Request) {
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || new URL(request.url).host;
   const proto = request.headers.get('x-forwarded-proto') || new URL(request.url).protocol.replace(':', '') || 'https';
@@ -29,10 +21,8 @@ export function assertSameOrigin(request: Request) {
     return NextResponse.json({ error: 'Missing request origin.' }, { status: 403 });
   }
 
-  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
-  const actualOrigin = normalizeOrigin(origin);
-
-  if (!actualOrigin || !expectedOrigin || actualOrigin !== expectedOrigin) {
+  const expectedOrigin = getExpectedOrigin(request);
+  if (!origin.startsWith(expectedOrigin)) {
     return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
   }
 

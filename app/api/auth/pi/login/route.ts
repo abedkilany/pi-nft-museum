@@ -7,9 +7,41 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
-import { applyRateLimit, assertSameOrigin } from '@/lib/security';
+import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { extractBearerToken } from '@/lib/pi-session';
+import { createSessionToken, getAuthCookieName } from '@/lib/auth';
+import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
+import { assertSameOrigin } from '@/lib/security';
+
+function buildSecureCookieBase(request: Request) {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isSecure = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
+
+  return {
+    secure: isSecure,
+    sameSite: 'none' as const,
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  };
+}
+
+function buildSessionCookie(request: Request, token: string) {
+  return {
+    name: getAuthCookieName(),
+    value: token,
+    httpOnly: true,
+    ...buildSecureCookieBase(request),
+  };
+}
+
+function buildFallbackHintCookie(request: Request, accessToken: string) {
+  return {
+    name: PI_SESSION_HINT_COOKIE_NAME,
+    value: accessToken,
+    httpOnly: false,
+    ...buildSecureCookieBase(request),
+  };
+}
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -21,10 +53,8 @@ export async function POST(request: Request) {
     ]);
     if (rateLimitError) return rateLimitError;
 
-    const body = await request.json().catch(() => ({}));
-    const accessToken = String(
-      body.accessToken || extractBearerToken(request.headers.get('authorization')) || ''
-    ).trim();
+    const body = await request.json();
+    const accessToken = String(body.accessToken || '').trim();
 
     logger.info('Pi login request received', {
       origin: request.headers.get('origin'),
@@ -94,6 +124,13 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
+
+      logger.info('Pi user account created', {
+        userId: user.id,
+        role: role.key,
+        piUid: piUser.uid,
+        piUsername: piUser.username || null
+      });
     } else {
       const username = await ensureUniqueUsername(piUser.username || user.username, user.id);
       user = await prisma.user.update({
@@ -112,6 +149,13 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
+
+      logger.info('Pi user record updated for sign-in', {
+        userId: user.id,
+        role: user.role.key,
+        piUid: user.piUid,
+        piUsername: user.piUsername || null
+      });
     }
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
@@ -125,6 +169,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
+    const sessionToken = await createSessionToken({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role.key,
+      piUid: user.piUid,
+      piUsername: user.piUsername,
+    });
+
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
@@ -133,7 +186,7 @@ export async function POST(request: Request) {
       newValues: { role: user.role.key, piUid: user.piUid },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
       user: {
@@ -142,8 +195,11 @@ export async function POST(request: Request) {
         role: user.role.key,
         piUsername: user.piUsername,
       },
-      source: 'bearer',
     });
+
+    response.cookies.set(buildSessionCookie(request, sessionToken));
+    response.cookies.set(buildFallbackHintCookie(request, accessToken));
+    return response;
   } catch (error) {
     logger.error('Pi login failed', error);
     return NextResponse.json(

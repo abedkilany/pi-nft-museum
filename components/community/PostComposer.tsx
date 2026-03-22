@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
@@ -17,40 +17,13 @@ type Props = {
 export function PostComposer({ disabled = false, username, artworks = [] }: Props) {
   const router = useRouter();
   const [body, setBody] = useState('');
-  const [resolvedDisabled, setResolvedDisabled] = useState(disabled);
   const [artworkId, setArtworkId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function resolveAuth() {
-      if (!disabled) {
-        setResolvedDisabled(false);
-        return;
-      }
-
-      const response = await piApiFetch('/api/auth/me', {
-        method: 'GET',
-        cache: 'no-store',
-      }).catch(() => null);
-      const data = response ? await response.json().catch(() => null) : null;
-
-      if (!cancelled) {
-        setResolvedDisabled(!(response?.ok && data?.authenticated));
-      }
-    }
-
-    void resolveAuth();
-    return () => {
-      cancelled = true;
-    };
-  }, [disabled]);
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (resolvedDisabled || busy || body.trim().length < 3) return;
+    if (disabled || busy || body.trim().length < 3) return;
 
     setBusy(true);
     setMessage(null);
@@ -85,8 +58,8 @@ export function PostComposer({ disabled = false, username, artworks = [] }: Prop
           onChange={(event) => setBody(event.target.value)}
           rows={5}
           maxLength={1500}
-          placeholder={resolvedDisabled ? 'Log in to publish a post.' : `What would you like to share${username ? `, @${username}` : ''}?`}
-          disabled={resolvedDisabled || busy}
+          placeholder={disabled ? 'Log in to publish a post.' : `What would you like to share${username ? `, @${username}` : ''}?`}
+          disabled={disabled || busy}
         />
 
         <div style={{ display: 'grid', gap: 8 }}>
@@ -97,7 +70,7 @@ export function PostComposer({ disabled = false, username, artworks = [] }: Prop
             id="community-artwork"
             value={artworkId}
             onChange={(event) => setArtworkId(event.target.value)}
-            disabled={resolvedDisabled || busy || artworks.length === 0}
+            disabled={disabled || busy || artworks.length === 0}
           >
             <option value="">No linked artwork</option>
             {artworks.map((artwork) => (
@@ -115,7 +88,7 @@ export function PostComposer({ disabled = false, username, artworks = [] }: Prop
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>{body.trim().length}/1500</span>
           <div className="card-actions" style={{ gap: 8, marginTop: 0 }}>
             {message ? <span style={{ color: '#f87171', fontSize: 13 }}>{message}</span> : null}
-            <button className="button primary" type="submit" disabled={resolvedDisabled || busy || body.trim().length < 3}>
+            <button className="button primary" type="submit" disabled={disabled || busy || body.trim().length < 3}>
               {busy ? 'Publishing...' : 'Publish post'}
             </button>
           </div>
