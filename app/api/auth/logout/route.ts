@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookieName } from '@/lib/auth';
-import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 import { assertSameOrigin } from '@/lib/security';
 
 function buildSecureCookieBase(request: Request) {
@@ -23,14 +22,6 @@ export async function POST(request: Request) {
     name: getAuthCookieName(),
     value: '',
     httpOnly: true,
-    ...buildSecureCookieBase(request),
-    maxAge: 0,
-  });
-
-  response.cookies.set({
-    name: PI_SESSION_HINT_COOKIE_NAME,
-    value: '',
-    httpOnly: false,
     ...buildSecureCookieBase(request),
     maxAge: 0,
   });

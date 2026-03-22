@@ -10,7 +10,6 @@ import {
 import { applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { createSessionToken, getAuthCookieName } from '@/lib/auth';
-import { PI_SESSION_HINT_COOKIE_NAME } from '@/lib/pi-auth-client';
 import { assertSameOrigin } from '@/lib/security';
 
 function buildSecureCookieBase(request: Request) {
@@ -34,14 +33,6 @@ function buildSessionCookie(request: Request, token: string) {
   };
 }
 
-function buildFallbackHintCookie(request: Request, accessToken: string) {
-  return {
-    name: PI_SESSION_HINT_COOKIE_NAME,
-    value: accessToken,
-    httpOnly: false,
-    ...buildSecureCookieBase(request),
-  };
-}
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -198,7 +189,6 @@ export async function POST(request: Request) {
     });
 
     response.cookies.set(buildSessionCookie(request, sessionToken));
-    response.cookies.set(buildFallbackHintCookie(request, accessToken));
     return response;
   } catch (error) {
     logger.error('Pi login failed', error);

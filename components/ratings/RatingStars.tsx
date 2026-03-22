@@ -45,18 +45,7 @@ export function RatingStars({
 
     if (await confirmSession()) return true;
 
-    const returnTo = typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search}`
-      : '/review';
-
-    await fetch(`/api/auth/bootstrap?returnTo=${encodeURIComponent(returnTo)}`, {
-      method: 'GET',
-      credentials: 'include',
-      redirect: 'follow',
-      cache: 'no-store',
-    }).catch(() => null);
-
-    return confirmSession();
+    return false;
   }
 
   async function submitRating(value: number) {
