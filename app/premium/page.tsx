@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function PremiumPage() {
   const user = await getCurrentUser();
@@ -71,7 +72,7 @@ export default async function PremiumPage() {
                 }}
               >
                 <img
-                  src={art.imageUrl}
+                  src={getDisplayImageUrl(art.imageUrl)}
                   alt={art.title}
                   style={{
                     width: '180px',

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 type EditableArtwork = {
   id: number;
@@ -23,7 +24,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
   const router = useRouter();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState(artwork.imageUrl);
+  const [preview, setPreview] = useState(getDisplayImageUrl(artwork.imageUrl));
   const [file, setFile] = useState<File | null>(null);
   const draftMode = artwork.status === 'DRAFT';
   const [form, setForm] = useState({
@@ -110,7 +111,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
           <input type="file" accept="image/*" disabled={!draftMode} onChange={(e) => {
             const selected = e.target.files?.[0] || null;
             setFile(selected);
-            setPreview(selected ? URL.createObjectURL(selected) : form.imageUrl);
+            setPreview(selected ? URL.createObjectURL(selected) : getDisplayImageUrl(form.imageUrl));
           }} />
         </label>
         <label className="full-width">

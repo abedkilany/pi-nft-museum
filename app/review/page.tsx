@@ -5,6 +5,7 @@ import { RatingStars } from '@/components/ratings/RatingStars';
 import { formatDateTime } from '@/lib/artwork-windows';
 import { getReviewStatuses } from '@/lib/artwork-workflow';
 import { getSiteSettingsMap } from '@/lib/site-settings';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function ReviewPage() {
   const user = await getCurrentUser();
@@ -33,7 +34,7 @@ export default async function ReviewPage() {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             return (
               <article key={artwork.id} className="card split-list-card">
-                <img src={artwork.imageUrl} alt={artwork.title} className="split-list-media" />
+                <img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="split-list-media" />
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>

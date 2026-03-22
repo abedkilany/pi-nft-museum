@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function RejectedArtworksPage() {
   const artworks = await prisma.artwork.findMany({
@@ -66,7 +67,7 @@ export default async function RejectedArtworksPage() {
                 }}
               >
                 <img
-                  src={artwork.imageUrl}
+                  src={getDisplayImageUrl(artwork.imageUrl)}
                   alt={artwork.title}
                   style={{
                     width: '120px',

@@ -8,6 +8,7 @@ import { getAllowedCountries } from '@/lib/countries';
 import PublicProfileTabsClient from '@/components/profile/PublicProfileTabsClient';
 import PublicProfileViewerControls from '@/components/profile/PublicProfileViewerControls';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -247,7 +248,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       <section className="card" style={{ overflow: 'hidden' }}>
         <div className="profile-cover" style={{ backgroundImage: user.coverImage ? `linear-gradient(135deg, rgba(10,12,18,0.25), rgba(10,12,18,0.78)), url(${user.coverImage})` : undefined }}>
           <div className="profile-avatar profile-avatar-large">
-            {user.profileImage ? <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
+            {user.profileImage ? <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{displayName.slice(0, 1).toUpperCase()}</span>}
           </div>
           <div>
             <span className="section-kicker">Public creator profile</span>
@@ -299,7 +300,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <div className="gallery-grid">
             {user.artworks.map((artwork: any) => (
               <article key={artwork.id} className="card art-card">
-                <div className="art-image-wrap"><img src={artwork.imageUrl} alt={artwork.title} className="art-image" /></div>
+                <div className="art-image-wrap"><img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="art-image" /></div>
                 <div className="art-body">
                   <div className="art-top">
                     <div>

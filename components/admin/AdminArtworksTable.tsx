@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 type AdminArtwork = {
   id: number;
@@ -105,7 +106,7 @@ export function AdminArtworksTable({
                 }}
               >
                 <img
-                  src={artwork.imageUrl}
+                  src={getDisplayImageUrl(artwork.imageUrl)}
                   alt={artwork.title}
                   style={{
                     width: '120px',

@@ -12,6 +12,7 @@ import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions'
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default function MyArtworksPageClient() {
   const { status } = usePiAuth();
@@ -74,7 +75,7 @@ export default function MyArtworksPageClient() {
               const showMintButton = mintWindowStatus === 'mint_open';
               return (
                 <div key={artwork.id} className="card my-artwork-item">
-                  <img src={artwork.imageUrl} alt={artwork.title} className="my-artwork-thumb" />
+                  <img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="my-artwork-thumb" />
                   <div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Status: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>

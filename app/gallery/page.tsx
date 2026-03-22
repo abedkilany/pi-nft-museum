@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { ReactionButtons } from '@/components/reactions/ReactionButtons';
 import { getGalleryStatuses } from '@/lib/artwork-workflow';
 import { getSiteSettingsMap } from '@/lib/site-settings';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function GalleryPage() {
   const user = await getCurrentUser();
@@ -36,7 +37,7 @@ export default async function GalleryPage() {
             const myReaction = user && Array.isArray(artwork.reactions) && artwork.reactions.length > 0 ? artwork.reactions[0].type : null;
             return (
               <article key={artwork.id} className="card split-list-card">
-                <img src={artwork.imageUrl} alt={artwork.title} className="split-list-media" />
+                <img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="split-list-media" />
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>

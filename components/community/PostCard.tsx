@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { formatTimeAgo } from '@/lib/community';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { CommentBox } from '@/components/community/CommentBox';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export type CommunityFeedComment = {
   id: number;
@@ -82,7 +83,7 @@ function CommentItem({
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <Link href={`/profile/${comment.author.username}`} className="profile-avatar" style={{ width: 36, height: 36, textDecoration: 'none' }}>
           {comment.author.profileImage ? (
-            <img src={comment.author.profileImage} alt={commentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={getDisplayImageUrl(comment.author.profileImage)} alt={commentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <span>{avatarLabel(commentName)}</span>
           )}
@@ -202,7 +203,7 @@ export function PostCard({
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link href={`/profile/${post.author.username}`} className="profile-avatar" style={{ width: 48, height: 48, textDecoration: 'none' }}>
             {post.author.profileImage ? (
-              <img src={post.author.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getDisplayImageUrl(post.author.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <span>{avatarLabel(displayName)}</span>
             )}
@@ -244,7 +245,7 @@ export function PostCard({
           }}
         >
           <img
-            src={post.artwork.imageUrl}
+            src={getDisplayImageUrl(post.artwork.imageUrl)}
             alt={post.artwork.title}
             style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12 }}
           />

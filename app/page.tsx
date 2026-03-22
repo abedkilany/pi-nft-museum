@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getArraySetting, getNumberSetting, getStringSetting } from '@/lib/site-settings';
 import { getArtworkStatusLabel } from '@/lib/artwork-status';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function HomePage() {
   const settings = await getSiteSettingsMap();
@@ -64,7 +65,7 @@ export default async function HomePage() {
               return (
                 <article key={artwork.id} className="card art-card">
                   <div className="art-image-wrap">
-                    <img src={artwork.imageUrl || placeholder} alt={artwork.title} className="art-image" />
+                    <img src={getDisplayImageUrl(artwork.imageUrl) || placeholder} alt={artwork.title} className="art-image" />
                   </div>
                   <div className="art-body">
                     <div className="art-top home-art-top">

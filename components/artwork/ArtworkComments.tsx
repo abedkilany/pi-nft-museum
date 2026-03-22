@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { piApiFetch } from '../../lib/pi-auth-client';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 type CommentType = 'FIRST_COMMENT' | 'REPLY' | 'ARTIST_REPLY';
 
@@ -125,7 +126,7 @@ function CommentCard({
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div className="profile-avatar" style={{ width: 44, height: 44 }}>
-            {comment.author.profileImage ? <img src={comment.author.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{avatarLabel(comment)}</span>}
+            {comment.author.profileImage ? <img src={getDisplayImageUrl(comment.author.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{avatarLabel(comment)}</span>}
           </div>
           <div>
             <strong>{displayName}</strong>

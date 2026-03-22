@@ -7,6 +7,7 @@ import { piApiFetch } from '@/lib/pi-auth-client';
 import { formatTimeAgo } from '@/lib/community';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default function MyProfilePageClient() {
   const { status } = usePiAuth();
@@ -91,7 +92,7 @@ export default function MyProfilePageClient() {
         >
           <div className="profile-avatar profile-avatar-large">
             {user.profileImage ? (
-              <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <span>{displayName.slice(0, 1).toUpperCase()}</span>
             )}
@@ -164,7 +165,7 @@ export default function MyProfilePageClient() {
           <div className="gallery-grid">
             {user.artworks.map((artwork: any) => (
               <article key={artwork.id} className="card art-card">
-                <div className="art-image-wrap"><img src={artwork.imageUrl} alt={artwork.title} className="art-image" /></div>
+                <div className="art-image-wrap"><img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="art-image" /></div>
                 <div className="art-body">
                   <div className="art-top">
                     <div>

@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { STAFF_ROLES } from '@/lib/roles';
 import { getAllowedCountries } from '@/lib/countries';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function AdminUsersPage() {
   const [users, roles, countries] = await Promise.all([
@@ -26,7 +27,7 @@ export default async function AdminUsersPage() {
             <input type="hidden" name="userId" value={user.id} />
             <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: '18px', alignItems: 'start' }}>
               <div className="profile-avatar" style={{ width: 84, height: 84 }}>
-                {user.profileImage ? <img src={user.profileImage} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(user.fullName || user.username).slice(0, 1).toUpperCase()}</span>}
+                {user.profileImage ? <img src={getDisplayImageUrl(user.profileImage)} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(user.fullName || user.username).slice(0, 1).toUpperCase()}</span>}
               </div>
               <div className="form-grid">
                 <label><span>Username</span><input name="username" defaultValue={user.username} /></label>

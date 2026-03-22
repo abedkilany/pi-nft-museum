@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { FollowButton } from '@/components/community/FollowButton';
+import { getDisplayImageUrl } from '@/lib/image-url';
 
 type UserCardProps = {
   user: {
@@ -21,7 +22,7 @@ export function FollowUserCard({ user, isFollowing, followsYou, isSelf }: UserCa
     <div className="card" style={{ padding: '16px', display: 'grid', gridTemplateColumns: '72px 1fr auto', gap: '14px', alignItems: 'center' }}>
       <Link href={`/profile/${user.username}`} style={{ display: 'inline-flex', width: 72, height: 72, borderRadius: 20, overflow: 'hidden', background: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: 24 }}>
         {user.profileImage ? (
-          <img src={user.profileImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <span>{displayName.slice(0, 1).toUpperCase()}</span>
         )}
