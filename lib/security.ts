@@ -13,16 +13,24 @@ function getExpectedOrigin(request: Request) {
   return `${proto}://${host}`;
 }
 
+function normalizeOrigin(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
 export function assertSameOrigin(request: Request) {
   if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
 
-  const origin = getRequestOrigin(request);
+  const origin = normalizeOrigin(getRequestOrigin(request));
   if (!origin) {
     return NextResponse.json({ error: 'Missing request origin.' }, { status: 403 });
   }
 
-  const expectedOrigin = getExpectedOrigin(request);
-  if (!origin.startsWith(expectedOrigin)) {
+  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
+  if (!expectedOrigin || origin !== expectedOrigin) {
     return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
   }
 

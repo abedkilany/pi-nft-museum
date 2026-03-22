@@ -11,6 +11,24 @@ function slugify(text: string) {
   return text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 }
 
+async function resolveArtworkCategory(rawValue: FormDataEntryValue | null) {
+  const normalized = String(rawValue || '').trim();
+  if (!normalized) return null;
+
+  const numericId = Number(normalized);
+  if (Number.isInteger(numericId) && numericId > 0) {
+    return prisma.artworkCategory.findFirst({ where: { id: numericId, isActive: true } });
+  }
+
+  const slug = slugify(normalized);
+  return prisma.artworkCategory.findFirst({
+    where: {
+      isActive: true,
+      OR: [{ name: normalized }, { slug }],
+    },
+  });
+}
+
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
@@ -57,10 +75,9 @@ export async function POST(request: Request) {
     if (imageFile instanceof File && imageFile.size > 0) finalImageUrl = (await saveUploadedImage(imageFile)) || artwork.imageUrl;
     if (!finalImageUrl) finalImageUrl = getStringSetting(settings, 'placeholder_artwork_image_url', '/placeholder-artwork.svg');
 
-    let categoryRecord = null;
-    if (category) {
-      const categorySlug = slugify(category);
-      categoryRecord = await prisma.artworkCategory.upsert({ where: { slug: categorySlug }, update: { name: category }, create: { name: category, slug: categorySlug, description: `${category} artworks` } });
+    const categoryRecord = await resolveArtworkCategory(formData.get('category'));
+    if (category && !categoryRecord) {
+      return NextResponse.json({ error: 'Invalid category selected.' }, { status: 400 });
     }
 
     const updatedArtwork = await prisma.artwork.update({

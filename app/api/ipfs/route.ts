@@ -18,32 +18,40 @@ function isPrivateHostname(hostname: string) {
   );
 }
 
-function isAllowedIpfsUrl(rawUrl: string) {
+function parseAllowedIpfsUrl(rawUrl: string) {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
-    return false;
+    return null;
   }
 
-  if (parsed.protocol !== 'https:') return false;
-  if (isPrivateHostname(parsed.hostname)) return false;
-  if (ALLOWED_IPFS_HOSTS.has(parsed.hostname)) return true;
-  if (parsed.pathname.startsWith('/ipfs/')) return true;
-  return false;
+  if (parsed.protocol !== 'https:') return null;
+  if (isPrivateHostname(parsed.hostname)) return null;
+  if (!ALLOWED_IPFS_HOSTS.has(parsed.hostname)) return null;
+  if (!parsed.pathname.startsWith('/ipfs/')) return null;
+
+  parsed.username = '';
+  parsed.password = '';
+  parsed.hash = '';
+
+  return parsed;
 }
 
 export async function GET(request: NextRequest) {
   const rawUrl = request.nextUrl.searchParams.get('url') || '';
-  if (!rawUrl || !isAllowedIpfsUrl(rawUrl)) {
+  const upstreamUrl = parseAllowedIpfsUrl(rawUrl);
+
+  if (!rawUrl || !upstreamUrl) {
     return new Response('Invalid IPFS URL', { status: 400 });
   }
 
-  const upstream = await fetch(rawUrl, {
+  const upstream = await fetch(upstreamUrl.toString(), {
     method: 'GET',
     cache: 'force-cache',
     headers: {
       Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'User-Agent': 'NFT-Museum-IPFS-Proxy',
     },
   }).catch(() => null);
 
