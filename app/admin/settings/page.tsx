@@ -1,6 +1,5 @@
 import { SITE_SETTING_DEFINITIONS, getSiteSettingsMap } from '@/lib/site-settings';
 
-
 const GROUP_TITLES: Record<string, string> = {
   general: 'General',
   homepage: 'Homepage',
@@ -10,13 +9,17 @@ const GROUP_TITLES: Record<string, string> = {
   community: 'Community groundwork'
 };
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const settings = await getSiteSettingsMap();
   const groups = SITE_SETTING_DEFINITIONS.reduce<Record<string, typeof SITE_SETTING_DEFINITIONS>>((acc, definition) => {
     acc[definition.group] ||= [];
     acc[definition.group].push(definition);
     return acc;
   }, {});
+
+  const message = typeof resolvedSearchParams.message === 'string' ? resolvedSearchParams.message : '';
+  const error = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
@@ -26,8 +29,10 @@ export default async function AdminSettingsPage() {
             <span className="section-kicker">Platform settings</span>
             <h1>Settings</h1>
           </div>
-          <p>Control homepage content, countries, business rules, and future community groundwork without touching code.</p>
+          <p>Control homepage content, business rules, review windows, and future community groundwork with validation and audit logging.</p>
         </div>
+        {message ? <p style={{ margin: '12px 0 0', color: 'var(--success, #9fe870)' }}>{message}</p> : null}
+        {error ? <p style={{ margin: '12px 0 0', color: 'var(--danger, #ff8b8b)' }}>{error}</p> : null}
       </section>
 
       <form action="/api/admin/settings/update" method="POST" style={{ display: 'grid', gap: '18px' }}>
@@ -35,7 +40,7 @@ export default async function AdminSettingsPage() {
           <section key={groupKey} className="card" style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{GROUP_TITLES[groupKey] || groupKey}</h2>
             <div style={{ display: 'grid', gap: '14px' }}>
-              {definitions.map((definition: any) => (
+              {definitions.map((definition) => (
                 <label key={definition.key} style={{ display: 'grid', gap: '6px' }}>
                   <span>{definition.label}</span>
                   {definition.type === 'textarea' || definition.type === 'json' ? (
@@ -64,13 +69,10 @@ export default async function AdminSettingsPage() {
           </section>
         ))}
 
-        <div className="card-actions">
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, color: 'var(--muted)' }}>Every successful update is normalized, validated, and written to the audit trail.</p>
           <button className="button primary" type="submit">Save settings</button>
         </div>
-      </form>
-
-      <form action="/api/admin/settings/recalculate-review-windows" method="POST">
-        <button className="button secondary" type="submit">Recalculate review and mint windows</button>
       </form>
     </div>
   );

@@ -39,6 +39,7 @@ const adminLinks: AdminLink[] = [
   { href: '/admin/pages', label: 'Pages', group: 'Content', visible: (payload) => Boolean(payload?.access?.sections.content) },
   { href: '/admin/settings', label: 'Operations', group: 'Operations', visible: (payload) => Boolean(payload?.access?.sections.operations) },
   { href: '/admin/system', label: 'Governance & logs', group: 'System', visible: (payload) => Boolean(payload?.access?.sections.system) },
+  { href: '/admin/audit', label: 'Audit trail', group: 'System', visible: (payload) => Boolean(payload?.access?.permissions?.includes('audit.view')) },
 ];
 
 export function AdminSidebar() {

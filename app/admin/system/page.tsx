@@ -1,7 +1,12 @@
+import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
 import { readSystemLogs } from '@/lib/system-log';
 
 export default async function AdminSystemPage() {
-  const logs = await readSystemLogs(300);
+  const [logs, auditCount] = await Promise.all([
+    readSystemLogs(300),
+    prisma.auditLog.count(),
+  ]);
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
@@ -11,10 +16,11 @@ export default async function AdminSystemPage() {
             <span className="section-kicker">System</span>
             <h1>System logs</h1>
           </div>
-          <p>Review recent warnings and errors, clear logs, or download the full log file.</p>
+          <p>Review recent warnings and errors, clear logs, download the log file, and jump into governance records.</p>
         </div>
         <div className="card-actions">
           <a href="/api/admin/system/logs/download" className="button secondary">Download log file</a>
+          <Link href="/admin/audit" className="button secondary">Open audit trail ({auditCount})</Link>
           <form action="/api/admin/system/logs/clear" method="POST"><button className="button primary" type="submit">Clear logs</button></form>
         </div>
       </section>
@@ -24,7 +30,7 @@ export default async function AdminSystemPage() {
           <div style={{ display: 'grid' }}>
             {logs.map((log, index) => (
               <div key={`${log.timestamp}-${index}`} style={{ padding: '16px 20px', borderTop: index === 0 ? 'none' : '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
                   <span className="pill">{log.level.toUpperCase()}</span>
                   <strong>{log.message}</strong>
                 </div>
