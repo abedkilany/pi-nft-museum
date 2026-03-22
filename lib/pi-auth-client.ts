@@ -25,45 +25,16 @@ export function clearPiAuthToken() {
 export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   const token = getPiAuthToken();
   return {
+    'X-Requested-With': 'XMLHttpRequest',
     ...(init || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-async function rehydrateServerSession() {
-  const token = getPiAuthToken();
-  if (!token) return false;
-
-  const response = await fetch('/api/auth/me', {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    credentials: 'include',
-    cache: 'no-store',
-  }).catch(() => null);
-
-  return Boolean(response?.ok);
-}
-
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  const doFetch = () => fetch(input, {
+  return fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
-    credentials: 'include',
+    credentials: 'omit',
   });
-
-  let response = await doFetch();
-
-  if (response.status !== 401) {
-    return response;
-  }
-
-  const restored = await rehydrateServerSession();
-  if (!restored) {
-    return response;
-  }
-
-  response = await doFetch();
-  return response;
 }

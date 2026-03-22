@@ -1,37 +1,10 @@
+'use client';
 import { AdminArtworksTable } from '@/components/admin/AdminArtworksTable';
-import { prisma } from '@/lib/prisma';
+import { useAdminData } from '@/components/admin/useAdminData';
 
-import { requireAdminPage } from '@/lib/admin';
-export default async function AdminArtworksPage() {
-  await requireAdminPage();
-  const artworks = await prisma.artwork.findMany({
-    where: {
-      status: 'PENDING'
-    },
-    include: {
-      artist: {
-        include: {
-          artistProfile: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
-    }
-  });
-
-  const mappedArtworks = artworks.map((artwork: any) => ({
-    id: artwork.id,
-    title: artwork.title,
-    imageUrl: artwork.imageUrl,
-    price: Number(artwork.price),
-    status: artwork.status,
-    createdAt: artwork.createdAt.toISOString(),
-    artistName:
-      artwork.artist.artistProfile?.displayName ||
-      artwork.artist.fullName ||
-      artwork.artist.username
-  }));
-
-  return <AdminArtworksTable artworks={mappedArtworks} />;
+export default function AdminArtworksPage() {
+  const { data, loading, error } = useAdminData<any[]>('/api/admin/artworks/list');
+  if (loading) return <div className="card" style={{ padding: '24px' }}><p>Loading pending artworks…</p></div>;
+  if (error || !data) return <div className="card" style={{ padding: '24px' }}><p>{error || 'Failed to load artworks.'}</p></div>;
+  return <AdminArtworksTable artworks={data} />;
 }

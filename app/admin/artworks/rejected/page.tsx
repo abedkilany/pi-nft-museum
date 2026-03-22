@@ -1,124 +1,54 @@
-import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+'use client';
 
-import { requireAdminPage } from '@/lib/admin';
-export default async function RejectedArtworksPage() {
-  await requireAdminPage();
-  const artworks = await prisma.artwork.findMany({
-    where: {
-      status: 'REJECTED'
-    },
-    include: {
-      artist: {
-        include: {
-          artistProfile: true
-        }
-      },
-      category: true
-    },
-    orderBy: {
-      reviewedAt: 'desc'
-    }
-  });
+import Link from 'next/link';
+import { useState } from 'react';
+import { piApiFetch } from '@/lib/pi-auth-client';
+import { useAdminData } from '@/components/admin/useAdminData';
+
+export default function RejectedArtworksPage() {
+  const { data, loading, error, reload } = useAdminData<any[]>('/api/admin/artworks/rejected-list');
+  const [message, setMessage] = useState('');
+
+  async function reopenArtwork(artworkId: number) {
+    setMessage('');
+    const formData = new FormData();
+    formData.set('artworkId', String(artworkId));
+    const response = await piApiFetch('/api/admin/artworks/reopen', { method: 'POST', body: formData });
+    setMessage(response.ok ? `Artwork #${artworkId} reopened.` : 'Failed to reopen artwork.');
+    if (response.ok) reload();
+  }
+
+  if (loading) return <div className="card" style={{ padding: '24px' }}><p>Loading rejected artworks…</p></div>;
+  if (error || !data) return <div className="card" style={{ padding: '24px' }}><p>{error || 'Failed to load rejected artworks.'}</p></div>;
 
   return (
     <div className="card" style={{ padding: '24px' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '16px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          marginBottom: '24px'
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '24px' }}>
         <div>
           <h1 style={{ marginBottom: '8px' }}>Rejected Artworks</h1>
-          <p style={{ opacity: 0.8, margin: 0 }}>
-            Review rejected submissions and reopen them if needed.
-          </p>
+          <p style={{ opacity: 0.8, margin: 0 }}>Review rejected submissions and reopen them if needed.</p>
         </div>
-
-        <Link href="/admin/artworks" className="button secondary">
-          Back to Pending Queue
-        </Link>
+        <Link href="/admin/artworks" className="button secondary">Back to Pending Queue</Link>
       </div>
-
-      {artworks.length === 0 ? (
-        <p>No rejected artworks found.</p>
-      ) : (
+      {message ? <p className="form-message">{message}</p> : null}
+      {data.length === 0 ? <p>No rejected artworks found.</p> : (
         <div style={{ display: 'grid', gap: '16px' }}>
-          {artworks.map((artwork: any) => {
-            const artistName =
-              artwork.artist.artistProfile?.displayName ||
-              artwork.artist.fullName ||
-              artwork.artist.username;
-
-            return (
-              <div
-                key={artwork.id}
-                className="card"
-                style={{
-                  padding: '18px',
-                  display: 'grid',
-                  gridTemplateColumns: '120px 1fr auto',
-                  gap: '16px',
-                  alignItems: 'start'
-                }}
-              >
-                <img
-                  src={artwork.imageUrl}
-                  alt={artwork.title}
-                  style={{
-                    width: '120px',
-                    height: '90px',
-                    objectFit: 'cover',
-                    borderRadius: '12px'
-                  }}
-                />
-
-                <div>
-                  <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
-                  <p style={{ margin: '0 0 6px', opacity: 0.8 }}>Artist: {artistName}</p>
-                  <p style={{ margin: '0 0 6px', opacity: 0.8 }}>
-                    Category: {artwork.category?.name || 'General'}
-                  </p>
-                  <p style={{ margin: '0 0 6px', opacity: 0.8 }}>
-                    Price: {Number(artwork.price).toFixed(2)} π
-                  </p>
-
-                  {artwork.reviewNote ? (
-                    <div
-                      style={{
-                        marginTop: '10px',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.08)'
-                      }}
-                    >
-                      <strong>Review note:</strong>
-                      <p style={{ margin: '8px 0 0', opacity: 0.9 }}>{artwork.reviewNote}</p>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  <Link href={`/artwork/${artwork.id}`} className="button secondary">
-                    View Artwork
-                  </Link>
-
-                  <form action="/api/admin/artworks/reopen" method="POST">
-                    <input type="hidden" name="artworkId" value={artwork.id} />
-                    <button className="button primary" type="submit">
-                      Reopen Review
-                    </button>
-                  </form>
-                </div>
+          {data.map((artwork: any) => (
+            <div key={artwork.id} className="card" style={{ padding: '18px', display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: '16px', alignItems: 'start' }}>
+              <img src={artwork.imageUrl} alt={artwork.title} style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '12px' }} />
+              <div>
+                <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
+                <p style={{ margin: '0 0 6px', opacity: 0.8 }}>Artist: {artwork.artistName}</p>
+                <p style={{ margin: '0 0 6px', opacity: 0.8 }}>Category: {artwork.categoryName}</p>
+                <p style={{ margin: '0 0 6px', opacity: 0.8 }}>Price: {Number(artwork.price).toFixed(2)} π</p>
+                {artwork.reviewNote ? <div style={{ marginTop: '10px', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><strong>Review note:</strong><p style={{ margin: '8px 0 0', opacity: 0.9 }}>{artwork.reviewNote}</p></div> : null}
               </div>
-            );
-          })}
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <Link href={`/artwork/${artwork.id}`} className="button secondary">View Artwork</Link>
+                <button className="button primary" type="button" onClick={() => reopenArtwork(artwork.id)}>Reopen Review</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

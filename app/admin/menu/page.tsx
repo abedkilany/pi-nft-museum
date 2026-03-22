@@ -1,9 +1,10 @@
+'use client';
 import { MenuEditor } from '@/components/admin/MenuEditor';
-import { getMenuItems } from '@/lib/menu';
+import { useAdminData } from '@/components/admin/useAdminData';
 
-import { requireAdminPage } from '@/lib/admin';
-export default async function AdminMenuPage() {
-  await requireAdminPage();
-  const items = await getMenuItems();
-  return <MenuEditor initialItems={items} />;
+export default function AdminMenuPage() {
+  const { data, loading, error } = useAdminData<any[]>('/api/admin/menu/list');
+  if (loading) return <div className="card" style={{ padding: '24px' }}><p>Loading menu…</p></div>;
+  if (error || !data) return <div className="card" style={{ padding: '24px' }}><p>{error || 'Failed to load menu.'}</p></div>;
+  return <MenuEditor initialItems={data} />;
 }

@@ -1,9 +1,10 @@
+
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
 
 type AuthUser = {
   id: number;
@@ -43,7 +44,7 @@ async function fetchCurrentUser() {
     method: 'GET',
     headers: getPiAuthHeaders(),
     cache: 'no-store',
-    credentials: 'include',
+    credentials: 'omit',
   }).catch(() => null);
 
   const payload = response ? await response.json().catch(() => null) : null;
@@ -68,8 +69,9 @@ async function authenticateAndResolveUser() {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${auth.accessToken}`,
+      'X-Requested-With': 'XMLHttpRequest',
     },
-    credentials: 'include',
+    credentials: 'omit',
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
 
@@ -79,12 +81,7 @@ async function authenticateAndResolveUser() {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  const resolvedUser = await fetchCurrentUser();
-  if (!resolvedUser) {
-    throw new Error('Pi login succeeded, but the session could not be restored.');
-  }
-
-  return resolvedUser;
+  return fetchCurrentUser();
 }
 
 export function PiAuthProvider({ children }: { children: React.ReactNode }) {
@@ -93,20 +90,22 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'guest'>('loading');
   const [error, setError] = useState('');
   const requestRef = useRef<Promise<AuthUser | null> | null>(null);
-  const lastForcedPathRef = useRef<string | null>(null);
 
-  const resolveUser = useCallback(async (forcePiAuth = false) => {
+  const runAuthFlow = useCallback(async (forcePiAuth = false) => {
     if (requestRef.current) return requestRef.current;
 
     requestRef.current = (async () => {
       try {
         setError('');
 
-        const restoredUser = await fetchCurrentUser();
-        if (restoredUser) {
-          setUser(restoredUser);
-          setStatus('authenticated');
-          return restoredUser;
+        const storedToken = getPiAuthToken();
+        if (storedToken) {
+          const restoredUser = await fetchCurrentUser();
+          if (restoredUser) {
+            setUser(restoredUser);
+            setStatus('authenticated');
+            return restoredUser;
+          }
         }
 
         if (!forcePiAuth) {
@@ -116,9 +115,16 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const authenticatedUser = await authenticateAndResolveUser();
-        setUser(authenticatedUser);
-        setStatus('authenticated');
-        return authenticatedUser;
+        if (authenticatedUser) {
+          setUser(authenticatedUser);
+          setStatus('authenticated');
+          return authenticatedUser;
+        }
+
+        clearPiAuthToken();
+        setUser(null);
+        setStatus('guest');
+        return null;
       } catch (authError) {
         clearPiAuthToken();
         setUser(null);
@@ -135,12 +141,12 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     setStatus('loading');
-    const restoredUser = await resolveUser(false);
+    const restoredUser = await runAuthFlow(false);
     if (!restoredUser) {
       setStatus('guest');
     }
     return restoredUser;
-  }, [resolveUser]);
+  }, [runAuthFlow]);
 
   const ensureAuthenticated = useCallback(async () => {
     if (user) {
@@ -149,74 +155,38 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setStatus('loading');
-    const restoredUser = await resolveUser(true);
+    const restoredUser = await runAuthFlow(true);
     if (!restoredUser) {
       setStatus('guest');
     }
     return restoredUser;
-  }, [resolveUser, user]);
+  }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
     clearPiAuthToken();
     await fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
+      credentials: 'omit',
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     }).catch(() => null);
     setUser(null);
     setStatus('guest');
     setError('');
-    lastForcedPathRef.current = null;
   }, []);
 
   useEffect(() => {
     let active = true;
-    const protectedPath = isProtectedPath(pathname);
-
     (async () => {
-      setStatus((current) => (current === 'authenticated' ? current : 'loading'));
-
-      const restoredUser = await resolveUser(false);
+      const shouldForce = isProtectedPath(pathname);
+      const resolvedUser = await runAuthFlow(shouldForce);
       if (!active) return;
-
-      if (restoredUser) {
-        lastForcedPathRef.current = null;
-        setStatus('authenticated');
-        return;
-      }
-
-      if (!protectedPath) {
-        setStatus('guest');
-        return;
-      }
-
-      if (lastForcedPathRef.current === pathname) {
-        setStatus('guest');
-        return;
-      }
-
-      const hasStoredToken = Boolean(getPiAuthToken());
-      if (!hasStoredToken && pathname !== '/login') {
-        lastForcedPathRef.current = pathname;
-      }
-
-      const forcedUser = await resolveUser(true);
-      if (!active) return;
-
-      if (forcedUser) {
-        lastForcedPathRef.current = null;
-        setStatus('authenticated');
-        return;
-      }
-
-      lastForcedPathRef.current = pathname;
-      setStatus('guest');
+      setStatus(resolvedUser ? 'authenticated' : 'guest');
     })();
 
     return () => {
       active = false;
     };
-  }, [pathname, resolveUser]);
+  }, [pathname, runAuthFlow]);
 
   const value = useMemo<PiAuthContextValue>(() => ({
     user,
