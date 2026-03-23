@@ -86,16 +86,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
-    const bootstrapRoleKey = resolvePiBootstrapRoleKey(piUser);
-    logger.info('PI_LOGIN_ROUTE_BOOTSTRAP_ROLE_RESOLVED', {
-      ...baseMeta,
-      bootstrapRoleKey,
-      piUid: piUser.uid,
-    });
-
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
     const syntheticEmail = buildSyntheticEmail(piUser.uid);
 
+    let bootstrapRoleKey: string | null = null;
     let roleSource: 'bootstrap-env' | 'database' = 'database';
 
     let user = await prisma.user.findUnique({
@@ -116,6 +110,13 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
+      bootstrapRoleKey = resolvePiBootstrapRoleKey(piUser);
+      logger.info('PI_LOGIN_ROUTE_BOOTSTRAP_ROLE_RESOLVED', {
+        ...baseMeta,
+        bootstrapRoleKey,
+        piUid: piUser.uid,
+      });
+
       const bootstrapRole = await prisma.role.findUnique({ where: { key: bootstrapRoleKey } });
 
       if (!bootstrapRole) {
