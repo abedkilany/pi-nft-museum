@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
-import { PERMISSIONS } from '@/lib/permissions';
 import { getSystemLogFileBuffer } from '@/lib/system-log';
 
 export async function GET() {
-  const admin = await requireAdminApi(PERMISSIONS.logsView);
+  const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
 
   const buffer = await getSystemLogFileBuffer();

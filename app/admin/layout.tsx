@@ -6,50 +6,41 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
+const ADMIN_ROLES = new Set(['admin', 'superadmin']);
+
 type AdminLayoutProps = {
   children: ReactNode;
 };
 
 type AccessStatus = 'loading' | 'allowed' | 'blocked';
 
-type AccessPayload = {
-  ok?: boolean;
-  access?: {
-    sections?: {
-      moderation?: boolean;
-      members?: boolean;
-      content?: boolean;
-      operations?: boolean;
-      system?: boolean;
-    };
-  };
-};
+async function readJsonSafe(response: Response | null) {
+  if (!response) return null;
 
-function isPathAllowed(pathname: string, payload: AccessPayload | null) {
-  if (!payload?.access?.sections) return false;
-  const sections = payload.access.sections;
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return null;
+  }
 
-  if (pathname === '/admin') return true;
-  if (pathname.startsWith('/admin/artworks') || pathname.startsWith('/admin/reports')) return Boolean(sections.moderation);
-  if (pathname.startsWith('/admin/users')) return Boolean(sections.members);
-  if (pathname.startsWith('/admin/categories') || pathname.startsWith('/admin/countries') || pathname.startsWith('/admin/menu') || pathname.startsWith('/admin/pages')) return Boolean(sections.content);
-  if (pathname.startsWith('/admin/settings')) return Boolean(sections.operations);
-  if (pathname.startsWith('/admin/system')) return Boolean(sections.system);
-  return true;
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [status, setStatus] = useState<AccessStatus>('loading');
-  const [message, setMessage] = useState('Checking staff access…');
+  const [message, setMessage] = useState('Checking admin access…');
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadAccess() {
       try {
-        const response = await piApiFetch('/api/admin/access-summary', {
+        const response = await piApiFetch('/api/account/summary', {
           method: 'GET',
           cache: 'no-store',
         }).catch(() => null);
@@ -63,7 +54,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           return;
         }
 
-        const payload = await response.json().catch(() => null);
+        const payload = await readJsonSafe(response);
         if (cancelled) return;
 
         if (response.status === 401) {
@@ -73,19 +64,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           return;
         }
 
-        if (response.ok && payload?.ok === true) {
-          if (!isPathAllowed(pathname, payload)) {
-            setStatus('blocked');
-            setMessage('This staff section is outside your current permissions. Redirecting…');
-            router.replace('/admin');
-            return;
-          }
+        const roleKey = String(payload?.user?.roleKey ?? '').trim().toLowerCase();
+        if (response.ok && payload?.ok === true && ADMIN_ROLES.has(roleKey)) {
           setStatus('allowed');
           return;
         }
 
         setStatus('blocked');
-        setMessage('You do not have access to the staff workspace. Redirecting…');
+        setMessage('You do not have access to the admin area. Redirecting…');
         router.replace('/account');
       } catch (error) {
         console.error('Admin access check failed:', error);

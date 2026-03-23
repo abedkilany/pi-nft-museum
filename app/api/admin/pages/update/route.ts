@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
-import { PERMISSIONS } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 
@@ -12,7 +11,7 @@ function normalizeSlug(value: string) {
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-  const admin = await requireAdminApi(PERMISSIONS.pagesManage);
+  const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
 
   try {
