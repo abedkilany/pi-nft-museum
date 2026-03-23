@@ -1,0 +1,56 @@
+import { NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/admin';
+import { prisma } from '@/lib/prisma';
+import { assertSameOrigin } from '@/lib/security';
+import { logger } from '@/lib/logger';
+
+const allowed = new Set(['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED']);
+
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
+  const admin = await requireAdminApi();
+  if ('error' in admin) return admin.error;
+
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: 'Invalid error id.' }, { status: 400 });
+  }
+
+  const formData = await request.formData();
+  const status = String(formData.get('status') ?? '').toUpperCase();
+  const note = String(formData.get('note') ?? '').trim();
+
+  if (!allowed.has(status)) {
+    return NextResponse.json({ error: 'Invalid status.' }, { status: 400 });
+  }
+
+  const current = await prisma.errorLog.findUnique({ where: { id } });
+  if (!current) {
+    return NextResponse.json({ error: 'Error log not found.' }, { status: 404 });
+  }
+
+  const updateData: any = {
+    status,
+    resolvedAt: status === 'RESOLVED' ? new Date() : null,
+    ignoredAt: status === 'IGNORED' ? new Date() : null
+  };
+
+  if (note) {
+    updateData.extraJson = {
+      ...(current.extraJson && typeof current.extraJson === 'object' && !Array.isArray(current.extraJson) ? current.extraJson as Record<string, unknown> : {}),
+      adminNote: note,
+      adminNoteBy: admin.user.userId,
+      adminNoteAt: new Date().toISOString()
+    };
+  }
+
+  await prisma.errorLog.update({
+    where: { id },
+    data: updateData
+  });
+
+  logger.info('Error log status updated', { errorLogId: id, status, adminUserId: admin.user.userId });
+  return NextResponse.redirect(new URL(`/admin/errors/${id}`, request.url));
+}

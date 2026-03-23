@@ -11,9 +11,10 @@ export default async function AdminSystemPage() {
             <span className="section-kicker">System</span>
             <h1>System logs</h1>
           </div>
-          <p>Review recent warnings and errors, clear logs, or download the full log file.</p>
+          <p>Review recent log lines, clear logs, or download the full log file. For the new structured error dashboard, open the Error Center.</p>
         </div>
         <div className="card-actions">
+          <a href="/admin/errors" className="button secondary">Open Error Center</a>
           <a href="/api/admin/system/logs/download" className="button secondary">Download log file</a>
           <form action="/api/admin/system/logs/clear" method="POST"><button className="button primary" type="submit">Clear logs</button></form>
         </div>

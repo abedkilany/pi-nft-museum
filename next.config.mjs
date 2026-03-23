@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -10,7 +12,7 @@ const csp = [
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   `script-src 'self' 'unsafe-inline' https://sdk.minepi.com${isDev ? " 'unsafe-eval'" : ''}`,
-  "connect-src 'self' https://api.minepi.com https://sdk.minepi.com https://*.minepi.com https://*.pi.network https://*.pinata.cloud https://gateway.pinata.cloud https://ipfs.io https://cloudflare-ipfs.com https://dweb.link https://socialchain.app",
+  "connect-src 'self' https://api.minepi.com https://sdk.minepi.com https://*.minepi.com https://*.pi.network https://*.pinata.cloud https://gateway.pinata.cloud https://ipfs.io https://cloudflare-ipfs.com https://dweb.link https://socialchain.app https://*.ingest.sentry.io https://*.sentry.io",
   "frame-src 'self' https://sdk.minepi.com https://*.pi.network https://*.minepi.com",
   "object-src 'none'",
   "worker-src 'self' blob:",
@@ -50,4 +52,15 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+const sentryWebpackPluginOptions = {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  disableLogger: true,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true
+  }
+};
+
+export default withSentryConfig(nextConfig, sentryWebpackPluginOptions);

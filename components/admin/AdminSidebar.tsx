@@ -13,6 +13,7 @@ const adminLinks = [
   { href: '/admin/categories', label: 'Categories' },
   { href: '/admin/menu', label: 'Menu' },
   { href: '/admin/pages', label: 'Pages' },
+  { href: '/admin/errors', label: 'Error center' },
   { href: '/admin/system', label: 'System logs' },
 ];
 

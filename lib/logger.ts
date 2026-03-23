@@ -1,4 +1,6 @@
+import * as Sentry from '@sentry/nextjs';
 import { appendSystemLog } from '@/lib/system-log';
+import { mapSeverityFromStatus, normalizeError, recordErrorLog } from '@/lib/error-tracker';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -53,6 +55,43 @@ function buildEntry(level: LogLevel, message: string, meta?: unknown) {
   };
 }
 
+async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown) {
+  if (level !== 'warn' && level !== 'error') return;
+
+  let sentryEventId: string | null = null;
+  try {
+    if (level === 'error') {
+      sentryEventId = Sentry.captureException(meta instanceof Error ? meta : new Error(message), {
+        tags: { source: 'logger', log_level: level },
+        extra: meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) }
+      });
+    } else {
+      Sentry.captureMessage(message, { level: 'warning', tags: { source: 'logger' } });
+    }
+  } catch {}
+
+  const normalized = normalizeError(meta ?? message);
+
+  try {
+    await recordErrorLog({
+      title: message,
+      message: normalized.message || message,
+      severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : 'LOW',
+      source: 'SERVER',
+      runtime: typeof window === 'undefined' ? 'nodejs' : 'browser',
+      errorName: normalized.name,
+      stack: normalized.stack,
+      digest: normalized.digest,
+      code: normalized.code,
+      httpStatus: normalized.status,
+      sentryEventId,
+      extra: meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) }
+    });
+  } catch (error) {
+    console.error('Failed to persist error log', error);
+  }
+}
+
 async function write(level: LogLevel, message: string, meta?: unknown) {
   const entry = buildEntry(level, message, meta);
   if (level === 'debug') {
@@ -72,6 +111,8 @@ async function write(level: LogLevel, message: string, meta?: unknown) {
       console.error('Failed to persist system log', error);
     }
   }
+
+  await persistIfNeeded(level, message, meta);
 }
 
 export const logger = {

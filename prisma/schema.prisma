@@ -39,6 +39,31 @@ enum ReactionType {
   DISLIKE
 }
 
+enum ErrorSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ErrorStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  IGNORED
+}
+
+enum ErrorSource {
+  API
+  SERVER
+  CLIENT
+  REACT
+  MIDDLEWARE
+  CRON
+  UNKNOWN
+}
+
+
 model Role {
   id          Int              @id @default(autoincrement())
   key         String           @unique
@@ -116,6 +141,7 @@ model User {
   activities    CommunityActivity[] @relation("ActivityActor")
   receivedActivities CommunityActivity[] @relation("ActivitySubject")
   auditLogs     AuditLog[]
+  errorLogs     ErrorLog[]
   reactions     ArtworkReaction[]
   comments      ArtworkComment[]
   submittedCommentReports CommentReport[] @relation("CommentReportReporter")
@@ -591,6 +617,57 @@ model CommunityActivity {
   @@index([subjectUserId])
   @@index([createdAt])
 }
+
+
+model ErrorLog {
+  id                 Int           @id @default(autoincrement())
+  fingerprint        String
+  title              String
+  message            String        @db.Text
+  readableSummary    String?       @db.Text
+  severity           ErrorSeverity @default(MEDIUM)
+  status             ErrorStatus   @default(OPEN)
+  source             ErrorSource   @default(UNKNOWN)
+  runtime            String?
+  route              String?
+  method             String?
+  url                String?
+  digest             String?
+  errorName          String?
+  stack              String?       @db.Text
+  componentStack     String?       @db.Text
+  code               String?
+  httpStatus         Int?
+  release            String?
+  environment        String?
+  userAgent          String?       @db.Text
+  ipAddress          String?
+  requestId          String?
+  occurrenceCount    Int           @default(1)
+  firstSeenAt        DateTime      @default(now())
+  lastSeenAt         DateTime      @default(now())
+  resolvedAt         DateTime?
+  ignoredAt          DateTime?
+  sentryEventId      String?
+  sentryIssueUrl     String?
+  tagsJson           Json?
+  extraJson          Json?
+  lastPayloadJson    Json?
+  userId             Int?
+
+  user               User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([fingerprint])
+  @@index([status])
+  @@index([severity])
+  @@index([source])
+  @@index([lastSeenAt])
+  @@index([userId])
+}
+
 
 model AuditLog {
   id            Int       @id @default(autoincrement())

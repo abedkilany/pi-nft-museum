@@ -39,6 +39,7 @@ export default async function AdminDashboardPage() {
           <Link href="/admin/countries" className="button secondary">Manage Countries</Link>
           <Link href="/admin/reports" className="button secondary">Review Reports</Link>
           <Link href="/admin/categories" className="button secondary">Manage Categories</Link>
+          <Link href="/admin/errors" className="button secondary">Error Center</Link>
           <Link href="/admin/system" className="button secondary">System Logs</Link>
         </div>
       </div>
