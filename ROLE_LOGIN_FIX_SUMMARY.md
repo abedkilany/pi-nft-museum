@@ -1,12 +1,18 @@
-# Role preservation fix
+# Role source cleanup
 
-This build fixes Pi login so an existing user is no longer downgraded on every login.
+This build removes the dual-source role decision during Pi login.
 
 ## New behavior
-- New Pi user: role is assigned from `resolvePiRole()` as before.
-- Existing Pi user: current database role is preserved by default.
-- Existing Pi user can still be **promoted** from env-based Pi admin/superadmin lists.
-- Existing Pi user is never automatically downgraded to `artist_or_trader` during login.
+- New Pi user: role is assigned once from the Pi bootstrap env mapping.
+- Existing Pi user: role is always read from the database.
+- Pi login no longer promotes or changes an existing user's role from env.
+- Role changes must now come from the database-backed admin flows.
 
-## Why the bug happened
-The login route previously recalculated the role from Pi env on every login and always wrote that role back to the user row. If the Pi username/uid was not matched in env, `resolvePiRole()` returned `artist_or_trader`, overwriting `superadmin` or `admin`.
+## Source of truth
+- **Bootstrap source**: `PI_SUPERADMIN_*` and `PI_ADMIN_*` env values are used only when a Pi user account is created for the first time.
+- **Final source of truth**: the database role on the user record.
+
+## Why this is cleaner
+- There is now only one runtime authority for permissions after account creation.
+- Audit logs remain clear: they still show the bootstrap role hint, but the final resolved role comes from a single place.
+- Admin/superadmin access is no longer implicitly altered by deployment env changes on later logins.

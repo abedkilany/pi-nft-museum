@@ -5,7 +5,7 @@ import {
   buildSyntheticEmail,
   ensureUniqueUsername,
   fetchPiUser,
-  resolvePiRole
+  resolvePiBootstrapRoleKey
 } from '@/lib/pi-auth';
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
@@ -86,20 +86,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
-    const envRoleHintKey = await resolvePiRole(piUser);
-    logger.info('PI_LOGIN_ROUTE_ROLE_HINT_RESOLVED', {
+    const bootstrapRoleKey = resolvePiBootstrapRoleKey(piUser);
+    logger.info('PI_LOGIN_ROUTE_BOOTSTRAP_ROLE_RESOLVED', {
       ...baseMeta,
-      envRoleHintKey,
+      bootstrapRoleKey,
       piUid: piUser.uid,
     });
-    const resolvedRole = await prisma.role.findUnique({ where: { key: envRoleHintKey } });
-
-    if (!resolvedRole) {
-      return NextResponse.json({ error: `Role "${envRoleHintKey}" is not configured in the database.` }, { status: 500 });
-    }
 
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
     const syntheticEmail = buildSyntheticEmail(piUser.uid);
+
+    let roleSource: 'bootstrap-env' | 'database' = 'database';
 
     let user = await prisma.user.findUnique({
       where: { piUid: piUser.uid },
@@ -119,6 +116,12 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
+      const bootstrapRole = await prisma.role.findUnique({ where: { key: bootstrapRoleKey } });
+
+      if (!bootstrapRole) {
+        return NextResponse.json({ error: `Role "${bootstrapRoleKey}" is not configured in the database.` }, { status: 500 });
+      }
+
       const username = await ensureUniqueUsername(usernameSource);
       user = await prisma.user.create({
         data: {
@@ -126,7 +129,7 @@ export async function POST(request: Request) {
           fullName: piUser.username || username,
           email: syntheticEmail,
           passwordHash: null,
-          roleId: resolvedRole.id,
+          roleId: bootstrapRole.id,
           status: 'ACTIVE',
           piUid: piUser.uid,
           piUsername: piUser.username || username,
@@ -137,23 +140,18 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
+
+      roleSource = 'bootstrap-env';
+
+      logger.info('PI_LOGIN_ROUTE_USER_BOOTSTRAPPED', {
+        ...baseMeta,
+        userId: user.id,
+        piUid: piUser.uid,
+        roleKey: user.role.key,
+        roleSource,
+      });
     } else {
       const username = await ensureUniqueUsername(piUser.username || user.username, user.id);
-
-      const currentRoleKey = user.role?.key || 'artist_or_trader';
-      const rolePriority: Record<string, number> = {
-        artist_or_trader: 1,
-        moderator: 2,
-        admin: 3,
-        superadmin: 4,
-      };
-
-      const shouldPromoteFromEnv =
-        (rolePriority[resolvedRole.key] || 0) > (rolePriority[currentRoleKey] || 0);
-
-      const targetRoleId = shouldPromoteFromEnv ? resolvedRole.id : user.roleId;
-      const targetRoleKey = shouldPromoteFromEnv ? resolvedRole.key : currentRoleKey;
-      const roleChanged = user.roleId !== targetRoleId;
 
       user = await prisma.user.update({
         where: { id: user.id },
@@ -162,8 +160,6 @@ export async function POST(request: Request) {
           fullName: user.fullName || piUser.username || username,
           email: user.email || syntheticEmail,
           status: user.status === 'PENDING' ? 'ACTIVE' : user.status,
-          roleId: targetRoleId,
-          roleVersion: roleChanged ? { increment: 1 } : undefined,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
           piWalletAddress: piUser.wallet_address || user.piWalletAddress || null,
@@ -174,25 +170,35 @@ export async function POST(request: Request) {
         include: { role: true }
       });
 
-      if (currentRoleKey !== targetRoleKey) {
-        logger.info('Pi login preserved or promoted existing role', {
-          ...baseMeta,
-          userId: user.id,
-          previousRole: currentRoleKey,
-          resolvedRole: resolvedRole.key,
-          appliedRole: targetRoleKey,
-          promotedFromEnv: shouldPromoteFromEnv,
-        });
-      }
     }
 
+    if (!user.role) {
+      return NextResponse.json({ error: 'User role is missing from the database.' }, { status: 500 });
+    }
+
+    if (!user.piUsername && piUser.username) {
+      logger.warn('PI_LOGIN_ROUTE_PI_USERNAME_MISSING_AFTER_UPDATE', {
+        ...baseMeta,
+        userId: user.id,
+        piUid: piUser.uid,
+      });
+    }
+
+    if (!user.lastLoginAt) {
+      logger.warn('PI_LOGIN_ROUTE_LAST_LOGIN_MISSING_AFTER_UPDATE', {
+        ...baseMeta,
+        userId: user.id,
+        piUid: piUser.uid,
+      });
+    }
 
     logger.info('PI_LOGIN_ROUTE_ROLE_RESOLVED', {
       ...baseMeta,
       userId: user.id,
       piUid: piUser.uid,
-      envRoleHintKey,
+      bootstrapRoleKey,
       resolvedRoleKey: user.role.key,
+      roleSource,
       sessionVersion: user.sessionVersion,
       roleVersion: user.roleVersion,
     });

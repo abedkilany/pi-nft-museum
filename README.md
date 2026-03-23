@@ -13,7 +13,7 @@ The project now uses only these roles:
 
 Visitors can browse the site without logging in.
 When a user presses **Connect with Pi**, the first successful Pi sign-in creates a local account automatically with the role **Artist or Trader**.
-Admin and Super Admin are still assigned from `.env`.
+Admin and Super Admin can be bootstrapped from `.env` on the first Pi login, then are managed from the database.
 
 ## Pi-only authentication
 
@@ -30,7 +30,7 @@ Copy `.env.example` to `.env` and fill the required values:
 
 ## Optional admin bootstrap
 
-To make your Pi account become an admin automatically on first login, set one of these before signing in:
+To make your Pi account become an admin automatically on first login, set one of these before signing in. These values are used only when the local user is created for the first time:
 
 - `PI_SUPERADMIN_USERNAMES="your_pi_username"`
 - `PI_SUPERADMIN_UIDS="your_pi_uid"`

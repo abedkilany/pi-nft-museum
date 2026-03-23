@@ -1,4 +1,3 @@
-
 import { prisma } from '@/lib/prisma';
 
 type PiMeResponse = {
@@ -70,17 +69,17 @@ function parseCsvEnv(value?: string | null) {
     .filter(Boolean);
 }
 
-export async function resolvePiRole(piUser: PiMeResponse) {
-  const superadminRole = parseCsvEnv(process.env.PI_SUPERADMIN_USERNAMES);
+export function resolvePiBootstrapRoleKey(piUser: PiMeResponse) {
+  const superadminUsernames = parseCsvEnv(process.env.PI_SUPERADMIN_USERNAMES);
   const superadminUids = parseCsvEnv(process.env.PI_SUPERADMIN_UIDS);
-  const adminRole = parseCsvEnv(process.env.PI_ADMIN_USERNAMES);
+  const adminUsernames = parseCsvEnv(process.env.PI_ADMIN_USERNAMES);
   const adminUids = parseCsvEnv(process.env.PI_ADMIN_UIDS);
 
-  if (superadminRole.includes(piUser.username || '') || superadminUids.includes(piUser.uid)) {
+  if (superadminUsernames.includes(piUser.username || '') || superadminUids.includes(piUser.uid)) {
     return 'superadmin';
   }
 
-  if (adminRole.includes(piUser.username || '') || adminUids.includes(piUser.uid)) {
+  if (adminUsernames.includes(piUser.username || '') || adminUids.includes(piUser.uid)) {
     return 'admin';
   }
 
