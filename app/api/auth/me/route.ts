@@ -4,12 +4,16 @@ import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session'
 
 export const dynamic = 'force-dynamic';
 
+const APP_SESSION_COOKIE_NAME = 'pi_app_session';
+
 export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID();
 
   try {
     const authHeader = request.headers.get('authorization');
     const bearerToken = extractBearerToken(authHeader);
+    const cookieToken = request.cookies.get(APP_SESSION_COOKIE_NAME)?.value || null;
+    const sessionToken = bearerToken || cookieToken;
 
     logger.info('AUTH_ME_START', {
       requestId,
@@ -19,18 +23,19 @@ export async function GET(request: NextRequest) {
       userAgent: request.headers.get('user-agent'),
       authHeaderPresent: Boolean(authHeader),
       bearerTokenPresent: Boolean(bearerToken),
-      tokenSource: bearerToken ? 'bearer' : 'none',
+      cookieTokenPresent: Boolean(cookieToken),
+      tokenSource: bearerToken ? 'bearer' : cookieToken ? 'cookie' : 'none',
       authMode: 'short-lived-app-session',
     });
 
-    if (!bearerToken) {
+    if (!sessionToken) {
       return NextResponse.json(
         { ok: false, authenticated: false, reason: 'NO_SESSION_TOKEN' },
         { status: 401 }
       );
     }
 
-    const session = await resolvePiSessionFromToken(bearerToken).catch((error) => {
+    const session = await resolvePiSessionFromToken(sessionToken).catch((error) => {
       logger.warn('AUTH_ME_INVALID_TOKEN', {
         requestId,
         message: error instanceof Error ? error.message : 'Invalid token',
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
       userId: session.user.id,
       username: session.user.username,
       role: session.user.role.key,
-      source: 'bearer',
+      source: bearerToken ? 'bearer' : 'cookie',
       authMode: 'short-lived-app-session',
     });
 
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest) {
         piUid: session.user.piUid,
         piUsername: session.user.piUsername,
       },
-      source: 'bearer',
+      source: bearerToken ? 'bearer' : 'cookie',
     });
   } catch (error) {
     logger.error('AUTH_ME_FAILED', {
