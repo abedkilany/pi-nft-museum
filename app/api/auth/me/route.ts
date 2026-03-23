@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +10,7 @@ export async function GET(request: NextRequest) {
   const requestId = ctx.requestId;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = extractBearerToken(authHeader);
+    const authResult = await resolveAuthenticatedUserFromHeaders(request.headers);
 
     logger.info('AUTH_ME_START', {
       feature: 'auth',
@@ -26,37 +25,37 @@ export async function GET(request: NextRequest) {
       referer: request.headers.get('referer'),
       host: request.headers.get('host'),
       userAgent: request.headers.get('user-agent'),
-      authHeaderPresent: Boolean(authHeader),
-      bearerTokenPresent: Boolean(bearerToken),
-      tokenSource: bearerToken ? 'bearer' : 'none',
+      authHeaderPresent: authResult.hasAuthorizationHeader,
+      bearerTokenPresent: authResult.source === 'bearer',
+      malformedAuthHeader: authResult.hasMalformedAuthorizationHeader,
+      tokenSource: authResult.source,
+      authResolution: authResult.reason,
       authMode: 'short-lived-app-session',
     });
 
-    if (!bearerToken) {
-      return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'NO_SESSION_TOKEN' },
-        { status: 401 }
-      );
-    }
+    if (!authResult.user) {
+      const reason = authResult.reason === 'malformed_bearer_token'
+        ? 'MALFORMED_AUTHORIZATION_HEADER'
+        : authResult.reason === 'invalid_or_expired_session'
+          ? 'INVALID_OR_EXPIRED_SESSION'
+          : 'NO_SESSION_TOKEN';
 
-    const session = await resolvePiSessionFromToken(bearerToken).catch((error) => {
-      logger.warn('AUTH_ME_INVALID_TOKEN', {
-        feature: 'auth',
-        route: '/api/auth/me',
-        method: 'GET',
-        requestId,
-        traceId: ctx.traceId,
-        correlationId: ctx.correlationId,
-        sessionId: ctx.sessionId,
-        ipAddress: ctx.ipAddress,
-        message: error instanceof Error ? error.message : 'Invalid token',
-      });
-      return null;
-    });
+      if (authResult.reason === 'invalid_or_expired_session' || authResult.reason === 'malformed_bearer_token') {
+        logger.warn('AUTH_ME_REJECTED', {
+          feature: 'auth',
+          route: '/api/auth/me',
+          method: 'GET',
+          requestId,
+          traceId: ctx.traceId,
+          correlationId: ctx.correlationId,
+          sessionId: ctx.sessionId,
+          ipAddress: ctx.ipAddress,
+          authResolution: authResult.reason,
+        });
+      }
 
-    if (!session) {
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'INVALID_OR_EXPIRED_SESSION' },
+        { ok: false, authenticated: false, reason },
         { status: 401 }
       );
     }
@@ -70,10 +69,10 @@ export async function GET(request: NextRequest) {
       correlationId: ctx.correlationId,
       sessionId: ctx.sessionId,
       ipAddress: ctx.ipAddress,
-      userId: session.user.id,
-      username: session.user.username,
-      role: session.user.role.key,
-      source: 'bearer',
+      userId: authResult.user.userId,
+      username: authResult.user.username,
+      role: authResult.user.role,
+      source: authResult.source,
       authMode: 'short-lived-app-session',
     });
 
@@ -81,14 +80,14 @@ export async function GET(request: NextRequest) {
       ok: true,
       authenticated: true,
       user: {
-        id: session.user.id,
-        username: session.user.username,
-        email: session.user.email,
-        role: session.user.role.key,
-        piUid: session.user.piUid,
-        piUsername: session.user.piUsername,
+        id: authResult.user.userId,
+        username: authResult.user.username,
+        email: authResult.user.email,
+        role: authResult.user.role,
+        piUid: authResult.user.piUid,
+        piUsername: authResult.user.piUsername,
       },
-      source: 'bearer',
+      source: authResult.source,
     });
   } catch (error) {
     logger.error('AUTH_ME_FAILED', {

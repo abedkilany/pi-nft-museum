@@ -1,21 +1,18 @@
 import { NextResponse } from 'next/server';
 import { assertSameOrigin } from '@/lib/security';
-import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
+import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
-  const token = extractBearerToken(request.headers.get('authorization'));
-  if (token) {
-    const session = await resolvePiSessionFromToken(token).catch(() => null);
-    if (session?.user?.id) {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { sessionVersion: { increment: 1 } },
-      }).catch(() => null);
-    }
+  const authResult = await resolveAuthenticatedUserFromHeaders(new Headers(request.headers));
+  if (authResult.user?.userId) {
+    await prisma.user.update({
+      where: { id: authResult.user.userId },
+      data: { sessionVersion: { increment: 1 } },
+    }).catch(() => null);
   }
 
   return NextResponse.json({ success: true, authMode: 'short-lived-app-session' });
