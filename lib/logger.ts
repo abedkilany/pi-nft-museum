@@ -59,6 +59,19 @@ function buildEntry(level: LogLevel, message: string, meta?: unknown) {
   };
 }
 
+type NormalizedLoggerError = {
+  name: string | null;
+  message: string | null;
+  stack: string | null;
+  digest: string | null;
+  code: string | null;
+  status: number | null;
+};
+
+function isNonErrorStatus(status: number | null) {
+  return typeof status === 'number' && status >= 200 && status < 400;
+}
+
 function extractErrorCandidate(meta: unknown): unknown {
   if (meta instanceof Error) return meta;
   const record = metaRecord(meta);
@@ -67,29 +80,57 @@ function extractErrorCandidate(meta: unknown): unknown {
   if (record.error instanceof Error) return record.error;
   if (record.cause instanceof Error) return record.cause;
 
-  const errorLike = {
-    name: typeof record.errorName === 'string' ? record.errorName : typeof record.name === 'string' ? record.name : null,
-    message: typeof record.errorMessage === 'string'
-      ? record.errorMessage
-      : typeof record.message === 'string' && Object.keys(record).some((key) => key.toLowerCase().includes('error'))
-        ? record.message
-        : null,
-    stack: typeof record.errorStack === 'string' ? record.errorStack : typeof record.stack === 'string' ? record.stack : null,
-    code: typeof record.errorCode === 'string' || typeof record.errorCode === 'number'
-      ? String(record.errorCode)
-      : typeof record.code === 'string' || typeof record.code === 'number'
-        ? String(record.code)
-        : null,
-    status: typeof record.httpStatus === 'number' ? record.httpStatus : typeof record.status === 'number' ? record.status : null,
+  const status = typeof record.httpStatus === 'number' ? record.httpStatus : typeof record.status === 'number' ? record.status : null;
+  const errorField = record.error;
+  const errorFieldText = typeof errorField === 'string' ? errorField.trim() : null;
+  const explicitErrorName = typeof record.errorName === 'string' ? record.errorName : null;
+  const explicitErrorMessage = typeof record.errorMessage === 'string' ? record.errorMessage : null;
+  const explicitErrorStack = typeof record.errorStack === 'string' ? record.errorStack : null;
+  const explicitErrorCode = typeof record.errorCode === 'string' || typeof record.errorCode === 'number' ? String(record.errorCode) : null;
+  const genericCode = typeof record.code === 'string' || typeof record.code === 'number' ? String(record.code) : null;
+  const messageContainsErrorKey = typeof record.message === 'string' && Object.keys(record).some((key) => key.toLowerCase().includes('error'));
+  const genericMessage = messageContainsErrorKey ? record.message as string : null;
+  const genericName = typeof record.name === 'string' && explicitErrorName ? record.name : null;
+  const genericStack = typeof record.stack === 'string' && explicitErrorStack ? record.stack : null;
+
+  const errorLike: NormalizedLoggerError = {
+    name: explicitErrorName || genericName,
+    message: explicitErrorMessage || genericMessage || errorFieldText,
+    stack: explicitErrorStack || genericStack,
+    digest: null,
+    code: explicitErrorCode || (status != null && status >= 400 ? genericCode : null),
+    status,
   };
 
-  const hasErrorSignal = Boolean(
-    errorLike.name || errorLike.message || errorLike.stack || errorLike.code || errorLike.status || record.error
+  const hasExplicitErrorSignal = Boolean(
+    explicitErrorName || explicitErrorMessage || explicitErrorStack || explicitErrorCode || (errorFieldText && errorFieldText.toLowerCase() !== 'null')
   );
+  const hasFailureStatus = typeof status === 'number' && status >= 400;
 
-  if (!hasErrorSignal) return null;
+  if (!hasExplicitErrorSignal && !hasFailureStatus) return null;
+  if (isNonErrorStatus(status) && !hasExplicitErrorSignal) return null;
 
   return errorLike;
+}
+
+function normalizeLoggerErrorCandidate(candidate: unknown): NormalizedLoggerError {
+  if (candidate instanceof Error || typeof candidate === 'string') {
+    return normalizeError(candidate);
+  }
+
+  const record = metaRecord(candidate);
+  if (record) {
+    return {
+      name: typeof record.name === 'string' ? record.name : null,
+      message: typeof record.message === 'string' ? record.message : null,
+      stack: typeof record.stack === 'string' ? record.stack : null,
+      digest: typeof record.digest === 'string' ? record.digest : null,
+      code: typeof record.code === 'string' ? record.code : null,
+      status: typeof record.status === 'number' ? record.status : null,
+    };
+  }
+
+  return emptyNormalizedError();
 }
 
 function emptyNormalizedError() {
@@ -107,9 +148,9 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
   let sentryEventId: string | null = null;
   const errorCandidate = extractErrorCandidate(meta);
   const normalized = level === 'error'
-    ? normalizeError(errorCandidate ?? meta ?? message)
+    ? normalizeLoggerErrorCandidate(errorCandidate ?? meta ?? message)
     : errorCandidate
-      ? normalizeError(errorCandidate)
+      ? normalizeLoggerErrorCandidate(errorCandidate)
       : emptyNormalizedError();
   const sanitizedMeta = meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) };
   const context = extractContext(sanitizedMeta);
