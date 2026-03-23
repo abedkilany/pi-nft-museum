@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
+import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const requestId = crypto.randomUUID();
+  const ctx = getRequestContextFromHeaders(request.headers);
+  const requestId = ctx.requestId;
 
   try {
     const authHeader = request.headers.get('authorization');
     const bearerToken = extractBearerToken(authHeader);
 
     logger.info('AUTH_ME_START', {
+      feature: 'auth',
+      route: '/api/auth/me',
+      method: 'GET',
       requestId,
+      traceId: ctx.traceId,
+      correlationId: ctx.correlationId,
+      sessionId: ctx.sessionId,
+      ipAddress: ctx.ipAddress,
       origin: request.headers.get('origin'),
       referer: request.headers.get('referer'),
       host: request.headers.get('host'),
@@ -32,7 +41,14 @@ export async function GET(request: NextRequest) {
 
     const session = await resolvePiSessionFromToken(bearerToken).catch((error) => {
       logger.warn('AUTH_ME_INVALID_TOKEN', {
+        feature: 'auth',
+        route: '/api/auth/me',
+        method: 'GET',
         requestId,
+        traceId: ctx.traceId,
+        correlationId: ctx.correlationId,
+        sessionId: ctx.sessionId,
+        ipAddress: ctx.ipAddress,
         message: error instanceof Error ? error.message : 'Invalid token',
       });
       return null;
@@ -46,7 +62,14 @@ export async function GET(request: NextRequest) {
     }
 
     logger.info('AUTH_ME_CONFIRMED', {
+      feature: 'auth',
+      route: '/api/auth/me',
+      method: 'GET',
       requestId,
+      traceId: ctx.traceId,
+      correlationId: ctx.correlationId,
+      sessionId: ctx.sessionId,
+      ipAddress: ctx.ipAddress,
       userId: session.user.id,
       username: session.user.username,
       role: session.user.role.key,
@@ -69,7 +92,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('AUTH_ME_FAILED', {
+      feature: 'auth',
+      route: '/api/auth/me',
+      method: 'GET',
       requestId,
+      traceId: ctx.traceId,
+      correlationId: ctx.correlationId,
+      sessionId: ctx.sessionId,
+      ipAddress: ctx.ipAddress,
       message: error instanceof Error ? error.message : 'Unknown server error',
       stack: error instanceof Error ? error.stack : null,
     });

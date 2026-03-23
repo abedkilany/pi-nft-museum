@@ -268,9 +268,11 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
+    const traceId = beginClientTrace();
+    await pushClientAuthDebug('PI_AUTH_LOGOUT_START', {}, 'info', traceId);
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: getPiAuthHeaders({ Accept: 'application/json' }),
+      headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
     }).catch(() => null);
     clearPiAuthToken();
     setUser(null);

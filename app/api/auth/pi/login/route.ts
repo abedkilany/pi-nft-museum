@@ -10,9 +10,23 @@ import {
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { issueAppSessionToken } from '@/lib/app-session';
+import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 export async function POST(request: Request) {
+  const ctx = getRequestContextFromHeaders(request.headers);
+  const baseMeta = {
+    feature: 'auth',
+    route: '/api/auth/pi/login',
+    method: 'POST',
+    requestId: ctx.requestId,
+    traceId: ctx.traceId,
+    correlationId: ctx.correlationId,
+    sessionId: ctx.sessionId,
+    ipAddress: ctx.ipAddress,
+  };
+
   logger.info('PI_LOGIN_ROUTE_START', {
+    ...baseMeta,
     origin: request.headers.get('origin'),
     referer: request.headers.get('referer'),
     host: request.headers.get('host'),
@@ -28,6 +42,7 @@ export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) {
     logger.warn('PI_LOGIN_ROUTE_BLOCKED_BY_ORIGIN_CHECK', {
+      ...baseMeta,
       origin: request.headers.get('origin'),
       referer: request.headers.get('referer'),
       host: request.headers.get('host'),
@@ -47,10 +62,11 @@ export async function POST(request: Request) {
     if (rateLimitError) return rateLimitError;
 
     const body = await request.json();
-    logger.info('PI_LOGIN_ROUTE_BODY_PARSED', { hasAccessToken: Boolean(body?.accessToken) });
+    logger.info('PI_LOGIN_ROUTE_BODY_PARSED', { ...baseMeta, hasAccessToken: Boolean(body?.accessToken) });
     const accessToken = String(body.accessToken || '').trim();
 
     logger.info('Pi login request received', {
+      ...baseMeta,
       origin: request.headers.get('origin'),
       referer: request.headers.get('referer'),
       forwardedProto: request.headers.get('x-forwarded-proto'),
@@ -63,14 +79,16 @@ export async function POST(request: Request) {
     }
 
     const piUser = await fetchPiUser(accessToken);
-    logger.info('PI_LOGIN_ROUTE_PI_USER_FETCHED', { piUid: piUser?.uid || null, piUsername: piUser?.username || null });
+    logger.info('PI_LOGIN_ROUTE_PI_USER_FETCHED', {
+        ...baseMeta, piUid: piUser?.uid || null, piUsername: piUser?.username || null });
 
     if (!piUser?.uid) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
     const resolvedRoleKey = await resolvePiRole(piUser);
-    logger.info('PI_LOGIN_ROUTE_ROLE_RESOLVED', { resolvedRoleKey, piUid: piUser.uid });
+    logger.info('PI_LOGIN_ROUTE_ROLE_RESOLVED', {
+        ...baseMeta, resolvedRoleKey, piUid: piUser.uid });
     const resolvedRole = await prisma.role.findUnique({ where: { key: resolvedRoleKey } });
 
     if (!resolvedRole) {
@@ -155,6 +173,7 @@ export async function POST(request: Request) {
 
       if (currentRoleKey !== targetRoleKey) {
         logger.info('Pi login preserved or promoted existing role', {
+          ...baseMeta,
           userId: user.id,
           previousRole: currentRoleKey,
           resolvedRole: resolvedRole.key,
@@ -165,14 +184,29 @@ export async function POST(request: Request) {
     }
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
-      logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', { userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion });
+      logger.warn('PI_LOGIN_ROUTE_BLOCKED_BY_STATUS', {
+        ...baseMeta,
+        userId: user.id,
+        role: user.role.key,
+        status: user.status,
+        sessionVersion: user.sessionVersion,
+        roleVersion: user.roleVersion,
+      });
 
-    await createAuditLog({
+      await createAuditLog({
         userId: user.id,
         action: 'LOGIN_BLOCKED',
         targetType: 'USER',
         targetId: user.id,
-        newValues: { status: user.status },
+        newValues: {
+          status: user.status,
+          feature: 'auth',
+          route: '/api/auth/pi/login',
+          requestId: ctx.requestId,
+          traceId: ctx.traceId,
+          correlationId: ctx.correlationId,
+          sessionId: ctx.sessionId,
+        },
       });
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
@@ -186,14 +220,25 @@ export async function POST(request: Request) {
       roleVersion: user.roleVersion,
     });
 
-    logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', { userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion });
+    logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', {
+        ...baseMeta, userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion });
 
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
       targetType: 'USER',
       targetId: user.id,
-      newValues: { role: user.role.key, piUid: user.piUid, authMode: 'short-lived-app-session' },
+      newValues: {
+        role: user.role.key,
+        piUid: user.piUid,
+        authMode: 'short-lived-app-session',
+        feature: 'auth',
+        route: '/api/auth/pi/login',
+        requestId: ctx.requestId,
+        traceId: ctx.traceId,
+        correlationId: ctx.correlationId,
+        sessionId: ctx.sessionId,
+      },
     });
 
     return NextResponse.json({
@@ -213,7 +258,11 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    logger.error('Pi login failed', error);
+    logger.error('PI_LOGIN_ROUTE_FAILED', {
+      ...baseMeta,
+      message: error instanceof Error ? error.message : 'Unknown server error',
+      stack: error instanceof Error ? error.stack : null,
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown server error' },
       { status: 500 }

@@ -88,6 +88,27 @@ function asJson(value: unknown) {
   return sanitized as Prisma.InputJsonValue;
 }
 
+
+export function normalizeRoutePath(route: string | null | undefined, url?: string | null | undefined) {
+  const candidate = route || url || null;
+  if (!candidate) return null;
+  const value = String(candidate).trim();
+  if (!value) return null;
+
+  if (value.startsWith('/')) {
+    return value.split('?')[0] || '/';
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname || '/';
+  } catch {
+    const withoutOrigin = value.replace(/^https?:\/\/[^/]+/i, '');
+    if (!withoutOrigin) return '/';
+    return withoutOrigin.startsWith('/') ? withoutOrigin.split('?')[0] || '/' : `/${withoutOrigin.split('?')[0]}`;
+  }
+}
+
 function compactText(value: string | null | undefined, limit = 4000) {
   if (!value) return null;
   const cleaned = String(value).trim();
@@ -105,8 +126,11 @@ function inferFeature(input: AppEventInput) {
   if (sourceText.includes('COMMENT')) return 'comments';
   if (sourceText.includes('ARTWORK')) return 'artwork';
   if (sourceText.includes('SECURITY')) return 'security';
-  if (input.route?.startsWith('/admin')) return 'admin';
-  return null;
+  const normalizedRoute = normalizeRoutePath(input.route, input.url);
+  if (normalizedRoute?.startsWith('/admin')) return 'admin';
+  if (normalizedRoute?.startsWith('/account')) return 'account';
+  if (normalizedRoute === '/' || normalizedRoute?.startsWith('/gallery')) return 'navigation';
+  return 'general';
 }
 
 function inferStep(input: AppEventInput) {
@@ -165,7 +189,7 @@ export async function trackAppEvent(input: AppEventInput) {
         readableSummary: compactText(input.readableSummary, 2000),
         source: compactText(input.source, 60),
         feature: compactText(feature, 120),
-        route: compactText(input.route, 512),
+        route: compactText(normalizeRoutePath(input.route, input.url), 512),
         method: compactText(input.method, 32),
         url: compactText(input.url, 2000),
         component: compactText(input.component, 180),

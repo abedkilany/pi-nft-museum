@@ -2,6 +2,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
 
+function asRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 export async function createAuditLog(input: {
   userId?: number | null;
   action: string;
@@ -24,6 +28,8 @@ export async function createAuditLog(input: {
       },
     });
 
+    const newValuesRecord = asRecord(input.newValues);
+
     await trackAppEvent({
       category: 'AUDIT',
       type: 'AUDIT_LOG',
@@ -32,6 +38,12 @@ export async function createAuditLog(input: {
       isHealthy: true,
       source: 'SERVER',
       userId: input.userId ?? null,
+      feature: typeof newValuesRecord?.feature === 'string' ? newValuesRecord.feature : null,
+      route: typeof newValuesRecord?.route === 'string' ? newValuesRecord.route : null,
+      requestId: typeof newValuesRecord?.requestId === 'string' ? newValuesRecord.requestId : null,
+      traceId: typeof newValuesRecord?.traceId === 'string' ? newValuesRecord.traceId : null,
+      correlationId: typeof newValuesRecord?.correlationId === 'string' ? newValuesRecord.correlationId : null,
+      sessionId: typeof newValuesRecord?.sessionId === 'string' ? newValuesRecord.sessionId : null,
       entityType: input.targetType,
       entityId: input.targetId == null ? null : String(input.targetId),
       message: `${input.action} on ${input.targetType}`,

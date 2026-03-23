@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { classifyEventSeverity, trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
+import { classifyEventSeverity, trackAppEvent, sanitizeEventValue, normalizeRoutePath } from '@/lib/app-events';
 import { appendSystemLog } from '@/lib/system-log';
 import { mapSeverityFromStatus, normalizeError, recordErrorLog } from '@/lib/error-tracker';
 
@@ -32,7 +32,7 @@ function extractContext(meta: unknown) {
   const record = metaRecord(meta);
   return {
     feature: typeof record?.feature === 'string' ? record.feature : null,
-    route: typeof record?.route === 'string' ? record.route : null,
+    route: normalizeRoutePath(typeof record?.route === 'string' ? record.route : null, typeof record?.url === 'string' ? record.url : null),
     method: typeof record?.method === 'string' ? record.method : null,
     url: typeof record?.url === 'string' ? record.url : null,
     component: typeof record?.component === 'string' ? record.component : null,
@@ -76,35 +76,42 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
     }
   } catch {}
 
-  await trackAppEvent({
-    category: level === 'error' ? 'ERROR' : 'SYSTEM_FLOW',
-    type: 'LOGGER',
-    name: `LOGGER_${level.toUpperCase()}`,
-    status: level === 'error' ? 'FAILED' : level === 'warn' ? 'WARNING' : 'SUCCESS',
-    severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : level === 'warn' ? classifyEventSeverity({ failed: true, status: normalized.status, category: context.feature === 'security' ? 'SECURITY' : 'SYSTEM_FLOW' }) : null,
-    isHealthy: level === 'debug' || level === 'info',
-    message,
-    readableSummary: message,
-    source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
-    feature: context.feature,
-    route: context.route,
-    method: context.method,
-    url: context.url,
-    component: context.component,
-    userId: context.userId,
-    sessionId: context.sessionId,
-    requestId: context.requestId,
-    traceId: context.traceId,
-    correlationId: context.correlationId,
-    entityType: context.entityType,
-    entityId: context.entityId,
-    errorName: normalized.name,
-    errorCode: normalized.code,
-    errorStack: normalized.stack,
-    httpStatus: normalized.status,
-    data: sanitizedMeta,
-    tags: sentryEventId ? { sentryEventId } : undefined
-  });
+  if (level !== 'debug') {
+    await trackAppEvent({
+      category: level === 'error' ? 'ERROR' : 'SYSTEM_FLOW',
+      type: level === 'warn' || level === 'error' ? 'LOGGER' : 'SYSTEM_EVENT',
+      eventKey: `LOGGER_${level.toUpperCase()}`,
+      name: message,
+      status: level === 'error' ? 'FAILED' : level === 'warn' ? 'WARNING' : 'SUCCESS',
+      severity: level === 'error'
+        ? mapSeverityFromStatus(normalized.status)
+        : level === 'warn'
+          ? classifyEventSeverity({ failed: true, status: normalized.status, category: context.feature === 'security' ? 'SECURITY' : 'SYSTEM_FLOW' })
+          : null,
+      isHealthy: level === 'debug' || level === 'info',
+      message,
+      readableSummary: message,
+      source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
+      feature: context.feature,
+      route: context.route,
+      method: context.method,
+      url: context.url,
+      component: context.component,
+      userId: context.userId,
+      sessionId: context.sessionId,
+      requestId: context.requestId,
+      traceId: context.traceId,
+      correlationId: context.correlationId,
+      entityType: context.entityType,
+      entityId: context.entityId,
+      errorName: normalized.name,
+      errorCode: normalized.code,
+      errorStack: normalized.stack,
+      httpStatus: normalized.status,
+      data: sanitizedMeta,
+      tags: sentryEventId ? { sentryEventId } : undefined
+    });
+  }
 
   if (level !== 'warn' && level !== 'error') return;
 
