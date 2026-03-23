@@ -140,7 +140,6 @@ export default function AdminSystemPage() {
             Download log file
           </button>
           <Link href="/admin/audit" className="button secondary">Open audit trail ({auditCount})</Link>
-          <Link href="/admin/system/diagnostics" className="button secondary">Open diagnostics</Link>
           <button onClick={handleClearLogs} className="button primary" type="button" disabled={working}>
             Clear logs
           </button>
