@@ -59,9 +59,58 @@ function buildEntry(level: LogLevel, message: string, meta?: unknown) {
   };
 }
 
+function extractErrorCandidate(meta: unknown): unknown {
+  if (meta instanceof Error) return meta;
+  const record = metaRecord(meta);
+  if (!record) return null;
+
+  if (record.error instanceof Error) return record.error;
+  if (record.cause instanceof Error) return record.cause;
+
+  const errorLike = {
+    name: typeof record.errorName === 'string' ? record.errorName : typeof record.name === 'string' ? record.name : null,
+    message: typeof record.errorMessage === 'string'
+      ? record.errorMessage
+      : typeof record.message === 'string' && Object.keys(record).some((key) => key.toLowerCase().includes('error'))
+        ? record.message
+        : null,
+    stack: typeof record.errorStack === 'string' ? record.errorStack : typeof record.stack === 'string' ? record.stack : null,
+    code: typeof record.errorCode === 'string' || typeof record.errorCode === 'number'
+      ? String(record.errorCode)
+      : typeof record.code === 'string' || typeof record.code === 'number'
+        ? String(record.code)
+        : null,
+    status: typeof record.httpStatus === 'number' ? record.httpStatus : typeof record.status === 'number' ? record.status : null,
+  };
+
+  const hasErrorSignal = Boolean(
+    errorLike.name || errorLike.message || errorLike.stack || errorLike.code || errorLike.status || record.error
+  );
+
+  if (!hasErrorSignal) return null;
+
+  return errorLike;
+}
+
+function emptyNormalizedError() {
+  return {
+    name: null,
+    message: null,
+    stack: null,
+    digest: null,
+    code: null,
+    status: null,
+  };
+}
+
 async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown) {
   let sentryEventId: string | null = null;
-  const normalized = normalizeError(meta ?? message);
+  const errorCandidate = extractErrorCandidate(meta);
+  const normalized = level === 'error'
+    ? normalizeError(errorCandidate ?? meta ?? message)
+    : errorCandidate
+      ? normalizeError(errorCandidate)
+      : emptyNormalizedError();
   const sanitizedMeta = meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) };
   const context = extractContext(sanitizedMeta);
 
