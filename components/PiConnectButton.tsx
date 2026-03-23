@@ -46,7 +46,31 @@ export function PiConnectButton({ className = 'button primary', children, redire
       }
 
       const target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
-      window.location.href = target;
+
+      await fetch('/api/events', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          category: 'SYSTEM_FLOW',
+          type: 'AUTH_POST_LOGIN',
+          name: 'POST_AUTH_REDIRECT_START',
+          eventKey: 'POST_AUTH_REDIRECT_START',
+          status: 'STARTED',
+          source: 'CLIENT',
+          feature: 'auth',
+          route: window.location.pathname,
+          url: window.location.href,
+          sessionId: window.sessionStorage.getItem('app_event_session_id'),
+          traceId,
+          correlationId: traceId,
+          message: `Redirecting after Pi login to ${target}`,
+          data: { target, role: user.role, userId: user.id }
+        }),
+        cache: 'no-store',
+        keepalive: true,
+      }).catch(() => null);
+
+      window.location.assign(target);
     } catch (error) {
       await fetch('/api/auth/pi/debug', {
         method: 'POST',

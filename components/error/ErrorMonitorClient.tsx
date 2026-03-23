@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
+import { buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observability-client';
 
 type ClientErrorPayload = {
   title: string;
@@ -19,11 +20,58 @@ type ClientErrorPayload = {
   tags?: Record<string, unknown>;
 };
 
+
+function normalizeUnknownError(reason: unknown) {
+  if (reason instanceof Error) {
+    return {
+      message: reason.message,
+      errorName: reason.name,
+      stack: reason.stack ?? null,
+      extra: {
+        cause: reason.cause ?? null,
+      } as Record<string, unknown>,
+    };
+  }
+
+  if (typeof reason === 'object' && reason) {
+    const record = reason as Record<string, unknown>;
+    return {
+      message: String(record.message || record.error || 'Unhandled promise rejection'),
+      errorName: typeof record.name === 'string' ? record.name : 'UnhandledPromiseRejection',
+      stack: typeof record.stack === 'string' ? record.stack : null,
+      extra: {
+        ...record,
+      },
+    };
+  }
+
+  return {
+    message: String(reason ?? 'Unhandled promise rejection'),
+    errorName: 'UnhandledPromiseRejection',
+    stack: null,
+    extra: {
+      rawReason: reason ?? null,
+    } as Record<string, unknown>,
+  };
+}
+
+function toRequestUrl(input: RequestInfo | URL) {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  if (typeof Request !== 'undefined' && input instanceof Request) return input.url;
+  return null;
+}
+
+function shouldIgnoreObservedRequest(url: string | null) {
+  if (!url) return true;
+  return url.includes('/api/events') || url.includes('/api/client-errors') || url.includes('/api/auth/pi/debug');
+}
+
 async function reportClientError(payload: ClientErrorPayload) {
   try {
     await fetch('/api/client-errors', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: buildObservabilityHeaders({ 'content-type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(payload),
       keepalive: true
@@ -35,6 +83,85 @@ async function reportClientError(payload: ClientErrorPayload) {
 
 export function ErrorMonitorClient() {
   useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = toRequestUrl(input);
+      const method = (init?.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET') || 'GET').toUpperCase();
+      const startedAt = performance.now();
+
+      try {
+        const response = await originalFetch(input, init);
+        if (!shouldIgnoreObservedRequest(url) && response.status >= 400) {
+          const traceId = consumeOrCreateTraceId();
+          void fetch('/api/events', {
+            method: 'POST',
+            headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
+            body: JSON.stringify({
+              category: 'SYSTEM_FLOW',
+              type: 'FETCH',
+              name: 'CLIENT_FETCH_NON_SUCCESS',
+              eventKey: 'CLIENT_FETCH_NON_SUCCESS',
+              status: response.status >= 500 ? 'FAILED' : 'WARNING',
+              severity: response.status >= 500 ? 'HIGH' : 'MEDIUM',
+              isHealthy: false,
+              source: 'CLIENT',
+              feature: url?.includes('/api/auth') ? 'auth' : 'general',
+              route: window.location.pathname,
+              url: window.location.href,
+              traceId,
+              correlationId: traceId,
+              httpStatus: response.status,
+              message: `Fetch returned ${response.status} for ${url || 'unknown URL'}`,
+              data: {
+                requestUrl: url,
+                requestMethod: method,
+                durationMs: Math.round(performance.now() - startedAt),
+              }
+            }),
+            keepalive: true,
+            cache: 'no-store',
+          }).catch(() => null);
+        }
+        return response;
+      } catch (error) {
+        if (!shouldIgnoreObservedRequest(url)) {
+          const traceId = consumeOrCreateTraceId();
+          const normalized = normalizeUnknownError(error);
+          void fetch('/api/events', {
+            method: 'POST',
+            headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
+            body: JSON.stringify({
+              category: 'SYSTEM_FLOW',
+              type: 'FETCH',
+              name: 'CLIENT_FETCH_FAILED',
+              eventKey: 'CLIENT_FETCH_FAILED',
+              status: 'FAILED',
+              severity: 'MEDIUM',
+              isHealthy: false,
+              source: 'CLIENT',
+              feature: url?.includes('/api/auth') ? 'auth' : 'general',
+              route: window.location.pathname,
+              url: window.location.href,
+              traceId,
+              correlationId: traceId,
+              errorName: normalized.errorName,
+              errorStack: normalized.stack,
+              message: normalized.message,
+              data: {
+                requestUrl: url,
+                requestMethod: method,
+                durationMs: Math.round(performance.now() - startedAt),
+                ...normalized.extra,
+              }
+            }),
+            keepalive: true,
+            cache: 'no-store',
+          }).catch(() => null);
+        }
+        throw error;
+      }
+    };
+
     const onWindowError = (event: ErrorEvent) => {
       const error = event.error instanceof Error ? event.error : new Error(event.message || 'Unhandled browser error');
       Sentry.captureException(error, {
@@ -58,19 +185,21 @@ export function ErrorMonitorClient() {
     };
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason ?? 'Unhandled promise rejection'));
-      Sentry.captureException(reason, {
-        tags: { source: 'client-unhandled-rejection' }
+      const normalized = normalizeUnknownError(event.reason);
+      Sentry.captureException(event.reason instanceof Error ? event.reason : new Error(normalized.message), {
+        tags: { source: 'client-unhandled-rejection' },
+        extra: normalized.extra,
       });
 
       void reportClientError({
         title: 'Unhandled promise rejection',
-        message: reason.message,
+        message: normalized.message,
         source: 'CLIENT',
         route: window.location.pathname,
         url: window.location.href,
-        errorName: reason.name,
-        stack: reason.stack
+        errorName: normalized.errorName,
+        stack: normalized.stack,
+        extra: normalized.extra
       });
     };
 
@@ -78,6 +207,7 @@ export function ErrorMonitorClient() {
     window.addEventListener('unhandledrejection', onUnhandledRejection);
 
     return () => {
+      window.fetch = originalFetch;
       window.removeEventListener('error', onWindowError);
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
     };

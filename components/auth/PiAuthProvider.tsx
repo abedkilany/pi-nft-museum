@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
 import { clearPiAuthToken, getPiAuthHeaders, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
-import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observability-client';
+import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 
 type AuthUser = {
   id: number;
@@ -53,9 +53,55 @@ type FetchCurrentUserResult =
   | { ok: true; user: AuthUser }
   | { ok: false; reason: 'unauthorized' | 'network' | 'server' };
 
+async function pushPostAuthEvent(
+  name: string,
+  traceId?: string | null,
+  payload?: {
+    status?: 'STARTED' | 'SUCCESS' | 'WARNING' | 'FAILED';
+    message?: string | null;
+    data?: Record<string, unknown> | null;
+    errorName?: string | null;
+    errorCode?: string | null;
+  }
+) {
+  try {
+    const resolvedTraceId = consumeOrCreateTraceId(traceId);
+    await fetch('/api/events', {
+      method: 'POST',
+      headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, resolvedTraceId),
+      body: JSON.stringify({
+        category: 'SYSTEM_FLOW',
+        type: 'AUTH_POST_LOGIN',
+        name,
+        eventKey: name,
+        status: payload?.status || 'SUCCESS',
+        source: 'CLIENT',
+        feature: 'auth',
+        route: window.location.pathname,
+        url: window.location.href,
+        sessionId: getClientSessionId(),
+        traceId: resolvedTraceId,
+        correlationId: resolvedTraceId,
+        message: payload?.message || null,
+        isHealthy: (payload?.status || 'SUCCESS') !== 'FAILED' && (payload?.status || 'SUCCESS') !== 'WARNING',
+        errorName: payload?.errorName || null,
+        errorCode: payload?.errorCode || null,
+        data: payload?.data || null,
+      }),
+      cache: 'no-store',
+      keepalive: true,
+    }).catch(() => null);
+  } catch {}
+}
+
 async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUserResult> {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
+  const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
   await pushClientAuthDebug('PI_AUTH_ME_REQUEST_START', {}, 'info', resolvedTraceId);
+  await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_START', resolvedTraceId, {
+    status: 'STARTED',
+    data: { endpoint: '/api/auth/me' }
+  });
 
   const response = await fetch('/api/auth/me', {
     method: 'GET',
@@ -65,6 +111,12 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
 
   if (!response) {
     await pushClientAuthDebug('PI_AUTH_ME_REQUEST_NETWORK_FAILURE', {}, 'warn', resolvedTraceId);
+    await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_FAILED', resolvedTraceId, {
+      status: 'FAILED',
+      message: 'Failed to reach /api/auth/me',
+      errorCode: 'AUTH_ME_NETWORK_FAILURE',
+      data: { endpoint: '/api/auth/me' }
+    });
     return { ok: false, reason: 'network' };
   }
 
@@ -77,6 +129,15 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
       'info',
       resolvedTraceId
     );
+    await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_SUCCESS', resolvedTraceId, {
+      data: {
+        endpoint: '/api/auth/me',
+        status: response.status,
+        durationMs: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt),
+        userId: payload.user.id,
+        role: payload.user.role,
+      }
+    });
     return { ok: true, user: payload.user as AuthUser };
   }
 
@@ -90,6 +151,19 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
     response.status === 401 ? 'info' : 'warn',
     resolvedTraceId
   );
+
+  await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_NON_SUCCESS', resolvedTraceId, {
+    status: response.status === 401 ? 'WARNING' : 'FAILED',
+    message: 'Non-success response from /api/auth/me',
+    errorCode: response.status === 401 ? 'AUTH_ME_UNAUTHORIZED' : 'AUTH_ME_NON_SUCCESS',
+    data: {
+      endpoint: '/api/auth/me',
+      status: response.status,
+      authenticated: payload?.authenticated ?? null,
+      reason: payload?.reason ?? null,
+      durationMs: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt),
+    }
+  });
 
   if (response.status === 401) {
     return { ok: false, reason: 'unauthorized' };
@@ -221,8 +295,18 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           'info',
           resolvedTraceId
         );
+        await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_START', resolvedTraceId, {
+          status: 'STARTED',
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role }
+        });
         setUser(authenticatedUser);
         setStatus('authenticated');
+        await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_SUCCESS', resolvedTraceId, {
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role, finalStatus: 'authenticated' }
+        });
+        await pushPostAuthEvent('POST_AUTH_CLIENT_READY', resolvedTraceId, {
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role }
+        });
         return authenticatedUser;
       } catch (authError) {
         await pushClientAuthDebug(
@@ -231,6 +315,12 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           'warn',
           resolvedTraceId
         );
+        await pushPostAuthEvent('POST_AUTH_CLIENT_FAILED', resolvedTraceId, {
+          status: 'FAILED',
+          message: authError instanceof Error ? authError.message : 'Authentication failed',
+          errorName: authError instanceof Error ? authError.name : 'AuthenticationError',
+          errorCode: 'POST_AUTH_CLIENT_FAILURE'
+        });
         clearPiAuthToken();
         setUser(null);
         setStatus('guest');

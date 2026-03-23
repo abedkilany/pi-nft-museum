@@ -1,3 +1,4 @@
+import { buildObservabilityHeaders } from '@/lib/observability-client';
 const APP_SESSION_TOKEN_KEY = 'pi_app_session_token';
 
 let memoryToken: string | null = null;
@@ -47,7 +48,7 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   return fetch(input, {
     ...init,
-    headers: getPiAuthHeaders(init.headers),
+    headers: getPiAuthHeaders(buildObservabilityHeaders(init.headers)),
     cache: init.cache ?? 'no-store',
   });
 }
