@@ -88,7 +88,7 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
         : level === 'warn'
           ? classifyEventSeverity({ failed: true, status: normalized.status, category: context.feature === 'security' ? 'SECURITY' : 'SYSTEM_FLOW' })
           : null,
-      isHealthy: level === 'debug' || level === 'info',
+      isHealthy: level === 'info',
       message,
       readableSummary: message,
       source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
