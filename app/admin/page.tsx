@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
 export default async function AdminDashboardPage() {
-  const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount] = await Promise.all([
+  const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount, appEventsCount] = await Promise.all([
     prisma.user.count(),
     prisma.artwork.count(),
     prisma.artwork.count({ where: { status: 'PENDING' } }),
@@ -11,7 +11,8 @@ export default async function AdminDashboardPage() {
     prisma.artworkCategory.count(),
     prisma.country.count(),
     prisma.artworkComment.count(),
-    prisma.artworkReport.count()
+    prisma.artworkReport.count(),
+    prisma.appEvent.count()
   ]);
 
   return (
@@ -30,6 +31,7 @@ export default async function AdminDashboardPage() {
         <div className="card" style={{ padding: '20px' }}><h3>Countries</h3><p>{countriesCount}</p></div>
         <div className="card" style={{ padding: '20px' }}><h3>Comments</h3><p>{commentsCount}</p></div>
         <div className="card" style={{ padding: '20px' }}><h3>Reports</h3><p>{reportsCount}</p></div>
+        <div className="card" style={{ padding: '20px' }}><h3>Tracked events</h3><p>{appEventsCount}</p></div>
       </div>
       <div className="card" style={{ padding: '24px' }}>
         <h2 style={{ marginBottom: '16px' }}>Quick Actions</h2>
@@ -39,6 +41,7 @@ export default async function AdminDashboardPage() {
           <Link href="/admin/countries" className="button secondary">Manage Countries</Link>
           <Link href="/admin/reports" className="button secondary">Review Reports</Link>
           <Link href="/admin/categories" className="button secondary">Manage Categories</Link>
+          <Link href="/admin/events" className="button secondary">Event Stream</Link>
           <Link href="/admin/errors" className="button secondary">Error Center</Link>
           <Link href="/admin/system" className="button secondary">System Logs</Link>
         </div>

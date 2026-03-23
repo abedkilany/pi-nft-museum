@@ -4,6 +4,7 @@ import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
 import { PiAuthProvider } from '@/components/auth/PiAuthProvider';
 import { ErrorMonitorClient } from '@/components/error/ErrorMonitorClient';
+import { AppEventClient } from '@/components/analytics/AppEventClient';
 
 export const metadata: Metadata = {
   title: 'Pi NFT Museum',
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PiScript />
         <PiAuthProvider>
           <ErrorMonitorClient />
+          <AppEventClient />
           <div className="page-shell">
             <NavBar />
             <main className="container">{children}</main>

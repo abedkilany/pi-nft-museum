@@ -78,6 +78,7 @@ model User {
   submittedArtworkReports      ArtworkReport[]        @relation("ArtworkReportReporter")
   reviewedArtworkReports       ArtworkReport[]        @relation("ArtworkReportReviewer")
   auditLogs                    AuditLog[]
+  appEvents                    AppEvent[]
   commentLikes                 CommentLike[]
   submittedCommentReports      CommentReport[]        @relation("CommentReportReporter")
   reviewedCommentReports       CommentReport[]        @relation("CommentReportReviewer")
@@ -509,6 +510,58 @@ model CommunityActivity {
   @@index([actorId])
   @@index([subjectUserId])
   @@index([createdAt])
+}
+
+
+model AppEvent {
+  id              Int      @id @default(autoincrement())
+  eventKey        String
+  category        String
+  type            String
+  name            String
+  status          String
+  severity        String?
+  isHealthy       Boolean  @default(true)
+  message         String?
+  readableSummary String?
+  source          String?
+  feature         String?
+  route           String?
+  method          String?
+  url             String?
+  component       String?
+  userId          Int?
+  sessionId       String?
+  requestId       String?
+  traceId         String?
+  correlationId   String?
+  entityType      String?
+  entityId        String?
+  parentType      String?
+  parentId        String?
+  httpStatus      Int?
+  durationMs      Int?
+  errorName       String?
+  errorCode       String?
+  errorStack      String?
+  fingerprint     String?
+  tagsJson        Json?
+  dataJson        Json?
+  createdAt       DateTime @default(now())
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([category])
+  @@index([type])
+  @@index([status])
+  @@index([severity])
+  @@index([feature])
+  @@index([route])
+  @@index([requestId])
+  @@index([traceId])
+  @@index([correlationId])
+  @@index([entityType, entityId])
 }
 
 model ErrorLog {

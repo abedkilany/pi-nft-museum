@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
 import { appendSystemLog } from '@/lib/system-log';
 import { mapSeverityFromStatus, normalizeError, recordErrorLog } from '@/lib/error-tracker';
 
@@ -19,31 +20,7 @@ function shouldLog(level: LogLevel) {
 }
 
 function sanitizeMeta(meta: unknown): unknown {
-  if (meta instanceof Error) {
-    return {
-      name: meta.name,
-      message: meta.message,
-      stack: meta.stack || null
-    };
-  }
-
-  if (Array.isArray(meta)) {
-    return meta.map(sanitizeMeta);
-  }
-
-  if (meta && typeof meta === 'object') {
-    return Object.fromEntries(
-      Object.entries(meta as Record<string, unknown>).map(([key, value]) => {
-        const lowered = key.toLowerCase();
-        if (['password', 'token', 'authorization', 'secret', 'cookie', 'set-cookie', 'accesstoken'].includes(lowered)) {
-          return [key, '[redacted]'];
-        }
-        return [key, sanitizeMeta(value)];
-      })
-    );
-  }
-
-  return meta ?? null;
+  return sanitizeEventValue(meta);
 }
 
 function buildEntry(level: LogLevel, message: string, meta?: unknown) {
@@ -56,21 +33,40 @@ function buildEntry(level: LogLevel, message: string, meta?: unknown) {
 }
 
 async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown) {
-  if (level !== 'warn' && level !== 'error') return;
-
   let sentryEventId: string | null = null;
+  const normalized = normalizeError(meta ?? message);
+  const sanitizedMeta = meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) };
+
   try {
     if (level === 'error') {
       sentryEventId = Sentry.captureException(meta instanceof Error ? meta : new Error(message), {
         tags: { source: 'logger', log_level: level },
-        extra: meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) }
+        extra: sanitizedMeta
       });
-    } else {
+    } else if (level === 'warn') {
       Sentry.captureMessage(message, { level: 'warning', tags: { source: 'logger' } });
     }
   } catch {}
 
-  const normalized = normalizeError(meta ?? message);
+  await trackAppEvent({
+    category: level === 'error' ? 'ERROR' : 'SYSTEM_FLOW',
+    type: 'LOGGER',
+    name: `LOGGER_${level.toUpperCase()}`,
+    status: level === 'error' ? 'FAILED' : level === 'warn' ? 'WARNING' : 'SUCCESS',
+    severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : level === 'warn' ? 'LOW' : null,
+    isHealthy: level === 'debug' || level === 'info',
+    message,
+    readableSummary: message,
+    source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
+    errorName: normalized.name,
+    errorCode: normalized.code,
+    errorStack: normalized.stack,
+    httpStatus: normalized.status,
+    data: sanitizedMeta,
+    tags: sentryEventId ? { sentryEventId } : undefined
+  });
+
+  if (level !== 'warn' && level !== 'error') return;
 
   try {
     await recordErrorLog({
@@ -85,7 +81,7 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
       code: normalized.code,
       httpStatus: normalized.status,
       sentryEventId,
-      extra: meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) }
+      extra: sanitizedMeta
     });
   } catch (error) {
     console.error('Failed to persist error log', error);
