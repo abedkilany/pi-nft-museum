@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { PiConnectButton } from '@/components/PiConnectButton';
+import { AdminPageLink } from '@/components/auth/AdminPageLink';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
@@ -99,9 +100,9 @@ export function NavUserMenu({ user, showAdmin }: Props) {
               My artworks
             </Link>
             {showAdmin ? (
-              <Link href="/admin" className="button secondary nav-user-link">
+              <AdminPageLink className="button secondary nav-user-link">
                 Admin panel
-              </Link>
+              </AdminPageLink>
             ) : null}
             <button
               className="button secondary nav-user-link"

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AdminPageLink } from '@/components/auth/AdminPageLink';
 import { useEffect, useState } from 'react';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
 import { ProfileForms } from '@/components/account/ProfileForms';
@@ -74,7 +75,7 @@ export default function AccountPage() {
           <Link href="/notifications" className="button secondary">Notifications</Link>
           <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
-          {isAdmin ? <Link href="/admin" className="button secondary">Admin panel</Link> : null}
+          {isAdmin ? <AdminPageLink className="button secondary">Admin panel</AdminPageLink> : null}
         </div>
       </section>
 

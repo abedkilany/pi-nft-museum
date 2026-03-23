@@ -3,6 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { beginClientTrace, buildObservabilityHeaders } from '@/lib/observability-client';
+import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 
 type Props = {
   className?: string;
@@ -121,6 +122,18 @@ export function PiConnectButton({ className = 'button primary', children, redire
         cache: 'no-store',
         keepalive: true,
       }).catch(() => null);
+
+      if (target.startsWith('/admin')) {
+        const bridgeResponse = await fetch('/api/auth/session-bridge', {
+          method: 'POST',
+          headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
+          cache: 'no-store',
+        }).catch(() => null);
+
+        if (!bridgeResponse?.ok) {
+          throw new Error('Failed to prepare admin session.');
+        }
+      }
 
       window.location.assign(target);
     } catch (error) {
