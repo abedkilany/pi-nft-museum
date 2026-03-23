@@ -1,6 +1,5 @@
 
 import { prisma } from '@/lib/prisma';
-import { ADMIN_ROLES } from '@/lib/roles';
 
 type PiMeResponse = {
   uid: string;
@@ -71,7 +70,7 @@ function parseCsvEnv(value?: string | null) {
     .filter(Boolean);
 }
 
-export async function resolvePiRole(piUser: PiMeResponse, existingRoleKey?: string | null) {
+export async function resolvePiRole(piUser: PiMeResponse) {
   const superadminRole = parseCsvEnv(process.env.PI_SUPERADMIN_USERNAMES);
   const superadminUids = parseCsvEnv(process.env.PI_SUPERADMIN_UIDS);
   const adminRole = parseCsvEnv(process.env.PI_ADMIN_USERNAMES);
@@ -83,10 +82,6 @@ export async function resolvePiRole(piUser: PiMeResponse, existingRoleKey?: stri
 
   if (adminRole.includes(piUser.username || '') || adminUids.includes(piUser.uid)) {
     return 'admin';
-  }
-
-  if (existingRoleKey && ADMIN_ROLES.includes(existingRoleKey as (typeof ADMIN_ROLES)[number])) {
-    return existingRoleKey;
   }
 
   return 'artist_or_trader';

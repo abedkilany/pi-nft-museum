@@ -67,8 +67,6 @@ model User {
   instagramUrl                 String?
   lastLoginAt                  DateTime?
   canEditCommentsAfterDeadline Boolean                @default(false)
-  sessionVersion               Int                    @default(1)
-  roleVersion                  Int                    @default(1)
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
   artistProfile                ArtistProfile?

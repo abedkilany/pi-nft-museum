@@ -38,7 +38,7 @@ function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-async function readCurrentUser() {
+async function fetchCurrentUser() {
   const response = await fetch('/api/auth/me', {
     method: 'GET',
     headers: getPiAuthHeaders(),
@@ -48,16 +48,10 @@ async function readCurrentUser() {
   const payload = response ? await response.json().catch(() => null) : null;
 
   if (!response?.ok || !payload?.authenticated || !payload?.user) {
-    return {
-      user: null,
-      reason: response?.status === 401 ? 'unauthorized' : 'unavailable',
-    } as const;
+    return null;
   }
 
-  return {
-    user: payload.user as AuthUser,
-    reason: null,
-  } as const;
+  return payload.user as AuthUser;
 }
 
 async function authenticateAndResolveUser() {
@@ -66,41 +60,24 @@ async function authenticateAndResolveUser() {
     throw new Error('Pi login did not return an access token.');
   }
 
+  setPiAuthToken(auth.accessToken);
+
   const loginResponse = await fetch('/api/auth/pi/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-App-Request': 'pi-web',
+      Authorization: `Bearer ${auth.accessToken}`,
     },
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
 
   const loginPayload = loginResponse ? await loginResponse.json().catch(() => null) : null;
 
-  if (!loginResponse?.ok || !loginPayload?.ok || !loginPayload?.session?.token) {
+  if (!loginResponse?.ok || !loginPayload?.ok) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  setPiAuthToken(String(loginPayload.session.token));
-
-  if (loginPayload?.user?.id && loginPayload?.user?.username && loginPayload?.user?.role) {
-    return {
-      id: Number(loginPayload.user.id),
-      username: String(loginPayload.user.username),
-      email: loginPayload.user.email ? String(loginPayload.user.email) : undefined,
-      role: String(loginPayload.user.role),
-      piUid: loginPayload.user.piUid ? String(loginPayload.user.piUid) : null,
-      piUsername: loginPayload.user.piUsername ? String(loginPayload.user.piUsername) : null,
-    } satisfies AuthUser;
-  }
-
-  const resolved = await readCurrentUser();
-  if (!resolved.user) {
-    throw new Error('Connected with Pi but failed to restore your session.');
-  }
-
-  return resolved.user;
+  return fetchCurrentUser();
 }
 
 export function PiAuthProvider({ children }: { children: React.ReactNode }) {
@@ -118,37 +95,46 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setError('');
 
-        const hasStoredToken = Boolean(getPiAuthToken());
-        if (hasStoredToken) {
-          const restored = await readCurrentUser();
-          if (restored.user) {
-            setUser(restored.user);
+        if (!forcePiAuth) {
+          const restoredUser = await fetchCurrentUser();
+          if (restoredUser) {
+            setUser(restoredUser);
             setStatus('authenticated');
-            return restored.user;
-          }
-
-          if (restored.reason === 'unauthorized') {
-            clearPiAuthToken();
+            return restoredUser;
           }
         }
 
+        const hasStoredToken = Boolean(getPiAuthToken());
         if (!forcePiAuth) {
+          if (!hasStoredToken) {
+            setUser(null);
+            setStatus('guest');
+            return null;
+          }
+
+          clearPiAuthToken();
           setUser(null);
           setStatus('guest');
           return null;
         }
 
-        setStatus('loading');
         const authenticatedUser = await authenticateAndResolveUser();
-        setUser(authenticatedUser);
-        setStatus('authenticated');
-        return authenticatedUser;
-      } catch (authError) {
-        const message = authError instanceof Error ? authError.message : 'Authentication failed.';
+        if (authenticatedUser) {
+          setUser(authenticatedUser);
+          setStatus('authenticated');
+          return authenticatedUser;
+        }
+
+        clearPiAuthToken();
         setUser(null);
         setStatus('guest');
-        setError(message);
-        throw authError instanceof Error ? authError : new Error(message);
+        return null;
+      } catch (authError) {
+        clearPiAuthToken();
+        setUser(null);
+        setStatus('guest');
+        setError(authError instanceof Error ? authError.message : 'Authentication failed.');
+        return null;
       } finally {
         requestRef.current = null;
       }
@@ -160,7 +146,9 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     setStatus('loading');
     const restoredUser = await runAuthFlow(false);
-    if (!restoredUser) setStatus('guest');
+    if (!restoredUser) {
+      setStatus('guest');
+    }
     return restoredUser;
   }, [runAuthFlow]);
 
@@ -172,16 +160,18 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
 
     setStatus('loading');
     const restoredUser = await runAuthFlow(true);
-    if (!restoredUser) setStatus('guest');
+    if (!restoredUser) {
+      setStatus('guest');
+    }
     return restoredUser;
   }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
+    clearPiAuthToken();
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: getPiAuthHeaders({ Accept: 'application/json', 'X-App-Request': 'pi-web' }),
+        headers: getPiAuthHeaders({ Accept: 'application/json' }),
     }).catch(() => null);
-    clearPiAuthToken();
     setUser(null);
     setStatus('guest');
     setError('');
@@ -190,14 +180,19 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
-    void runAuthFlow(isProtectedPath(pathname));
-  }, [pathname, runAuthFlow]);
 
-  useEffect(() => {
-    if (status === 'guest' && isProtectedPath(pathname) && getPiAuthToken()) {
-      void runAuthFlow(false);
-    }
-  }, [pathname, runAuthFlow, status]);
+    let active = true;
+    (async () => {
+      const shouldForce = isProtectedPath(pathname);
+      const resolvedUser = await runAuthFlow(shouldForce);
+      if (!active) return;
+      setStatus(resolvedUser ? 'authenticated' : 'guest');
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [pathname, runAuthFlow]);
 
   const value = useMemo<PiAuthContextValue>(() => ({
     user,

@@ -1,38 +1,44 @@
-const APP_SESSION_TOKEN_KEY = 'pi_app_session_token';
-
-let memoryToken: string | null = null;
+const PI_AUTH_TOKEN_KEY = 'pi_access_token';
 
 function isBrowser() {
   return typeof window !== 'undefined';
 }
 
-function getSessionStorageSafe() {
-  if (!isBrowser()) return null;
+function getStorages() {
+  if (!isBrowser()) return [];
+
+  const storages: Storage[] = [];
+
   try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
+    storages.push(window.sessionStorage);
+  } catch {}
+
+  try {
+    storages.push(window.localStorage);
+  } catch {}
+
+  return storages;
 }
 
 export function getPiAuthToken() {
-  if (memoryToken) return memoryToken;
-  const storage = getSessionStorageSafe();
-  const stored = storage?.getItem(APP_SESSION_TOKEN_KEY) || null;
-  if (stored) memoryToken = stored;
-  return stored;
+  for (const storage of getStorages()) {
+    const token = storage.getItem(PI_AUTH_TOKEN_KEY);
+    if (token) return token;
+  }
+
+  return null;
 }
 
 export function setPiAuthToken(token: string) {
-  memoryToken = token;
-  const storage = getSessionStorageSafe();
-  storage?.setItem(APP_SESSION_TOKEN_KEY, token);
+  for (const storage of getStorages()) {
+    storage.setItem(PI_AUTH_TOKEN_KEY, token);
+  }
 }
 
 export function clearPiAuthToken() {
-  memoryToken = null;
-  const storage = getSessionStorageSafe();
-  storage?.removeItem(APP_SESSION_TOKEN_KEY);
+  for (const storage of getStorages()) {
+    storage.removeItem(PI_AUTH_TOKEN_KEY);
+  }
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
@@ -44,15 +50,9 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
 }
 
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  const response = await fetch(input, {
+  return fetch(input, {
     ...init,
     headers: getPiAuthHeaders(init.headers),
     cache: init.cache ?? 'no-store',
   });
-
-  if (response.status === 401) {
-    clearPiAuthToken();
-  }
-
-  return response;
 }

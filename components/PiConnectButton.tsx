@@ -20,7 +20,8 @@ export function PiConnectButton({ className = 'button primary', children, redire
       setLoading(true);
       const user = await ensureAuthenticated();
       if (!user) {
-        throw new Error('Pi login failed.');
+        alert('Pi login failed. Please try again from Pi Browser.');
+        return;
       }
 
       const target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
