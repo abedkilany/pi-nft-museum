@@ -71,6 +71,7 @@ async function authenticateAndResolveUser() {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      'X-App-Request': 'pi-web',
     },
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
@@ -82,6 +83,17 @@ async function authenticateAndResolveUser() {
   }
 
   setPiAuthToken(String(loginPayload.session.token));
+
+  if (loginPayload?.user?.id && loginPayload?.user?.username && loginPayload?.user?.role) {
+    return {
+      id: Number(loginPayload.user.id),
+      username: String(loginPayload.user.username),
+      email: loginPayload.user.email ? String(loginPayload.user.email) : undefined,
+      role: String(loginPayload.user.role),
+      piUid: loginPayload.user.piUid ? String(loginPayload.user.piUid) : null,
+      piUsername: loginPayload.user.piUsername ? String(loginPayload.user.piUsername) : null,
+    } satisfies AuthUser;
+  }
 
   const resolved = await readCurrentUser();
   if (!resolved.user) {
@@ -132,10 +144,11 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
         setStatus('authenticated');
         return authenticatedUser;
       } catch (authError) {
+        const message = authError instanceof Error ? authError.message : 'Authentication failed.';
         setUser(null);
         setStatus('guest');
-        setError(authError instanceof Error ? authError.message : 'Authentication failed.');
-        return null;
+        setError(message);
+        throw authError instanceof Error ? authError : new Error(message);
       } finally {
         requestRef.current = null;
       }
@@ -166,7 +179,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: getPiAuthHeaders({ Accept: 'application/json' }),
+      headers: getPiAuthHeaders({ Accept: 'application/json', 'X-App-Request': 'pi-web' }),
     }).catch(() => null);
     clearPiAuthToken();
     setUser(null);

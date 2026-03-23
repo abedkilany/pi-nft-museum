@@ -25,16 +25,22 @@ export function assertSameOrigin(request: Request) {
   if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
 
   const origin = normalizeOrigin(getRequestOrigin(request));
+  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
+  if (origin && expectedOrigin && origin === expectedOrigin) {
+    return null;
+  }
+
+  const appRequestHeader = request.headers.get('x-app-request');
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (!origin && appRequestHeader === 'pi-web' && (!fetchSite || fetchSite === 'same-origin' || fetchSite === 'same-site' || fetchSite === 'none')) {
+    return null;
+  }
+
   if (!origin) {
     return NextResponse.json({ error: 'Missing request origin.' }, { status: 403 });
   }
 
-  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
-  if (!expectedOrigin || origin !== expectedOrigin) {
-    return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
-  }
-
-  return null;
+  return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
 }
 
 export function applyRateLimit(request: Request, identity: Array<string | number | null | undefined>, scope: string, strategies: Array<{ limit: number; windowMs: number }>) {
