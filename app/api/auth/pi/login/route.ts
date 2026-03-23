@@ -42,13 +42,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
-    const roleKey = await resolvePiRole(piUser);
-    const role = await prisma.role.findUnique({ where: { key: roleKey } });
-
-    if (!role) {
-      return NextResponse.json({ error: `Role "${roleKey}" is not configured in the database.` }, { status: 500 });
-    }
-
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
     const syntheticEmail = buildSyntheticEmail(piUser.uid);
 
@@ -67,6 +60,14 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
+    }
+
+
+    const roleKey = await resolvePiRole(piUser, user?.role?.key ?? null);
+    const role = await prisma.role.findUnique({ where: { key: roleKey } });
+
+    if (!role) {
+      return NextResponse.json({ error: `Role "${roleKey}" is not configured in the database.` }, { status: 500 });
     }
 
     if (!user) {

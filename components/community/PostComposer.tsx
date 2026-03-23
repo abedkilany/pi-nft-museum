@@ -35,7 +35,7 @@ export function PostComposer({ disabled = false, username, artworks = [] }: Prop
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data?.error || 'Unable to publish post.');
+        setMessage(response.status === 401 ? 'Your Pi session expired. Reconnect and try again.' : (data?.error || 'Unable to publish post.'));
         return;
       }
       setBody('');

@@ -2,6 +2,10 @@ import { headers } from 'next/headers';
 import type { SessionUser } from './auth';
 import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
 
+type HeaderSource = {
+  get(name: string): string | null;
+};
+
 async function resolveFromAppSession(token: string | null | undefined): Promise<SessionUser | null> {
   if (!token) return null;
 
@@ -13,14 +17,18 @@ async function resolveFromAppSession(token: string | null | undefined): Promise<
   }
 }
 
+export async function getCurrentUserFromHeaders(headerSource: HeaderSource): Promise<SessionUser | null> {
+  const token =
+    extractBearerToken(headerSource.get('authorization')) ||
+    headerSource.get('x-auth-token') ||
+    headerSource.get('x-app-auth-token');
+
+  return resolveFromAppSession(token);
+}
+
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    const headerStore = headers();
-    const token =
-      extractBearerToken(headerStore.get('authorization')) ||
-      headerStore.get('x-auth-token');
-
-    return resolveFromAppSession(token);
+    return getCurrentUserFromHeaders(headers());
   } catch {
     return null;
   }

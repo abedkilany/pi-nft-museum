@@ -165,7 +165,7 @@ export function PostCard({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data?.error || 'Unable to update like.');
+        setMessage(response.status === 401 ? 'Your Pi session expired. Reconnect and try again.' : (data?.error || 'Unable to update like.'));
         return;
       }
       router.refresh();
@@ -188,7 +188,7 @@ export function PostCard({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data?.error || 'Unable to delete post.');
+        setMessage(response.status === 401 ? 'Your Pi session expired. Reconnect and try again.' : (data?.error || 'Unable to delete post.'));
         return;
       }
       router.refresh();
