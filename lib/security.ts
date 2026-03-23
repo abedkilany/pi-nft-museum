@@ -7,6 +7,19 @@ function getRequestOrigin(request: Request) {
   return request.headers.get('origin') || request.headers.get('referer') || '';
 }
 
+function getRequestDebugMeta(request: Request) {
+  return {
+    origin: request.headers.get('origin'),
+    referer: request.headers.get('referer'),
+    host: request.headers.get('host'),
+    forwardedHost: request.headers.get('x-forwarded-host'),
+    forwardedProto: request.headers.get('x-forwarded-proto'),
+    secFetchSite: request.headers.get('sec-fetch-site'),
+    secFetchMode: request.headers.get('sec-fetch-mode'),
+    xAppRequest: request.headers.get('x-app-request'),
+  };
+}
+
 function getExpectedOrigin(request: Request) {
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || new URL(request.url).host;
   const proto = request.headers.get('x-forwarded-proto') || new URL(request.url).protocol.replace(':', '') || 'https';
@@ -24,14 +37,31 @@ function normalizeOrigin(value: string) {
 export function assertSameOrigin(request: Request) {
   if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
 
+  const debug = getRequestDebugMeta(request);
   const origin = normalizeOrigin(getRequestOrigin(request));
+  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
+
+  const xAppRequest = request.headers.get('x-app-request');
+  const secFetchSite = (request.headers.get('sec-fetch-site') || '').toLowerCase();
+
   if (!origin) {
-    return NextResponse.json({ error: 'Missing request origin.' }, { status: 403 });
+    if (xAppRequest === 'pi-web' || secFetchSite === 'same-origin' || secFetchSite === 'none') {
+      return null;
+    }
+
+    return NextResponse.json({
+      error: 'Missing request origin.',
+      code: 'MISSING_REQUEST_ORIGIN',
+      debug,
+    }, { status: 403 });
   }
 
-  const expectedOrigin = normalizeOrigin(getExpectedOrigin(request));
   if (!expectedOrigin || origin !== expectedOrigin) {
-    return NextResponse.json({ error: 'Cross-site request blocked.' }, { status: 403 });
+    return NextResponse.json({
+      error: 'Cross-site request blocked.',
+      code: 'CROSS_SITE_REQUEST_BLOCKED',
+      debug: { ...debug, normalizedOrigin: origin, expectedOrigin },
+    }, { status: 403 });
   }
 
   return null;

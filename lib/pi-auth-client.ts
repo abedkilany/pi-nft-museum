@@ -39,6 +39,7 @@ export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
   const token = getPiAuthToken();
   return {
     ...(init || {}),
+    'X-App-Request': 'pi-web',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
