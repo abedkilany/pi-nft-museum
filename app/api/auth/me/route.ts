@@ -20,12 +20,12 @@ export async function GET(request: NextRequest) {
       authHeaderPresent: Boolean(authHeader),
       bearerTokenPresent: Boolean(bearerToken),
       tokenSource: bearerToken ? 'bearer' : 'none',
-      authMode: 'token-only',
+      authMode: 'short-lived-app-session',
     });
 
     if (!bearerToken) {
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'NO_BEARER_TOKEN' },
+        { ok: false, authenticated: false, reason: 'NO_SESSION_TOKEN' },
         { status: 401 }
       );
     }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (!session) {
       return NextResponse.json(
-        { ok: false, authenticated: false, reason: 'INVALID_OR_UNKNOWN_PI_USER' },
+        { ok: false, authenticated: false, reason: 'INVALID_OR_EXPIRED_SESSION' },
         { status: 401 }
       );
     }
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       username: session.user.username,
       role: session.user.role.key,
       source: 'bearer',
-      authMode: 'token-only',
+      authMode: 'short-lived-app-session',
     });
 
     return NextResponse.json({

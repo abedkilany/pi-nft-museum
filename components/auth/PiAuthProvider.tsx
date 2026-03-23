@@ -60,23 +60,22 @@ async function authenticateAndResolveUser() {
     throw new Error('Pi login did not return an access token.');
   }
 
-  setPiAuthToken(auth.accessToken);
-
   const loginResponse = await fetch('/api/auth/pi/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${auth.accessToken}`,
+      Accept: 'application/json',
     },
     body: JSON.stringify({ accessToken: auth.accessToken }),
   }).catch(() => null);
 
   const loginPayload = loginResponse ? await loginResponse.json().catch(() => null) : null;
 
-  if (!loginResponse?.ok || !loginPayload?.ok) {
+  if (!loginResponse?.ok || !loginPayload?.ok || !loginPayload?.session?.token) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
+  setPiAuthToken(String(loginPayload.session.token));
   return fetchCurrentUser();
 }
 
@@ -105,14 +104,15 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const hasStoredToken = Boolean(getPiAuthToken());
-        if (!forcePiAuth) {
-          if (!hasStoredToken) {
-            setUser(null);
-            setStatus('guest');
-            return null;
-          }
+        if (!forcePiAuth && !hasStoredToken) {
+          setUser(null);
+          setStatus('guest');
+          return null;
+        }
 
-          clearPiAuthToken();
+        clearPiAuthToken();
+
+        if (!forcePiAuth) {
           setUser(null);
           setStatus('guest');
           return null;
@@ -125,7 +125,6 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           return authenticatedUser;
         }
 
-        clearPiAuthToken();
         setUser(null);
         setStatus('guest');
         return null;
@@ -167,11 +166,11 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
-    clearPiAuthToken();
     await fetch('/api/auth/logout', {
       method: 'POST',
-        headers: getPiAuthHeaders({ Accept: 'application/json' }),
+      headers: getPiAuthHeaders({ Accept: 'application/json' }),
     }).catch(() => null);
+    clearPiAuthToken();
     setUser(null);
     setStatus('guest');
     setError('');

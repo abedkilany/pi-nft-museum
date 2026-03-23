@@ -69,6 +69,9 @@ export async function POST(request: Request) {
     status: targetUser.status,
   };
 
+  const roleChanged = targetUser.roleId !== roleId;
+  const statusChanged = targetUser.status !== (status as any);
+
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -79,6 +82,8 @@ export async function POST(request: Request) {
       country: country || null,
       roleId,
       status: status as any,
+      roleVersion: roleChanged ? { increment: 1 } : undefined,
+      sessionVersion: roleChanged || statusChanged ? { increment: 1 } : undefined,
       headline: headline || null,
       bio: bio || null,
       profileImage: profileImage || null,
