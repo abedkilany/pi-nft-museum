@@ -86,13 +86,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
-    const resolvedRoleKey = await resolvePiRole(piUser);
-    logger.info('PI_LOGIN_ROUTE_ROLE_RESOLVED', {
-        ...baseMeta, resolvedRoleKey, piUid: piUser.uid });
-    const resolvedRole = await prisma.role.findUnique({ where: { key: resolvedRoleKey } });
+    const envRoleHintKey = await resolvePiRole(piUser);
+    logger.info('PI_LOGIN_ROUTE_ROLE_HINT_RESOLVED', {
+      ...baseMeta,
+      envRoleHintKey,
+      piUid: piUser.uid,
+    });
+    const resolvedRole = await prisma.role.findUnique({ where: { key: envRoleHintKey } });
 
     if (!resolvedRole) {
-      return NextResponse.json({ error: `Role "${resolvedRoleKey}" is not configured in the database.` }, { status: 500 });
+      return NextResponse.json({ error: `Role "${envRoleHintKey}" is not configured in the database.` }, { status: 500 });
     }
 
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
@@ -182,6 +185,17 @@ export async function POST(request: Request) {
         });
       }
     }
+
+
+    logger.info('PI_LOGIN_ROUTE_ROLE_RESOLVED', {
+      ...baseMeta,
+      userId: user.id,
+      piUid: piUser.uid,
+      envRoleHintKey,
+      resolvedRoleKey: user.role.key,
+      sessionVersion: user.sessionVersion,
+      roleVersion: user.roleVersion,
+    });
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
       logger.warn('PI_LOGIN_ROUTE_BLOCKED_BY_STATUS', {
