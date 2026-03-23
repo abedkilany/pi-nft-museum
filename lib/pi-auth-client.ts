@@ -36,13 +36,14 @@ export function clearPiAuthToken() {
   storage?.removeItem(APP_SESSION_TOKEN_KEY);
 }
 
-export function getPiAuthHeaders(init?: HeadersInit): HeadersInit {
+export function getPiAuthHeaders(init?: HeadersInit): Headers {
   const token = getPiAuthToken();
-  return {
-    ...(init || {}),
-    'X-App-Request': 'pi-web',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = new Headers(init || {});
+  headers.set('X-App-Request', 'pi-web');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
 }
 
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
