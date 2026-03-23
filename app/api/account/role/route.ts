@@ -71,9 +71,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Staff roles cannot be changed from this screen.' }, { status: 403 });
     }
 
+    const roleChanged = current.roleId !== role.id;
     const updatedUser = await prisma.user.update({
       where: { id: current.id },
-      data: { roleId: role.id },
+      data: {
+        roleId: role.id,
+        roleVersion: roleChanged ? { increment: 1 } : undefined,
+        sessionVersion: roleChanged ? { increment: 1 } : undefined,
+      },
       include: { role: true }
     });
 

@@ -7,9 +7,9 @@ import {
   fetchPiUser,
   resolvePiRole
 } from '@/lib/pi-auth';
-import { applyRateLimit } from '@/lib/security';
+import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { assertSameOrigin } from '@/lib/security';
+import { issueAppSessionToken } from '@/lib/app-session';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       referer: request.headers.get('referer'),
       forwardedProto: request.headers.get('x-forwarded-proto'),
       forwardedHost: request.headers.get('x-forwarded-host'),
-      authMode: 'token-only',
+      authMode: 'short-lived-app-session',
     });
 
     if (!accessToken) {
@@ -41,11 +41,6 @@ export async function POST(request: Request) {
     if (!piUser?.uid) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
-
-    logger.info('Pi user verified', {
-      piUid: piUser.uid,
-      piUsername: piUser.username || null
-    });
 
     const roleKey = await resolvePiRole(piUser);
     const role = await prisma.role.findUnique({ where: { key: roleKey } });
@@ -93,15 +88,9 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
-
-      logger.info('Pi user account created', {
-        userId: user.id,
-        role: role.key,
-        piUid: piUser.uid,
-        piUsername: piUser.username || null
-      });
     } else {
       const username = await ensureUniqueUsername(piUser.username || user.username, user.id);
+      const roleChanged = user.roleId !== role.id;
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -109,6 +98,8 @@ export async function POST(request: Request) {
           fullName: user.fullName || piUser.username || username,
           email: user.email || syntheticEmail,
           status: user.status === 'PENDING' ? 'ACTIVE' : user.status,
+          roleId: role.id,
+          roleVersion: roleChanged ? { increment: 1 } : undefined,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
           piWalletAddress: piUser.wallet_address || user.piWalletAddress || null,
@@ -117,13 +108,6 @@ export async function POST(request: Request) {
           lastLoginAt: new Date(),
         },
         include: { role: true }
-      });
-
-      logger.info('Pi user record updated for sign-in', {
-        userId: user.id,
-        role: user.role.key,
-        piUid: user.piUid,
-        piUsername: user.piUsername || null
       });
     }
 
@@ -138,18 +122,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
     }
 
+    const session = await issueAppSessionToken({
+      userId: user.id,
+      role: user.role.key,
+      piUid: user.piUid,
+      piUsername: user.piUsername,
+      sessionVersion: user.sessionVersion,
+      roleVersion: user.roleVersion,
+    });
+
     await createAuditLog({
       userId: user.id,
       action: 'LOGIN_SUCCESS',
       targetType: 'USER',
       targetId: user.id,
-      newValues: { role: user.role.key, piUid: user.piUid, authMode: 'token-only' },
+      newValues: { role: user.role.key, piUid: user.piUid, authMode: 'short-lived-app-session' },
     });
 
     return NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
-      authMode: 'token-only',
+      authMode: 'short-lived-app-session',
+      session: {
+        token: session.token,
+        expiresInSeconds: session.expiresInSeconds,
+        expiresAt: session.expiresAt,
+      },
       user: {
         id: user.id,
         username: user.username,
