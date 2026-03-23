@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
+import { classifyEventSeverity, trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
 import { appendSystemLog } from '@/lib/system-log';
 import { mapSeverityFromStatus, normalizeError, recordErrorLog } from '@/lib/error-tracker';
 
@@ -23,6 +23,33 @@ function sanitizeMeta(meta: unknown): unknown {
   return sanitizeEventValue(meta);
 }
 
+
+function metaRecord(meta: unknown) {
+  return meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : null;
+}
+
+function extractContext(meta: unknown) {
+  const record = metaRecord(meta);
+  return {
+    feature: typeof record?.feature === 'string' ? record.feature : null,
+    route: typeof record?.route === 'string' ? record.route : null,
+    method: typeof record?.method === 'string' ? record.method : null,
+    url: typeof record?.url === 'string' ? record.url : null,
+    component: typeof record?.component === 'string' ? record.component : null,
+    sessionId: typeof record?.sessionId === 'string' ? record.sessionId : null,
+    requestId: typeof record?.requestId === 'string' ? record.requestId : null,
+    traceId: typeof record?.traceId === 'string' ? record.traceId : null,
+    correlationId: typeof record?.correlationId === 'string'
+      ? record.correlationId
+      : typeof record?.traceId === 'string'
+        ? record.traceId
+        : null,
+    entityType: typeof record?.entityType === 'string' ? record.entityType : null,
+    entityId: typeof record?.entityId === 'string' || typeof record?.entityId === 'number' ? String(record.entityId) : null,
+    userId: typeof record?.userId === 'number' ? record.userId : null,
+  };
+}
+
 function buildEntry(level: LogLevel, message: string, meta?: unknown) {
   return {
     timestamp: new Date().toISOString(),
@@ -36,6 +63,7 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
   let sentryEventId: string | null = null;
   const normalized = normalizeError(meta ?? message);
   const sanitizedMeta = meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) };
+  const context = extractContext(sanitizedMeta);
 
   try {
     if (level === 'error') {
@@ -53,11 +81,23 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
     type: 'LOGGER',
     name: `LOGGER_${level.toUpperCase()}`,
     status: level === 'error' ? 'FAILED' : level === 'warn' ? 'WARNING' : 'SUCCESS',
-    severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : level === 'warn' ? 'LOW' : null,
+    severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : level === 'warn' ? classifyEventSeverity({ failed: true, status: normalized.status, category: context.feature === 'security' ? 'SECURITY' : 'SYSTEM_FLOW' }) : null,
     isHealthy: level === 'debug' || level === 'info',
     message,
     readableSummary: message,
     source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
+    feature: context.feature,
+    route: context.route,
+    method: context.method,
+    url: context.url,
+    component: context.component,
+    userId: context.userId,
+    sessionId: context.sessionId,
+    requestId: context.requestId,
+    traceId: context.traceId,
+    correlationId: context.correlationId,
+    entityType: context.entityType,
+    entityId: context.entityId,
     errorName: normalized.name,
     errorCode: normalized.code,
     errorStack: normalized.stack,

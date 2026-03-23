@@ -95,6 +95,36 @@ function compactText(value: string | null | undefined, limit = 4000) {
   return cleaned.length > limit ? `${cleaned.slice(0, limit)}…` : cleaned;
 }
 
+function inferFeature(input: AppEventInput) {
+  if (input.feature) return input.feature;
+  const sourceText = `${input.eventKey || ''} ${input.name || ''} ${input.message || ''}`.toUpperCase();
+  if (sourceText.includes('PI_') || sourceText.includes('AUTH')) return 'auth';
+  if (sourceText.includes('PAYMENT')) return 'payments';
+  if (sourceText.includes('UPLOAD')) return 'uploads';
+  if (sourceText.includes('ADMIN')) return 'admin';
+  if (sourceText.includes('COMMENT')) return 'comments';
+  if (sourceText.includes('ARTWORK')) return 'artwork';
+  if (sourceText.includes('SECURITY')) return 'security';
+  if (input.route?.startsWith('/admin')) return 'admin';
+  return null;
+}
+
+function inferStep(input: AppEventInput) {
+  const sourceText = `${input.eventKey || ''} ${input.name || ''} ${input.message || ''}`.toUpperCase();
+  if (sourceText.includes('BUTTON')) return 'interaction';
+  if (sourceText.includes('FLOW_START')) return 'flow_start';
+  if (sourceText.includes('SDK_START')) return 'sdk_start';
+  if (sourceText.includes('SDK_SUCCESS')) return 'sdk_success';
+  if (sourceText.includes('SERVER_LOGIN_START')) return 'server_login_start';
+  if (sourceText.includes('SESSION_TOKEN_STORED')) return 'session_token_stored';
+  if (sourceText.includes('ME_REQUEST_START')) return 'session_restore_start';
+  if (sourceText.includes('ME_REQUEST_SUCCESS')) return 'session_restore_success';
+  if (sourceText.includes('SESSION_ISSUED')) return 'session_issued';
+  if (sourceText.includes('LOGIN_SUCCESS') || sourceText.includes('FLOW_AUTHENTICATED')) return 'completed';
+  if (sourceText.includes('ERROR') || sourceText.includes('FAILED')) return 'failed';
+  return null;
+}
+
 function buildFingerprint(input: AppEventInput) {
   const raw = [
     input.category,
@@ -114,6 +144,14 @@ function buildFingerprint(input: AppEventInput) {
 
 export async function trackAppEvent(input: AppEventInput) {
   try {
+    const feature = inferFeature(input);
+    const step = inferStep(input);
+    const tags = {
+      ...(input.tags || {}),
+      ...(step ? { step } : {}),
+      anomaly: input.status === 'FAILED' || input.status === 'WARNING'
+    } as Record<string, unknown>;
+
     await prisma.appEvent.create({
       data: {
         eventKey: compactText(input.eventKey || input.name, 180) || 'APP_EVENT',
@@ -126,7 +164,7 @@ export async function trackAppEvent(input: AppEventInput) {
         message: compactText(input.message, 6000),
         readableSummary: compactText(input.readableSummary, 2000),
         source: compactText(input.source, 60),
-        feature: compactText(input.feature, 120),
+        feature: compactText(feature, 120),
         route: compactText(input.route, 512),
         method: compactText(input.method, 32),
         url: compactText(input.url, 2000),
@@ -146,7 +184,7 @@ export async function trackAppEvent(input: AppEventInput) {
         errorCode: compactText(input.errorCode, 120),
         errorStack: compactText(input.errorStack, 20000),
         fingerprint: compactText(input.fingerprint || buildFingerprint(input), 180),
-        tagsJson: asJson(input.tags ?? null),
+        tagsJson: asJson(tags),
         dataJson: asJson(input.data ?? null)
       }
     });

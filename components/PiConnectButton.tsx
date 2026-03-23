@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
+import { beginClientTrace, buildObservabilityHeaders } from '@/lib/observability-client';
 
 type Props = {
   className?: string;
@@ -14,31 +15,30 @@ export function PiConnectButton({ className = 'button primary', children, redire
   const { ensureAuthenticated } = usePiAuth();
 
   async function handleConnect() {
-    await fetch('/api/auth/pi/debug', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-App-Request': 'pi-web',
-      },
-      body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_CLICKED', meta: { redirectTo: redirectTo || null } }),
-      cache: 'no-store',
-    }).catch(() => null);
-
     if (loading) return;
 
     try {
       setLoading(true);
-      const user = await ensureAuthenticated();
+      const traceId = beginClientTrace();
+      const headers = buildObservabilityHeaders({
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-App-Request': 'pi-web',
+      }, traceId);
+
+      await fetch('/api/auth/pi/debug', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_CLICKED', meta: { redirectTo: redirectTo || null, traceId } }),
+        cache: 'no-store',
+      }).catch(() => null);
+
+      const user = await ensureAuthenticated(traceId);
       if (!user) {
         await fetch('/api/auth/pi/debug', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-App-Request': 'pi-web',
-          },
-          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn' }),
+          headers,
+          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId } }),
           cache: 'no-store',
         }).catch(() => null);
         alert('Pi login failed. Check audit log/system log for PI_AUTH_* events.');
@@ -50,11 +50,11 @@ export function PiConnectButton({ className = 'button primary', children, redire
     } catch (error) {
       await fetch('/api/auth/pi/debug', {
         method: 'POST',
-        headers: {
+        headers: buildObservabilityHeaders({
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-App-Request': 'pi-web',
-        },
+        }),
         body: JSON.stringify({
           event: 'PI_CONNECT_BUTTON_ERROR',
           level: 'warn',

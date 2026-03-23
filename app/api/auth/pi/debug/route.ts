@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const event = typeof body?.event === 'string' ? body.event : 'PI_CLIENT_DEBUG';
     const level = body?.level === 'warn' ? 'warn' : 'info';
+    const ctx = getRequestContextFromHeaders(request.headers);
 
     const meta = {
       ...((body?.meta && typeof body.meta === 'object' && !Array.isArray(body.meta)) ? body.meta : {}),
@@ -15,6 +17,12 @@ export async function POST(request: Request) {
       userAgent: request.headers.get('user-agent'),
       authMode: 'short-lived-app-session',
       clientDebug: true,
+      feature: 'auth',
+      requestId: ctx.requestId,
+      traceId: ctx.traceId || (typeof body?.meta?.traceId === 'string' ? body.meta.traceId : null),
+      correlationId: ctx.correlationId || (typeof body?.meta?.traceId === 'string' ? body.meta.traceId : null),
+      sessionId: ctx.sessionId || null,
+      ipAddress: ctx.ipAddress || null,
     };
 
     if (level === 'warn') {

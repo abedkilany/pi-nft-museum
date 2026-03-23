@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
+import { sanitizeEventValue } from '@/lib/app-events';
 
 export type SystemLogEntry = {
   timestamp: string;
@@ -36,17 +36,6 @@ export async function appendSystemLog(entry: SystemLogEntry) {
     }
   });
 
-  await trackAppEvent({
-    category: 'SYSTEM_FLOW',
-    type: 'SYSTEM_LOG',
-    name: `SYSTEM_LOG_${entry.level.toUpperCase()}`,
-    status: entry.level === 'error' ? 'FAILED' : entry.level === 'warn' ? 'WARNING' : 'SUCCESS',
-    severity: entry.level === 'error' ? 'MEDIUM' : entry.level === 'warn' ? 'LOW' : null,
-    isHealthy: entry.level !== 'warn' && entry.level !== 'error',
-    source: 'SERVER',
-    message: entry.message,
-    data: typeof entry.meta === 'object' && entry.meta ? (sanitizeEventValue(entry.meta) as Record<string, unknown>) : undefined
-  });
 }
 
 export async function readSystemLogs(limit = 250): Promise<SystemLogEntry[]> {

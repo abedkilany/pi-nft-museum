@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 
 type EventPayload = Record<string, unknown> & {
   category: string;
@@ -10,18 +11,12 @@ type EventPayload = Record<string, unknown> & {
   status?: string;
 };
 
-function getSessionId() {
-  const key = 'app_event_session_id';
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const created = crypto.randomUUID();
-  window.sessionStorage.setItem(key, created);
-  return created;
-}
+function sendEvent(payload: EventPayload, options?: { beginTrace?: boolean }) {
+  const sessionId = getClientSessionId();
+  const traceId = options?.beginTrace
+    ? beginClientTrace(typeof payload.traceId === 'string' ? payload.traceId : null)
+    : consumeOrCreateTraceId(typeof payload.traceId === 'string' ? payload.traceId : null);
 
-function sendEvent(payload: EventPayload) {
-  const sessionId = getSessionId();
-  const traceId = typeof payload.traceId === 'string' ? payload.traceId : crypto.randomUUID();
   const body = JSON.stringify({
     status: 'SUCCESS',
     source: 'CLIENT',
@@ -41,7 +36,7 @@ function sendEvent(payload: EventPayload) {
 
   void fetch('/api/events', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Trace-Id': traceId, 'X-Session-Id': sessionId },
+    headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
     body,
     keepalive: true,
     cache: 'no-store'
@@ -122,7 +117,7 @@ export function AppEventClient() {
       if (!target) return;
       const payload = buildClickPayload(target);
       if (!payload) return;
-      sendEvent(payload);
+      sendEvent(payload, { beginTrace: true });
     };
 
     const onSubmit = (event: SubmitEvent) => {
@@ -140,7 +135,7 @@ export function AppEventClient() {
           method: form.method || null,
           classes: form.className || null
         }
-      });
+      }, { beginTrace: true });
     };
 
     document.addEventListener('click', onClick, true);
