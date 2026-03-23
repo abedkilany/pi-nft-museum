@@ -6,7 +6,7 @@ import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function GalleryPage() {
   const artworks = await prisma.artwork.findMany({
-    where: { status: 'APPROVED' },
+    where: { status: 'PUBLISHED' },
     include: {
       artist: { include: { artistProfile: true } },
       category: true,
