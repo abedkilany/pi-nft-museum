@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requireAdminPage } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
+import { ErrorExportButtons } from '@/components/admin/ErrorExportButtons';
+import { ErrorStatusForm } from '@/components/admin/ErrorStatusForm';
 
 const badgeStyles: Record<string, CSSProperties> = {
   OPEN: { background: 'rgba(255, 92, 92, 0.16)', borderColor: 'rgba(255, 92, 92, 0.4)' },
@@ -12,7 +13,6 @@ const badgeStyles: Record<string, CSSProperties> = {
 };
 
 export default async function AdminErrorDetailPage({ params }: { params: { id: string } }) {
-  await requireAdminPage();
   const error = await prisma.errorLog.findUnique({
     where: { id: Number(params.id) },
     include: { user: { select: { id: true, username: true, email: true } } }
@@ -33,22 +33,13 @@ export default async function AdminErrorDetailPage({ params }: { params: { id: s
 
         <div className="card-actions" style={{ flexWrap: 'wrap' }}>
           <Link href="/admin/errors" className="button secondary">Back to error center</Link>
-          <a href={`/api/admin/errors/export?format=json&id=${error.id}`} className="button secondary">Download JSON</a>
+          <ErrorExportButtons id={error.id} />
           {error.sentryEventId ? <span className="pill">Sentry event {error.sentryEventId}</span> : <span className="pill">No Sentry event id</span>}
         </div>
       </section>
 
       <section className="card" style={{ padding: '20px' }}>
-        <form action={`/api/admin/errors/${error.id}/status`} method="POST" style={{ display: 'grid', gap: '12px', gridTemplateColumns: '1fr 240px 220px' }}>
-          <textarea name="note" placeholder="Optional note for your team or programmer" defaultValue="" />
-          <select name="status" defaultValue={error.status}>
-            <option value="OPEN">Open</option>
-            <option value="INVESTIGATING">Investigating</option>
-            <option value="RESOLVED">Resolved</option>
-            <option value="IGNORED">Ignored</option>
-          </select>
-          <button type="submit" className="button primary">Update status</button>
-        </form>
+        <ErrorStatusForm errorId={error.id} currentStatus={error.status} />
       </section>
 
       <section className="card" style={{ padding: '20px', display: 'grid', gap: '18px' }}>

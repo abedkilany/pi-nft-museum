@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Prisma } from '@prisma/client';
-import { requireAdminPage } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
+import { ErrorExportButtons } from '@/components/admin/ErrorExportButtons';
 
 type SearchParams = {
   status?: string;
@@ -48,8 +48,6 @@ function badgeStyle(value: string) {
 }
 
 export default async function AdminErrorsPage({ searchParams }: { searchParams?: SearchParams }) {
-  await requireAdminPage();
-
   const where = toWhere(searchParams ?? {});
   const [errors, counts, latest] = await Promise.all([
     prisma.errorLog.findMany({
@@ -98,8 +96,7 @@ export default async function AdminErrorsPage({ searchParams }: { searchParams?:
         </div>
 
         <div className="card-actions" style={{ marginTop: '18px', flexWrap: 'wrap' }}>
-          <a href={`/api/admin/errors/export?format=csv&${exportQuery.toString()}`} className="button secondary">Download CSV</a>
-          <a href={`/api/admin/errors/export?format=json&${exportQuery.toString()}`} className="button secondary">Download JSON</a>
+          <ErrorExportButtons queryString={exportQuery.toString()} />
           <Link href="/admin/system" className="button secondary">Legacy system logs</Link>
           {latest ? <span className="pill">Last error {new Date(latest.lastSeenAt).toLocaleString()}</span> : <span className="pill">No tracked errors yet</span>}
         </div>
