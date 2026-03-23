@@ -14,6 +14,35 @@ export function PiConnectButton({ className = 'button primary', children, redire
   const [loading, setLoading] = useState(false);
   const { ensureAuthenticated } = usePiAuth();
 
+  async function wait(ms: number) {
+    await new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  async function emitEvent(headers: HeadersInit, traceId: string, name: string, status: 'STARTED' | 'SUCCESS' | 'WARNING' | 'FAILED', data?: Record<string, unknown>) {
+    await fetch('/api/events', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        category: 'SYSTEM_FLOW',
+        type: 'AUTH_POST_LOGIN',
+        name,
+        eventKey: name,
+        status,
+        source: 'CLIENT',
+        feature: 'auth',
+        route: window.location.pathname,
+        url: window.location.href,
+        sessionId: window.sessionStorage.getItem('app_event_session_id'),
+        traceId,
+        correlationId: traceId,
+        isHealthy: status === 'SUCCESS' || status === 'STARTED',
+        data: data || null,
+      }),
+      cache: 'no-store',
+      keepalive: true,
+    }).catch(() => null);
+  }
+
   async function handleConnect() {
     if (loading) return;
 
@@ -33,17 +62,40 @@ export function PiConnectButton({ className = 'button primary', children, redire
         cache: 'no-store',
       }).catch(() => null);
 
-      const user = await ensureAuthenticated(traceId);
+      await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 1, redirectTo: redirectTo || null });
+      let user = await ensureAuthenticated(traceId);
       if (!user) {
         await fetch('/api/auth/pi/debug', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId } }),
+          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId, attempt: 1 } }),
           cache: 'no-store',
         }).catch(() => null);
-        alert('Pi login failed. Check audit log/system log for PI_AUTH_* events.');
+        await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_RETRY_SCHEDULED', 'WARNING', { reason: 'NO_USER', attempt: 1, retryDelayMs: 900 });
+        await wait(900);
+        await fetch('/api/auth/pi/debug', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_RETRYING_AFTER_NO_USER', meta: { traceId, attempt: 2 } }),
+          cache: 'no-store',
+        }).catch(() => null);
+        await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 2, redirectTo: redirectTo || null, retry: true });
+        user = await ensureAuthenticated(traceId);
+      }
+
+      if (!user) {
+        await fetch('/api/auth/pi/debug', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER_FINAL', level: 'warn', meta: { traceId, attempts: 2 } }),
+          cache: 'no-store',
+        }).catch(() => null);
+        await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_FAILED_NO_USER', 'FAILED', { attempts: 2 });
+        alert('Pi Browser did not return your Pi user yet. Please wait a moment and try again.');
         return;
       }
+
+      await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_RESOLVED', 'SUCCESS', { userId: user.id, role: user.role });
 
       const target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
 
