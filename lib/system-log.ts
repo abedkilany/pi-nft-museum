@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { trackAppEvent, sanitizeEventValue } from '@/lib/app-events';
 
@@ -31,7 +32,7 @@ export async function appendSystemLog(entry: SystemLogEntry) {
         meta: sanitizeEventValue(entry.meta ?? null),
         timestamp: entry.timestamp,
         level: entry.level
-      }
+      } as Prisma.InputJsonValue
     }
   });
 
