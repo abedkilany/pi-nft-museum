@@ -1,5 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { safeAppEventQuery } from '@/lib/app-events';
+
+export const dynamic = 'force-dynamic';
 
 type SearchParams = {
   category?: string;
@@ -42,15 +45,15 @@ function badgeStyle(value: string | null | undefined) {
 export default async function AdminEventsPage({ searchParams }: { searchParams?: SearchParams }) {
   const where = toWhere(searchParams ?? {});
   const [events, groupedStatus, groupedCategory, latest] = await Promise.all([
-    prisma.appEvent.findMany({
+    safeAppEventQuery(() => prisma.appEvent.findMany({
       where,
       include: { user: { select: { id: true, username: true, email: true } } },
       orderBy: { createdAt: 'desc' },
       take: 300
-    }),
-    prisma.appEvent.groupBy({ by: ['status'], _count: { _all: true } }),
-    prisma.appEvent.groupBy({ by: ['category'], _count: { _all: true }, orderBy: { _count: { category: 'desc' } }, take: 6 }),
-    prisma.appEvent.findFirst({ orderBy: { createdAt: 'desc' } })
+    }), []),
+    safeAppEventQuery(() => prisma.appEvent.groupBy({ by: ['status'], _count: { _all: true } }), []),
+    safeAppEventQuery(() => prisma.appEvent.groupBy({ by: ['category'], _count: { _all: true }, orderBy: { _count: { category: 'desc' } }, take: 6 }), []),
+    safeAppEventQuery(() => prisma.appEvent.findFirst({ orderBy: { createdAt: 'desc' } }), null)
   ]);
 
   const statusSummary = Object.fromEntries(groupedStatus.map((row) => [row.status, row._count._all]));

@@ -153,6 +153,26 @@ export async function trackAppEvent(input: AppEventInput) {
   } catch {}
 }
 
+
+export function isAppEventTableMissingError(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: string; message?: string };
+  if (maybe.code === 'P2021') return true;
+  const message = String(maybe.message || '');
+  return message.includes('AppEvent') && message.includes('does not exist');
+}
+
+export async function safeAppEventQuery<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isAppEventTableMissingError(error)) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
 export function classifyEventSeverity(input: { status?: number | null; failed?: boolean; category?: string | null }) {
   if (input.category === 'SECURITY') return 'HIGH';
   if (input.status && input.status >= 500) return 'HIGH';

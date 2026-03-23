@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { safeAppEventQuery } from '@/lib/app-events';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
   const [usersCount, artworksCount, pendingArtworksCount, publishedCount, pagesCount, categoriesCount, countriesCount, commentsCount, reportsCount, appEventsCount] = await Promise.all([
@@ -12,7 +15,7 @@ export default async function AdminDashboardPage() {
     prisma.country.count(),
     prisma.artworkComment.count(),
     prisma.artworkReport.count(),
-    prisma.appEvent.count()
+    safeAppEventQuery(() => prisma.appEvent.count(), 0)
   ]);
 
   return (
