@@ -1,4 +1,4 @@
-use client';
+'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
