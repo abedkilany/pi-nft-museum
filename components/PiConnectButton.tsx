@@ -98,7 +98,19 @@ export function PiConnectButton({ className = 'button primary', children, redire
 
       await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_RESOLVED', 'SUCCESS', { userId: user.id, role: user.role });
 
-      const target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
+      let target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
+
+      if (!redirectTo && (user.role === 'admin' || user.role === 'superadmin')) {
+        const adminEntryResponse = await fetch('/api/auth/admin-entry', {
+          method: 'POST',
+          headers: getPiAuthHeaders(headers),
+          cache: 'no-store',
+        }).catch(() => null);
+        const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
+        if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url) {
+          target = String(adminEntryPayload.url);
+        }
+      }
 
       await fetch('/api/events', {
         method: 'POST',
@@ -122,18 +134,6 @@ export function PiConnectButton({ className = 'button primary', children, redire
         cache: 'no-store',
         keepalive: true,
       }).catch(() => null);
-
-      if (target.startsWith('/admin')) {
-        const bridgeResponse = await fetch('/api/auth/session-bridge', {
-          method: 'POST',
-          headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
-          cache: 'no-store',
-        }).catch(() => null);
-
-        if (!bridgeResponse?.ok) {
-          throw new Error('Failed to prepare admin session.');
-        }
-      }
 
       window.location.assign(target);
     } catch (error) {

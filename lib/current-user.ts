@@ -1,7 +1,7 @@
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import type { SessionUser } from './auth';
 import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
-import { ADMIN_SESSION_BRIDGE_COOKIE } from './admin-bridge';
+import { resolveAdminBridgeToken } from './admin-bridge';
 
 async function resolveFromAppSession(token: string | null | undefined): Promise<SessionUser | null> {
   if (!token) return null;
@@ -14,17 +14,28 @@ async function resolveFromAppSession(token: string | null | undefined): Promise<
   }
 }
 
+async function resolveFromAdminBridge(token: string | null | undefined): Promise<SessionUser | null> {
+  if (!token) return null;
+
+  try {
+    return await resolveAdminBridgeToken(token);
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    const headerStore = headers();
-    const cookieStore = cookies();
-    const token =
+    const headerStore = await headers();
+    const bearerToken =
       extractBearerToken(headerStore.get('authorization')) ||
-      headerStore.get('x-auth-token') ||
-      cookieStore.get(ADMIN_SESSION_BRIDGE_COOKIE)?.value ||
-      null;
+      headerStore.get('x-auth-token');
 
-    return resolveFromAppSession(token);
+    const sessionUser = await resolveFromAppSession(bearerToken);
+    if (sessionUser) return sessionUser;
+
+    const adminBridgeToken = headerStore.get('x-admin-grant');
+    return resolveFromAdminBridge(adminBridgeToken);
   } catch {
     return null;
   }

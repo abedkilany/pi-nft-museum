@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { AdminPageLink } from '@/components/auth/AdminPageLink';
 import { useEffect, useState } from 'react';
 import { DeleteAccountSection } from '@/components/account/DeleteAccountSection';
 import { ProfileForms } from '@/components/account/ProfileForms';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
+import { AdminPageLink } from '@/components/auth/AdminPageLink';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 export default function AccountPage() {

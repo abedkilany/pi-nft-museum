@@ -1,35 +1,46 @@
 'use client';
 
-import type { ReactNode, MouseEvent } from 'react';
+import { ReactNode, useState } from 'react';
 import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 
 type Props = {
-  href?: string;
   className?: string;
-  children: ReactNode;
+  children?: ReactNode;
 };
 
-export function AdminPageLink({ href = '/admin', className, children }: Props) {
-  async function handleClick(event: MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
+export function AdminPageLink({ className = 'button secondary', children }: Props) {
+  const [loading, setLoading] = useState(false);
 
-    const response = await fetch('/api/auth/session-bridge', {
-      method: 'POST',
-      headers: getPiAuthHeaders({ Accept: 'application/json' }),
-      cache: 'no-store',
-    }).catch(() => null);
+  async function handleClick() {
+    if (loading) return;
+    setLoading(true);
 
-    if (!response?.ok) {
-      window.location.assign('/login');
-      return;
+    try {
+      const response = await fetch('/api/auth/admin-entry', {
+        method: 'POST',
+        headers: getPiAuthHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-App-Request': 'pi-web',
+        }),
+        cache: 'no-store',
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok || !payload?.url) {
+        throw new Error(payload?.error || 'Unable to open admin panel.');
+      }
+
+      window.location.assign(payload.url as string);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to open admin panel.');
+      setLoading(false);
     }
-
-    window.location.assign(href);
   }
 
   return (
-    <a href={href} className={className} onClick={handleClick}>
-      {children}
-    </a>
+    <button type="button" className={className} onClick={handleClick} disabled={loading}>
+      {loading ? 'Opening…' : children || 'Admin panel'}
+    </button>
   );
 }
