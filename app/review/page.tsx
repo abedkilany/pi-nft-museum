@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { RatingStars } from '@/components/ratings/RatingStars';
+import { AuthAwareRatingStars } from '@/components/auth/AuthAwareRatingStars';
 import { formatDateTime } from '@/lib/artwork-windows';
 import { getReviewStatuses } from '@/lib/artwork-workflow';
 import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function ReviewPage() {
-  const user = await getCurrentUser();
   const settings = await getSiteSettingsMap();
   const reviewStatuses = getReviewStatuses(settings);
   const artworks = await prisma.artwork.findMany({
@@ -16,7 +14,6 @@ export default async function ReviewPage() {
     include: {
       artist: { include: { artistProfile: true } },
       category: true,
-      ratings: user ? { where: { userId: user.userId }, take: 1 } : false
     },
     orderBy: [{ mintWindowOpensAt: 'asc' }, { createdAt: 'desc' }]
   });
@@ -27,7 +24,7 @@ export default async function ReviewPage() {
         <h1 style={{ margin: '0 0 8px' }}>Public review</h1>
         <p style={{ margin: 0, color: 'var(--muted)' }}>Artworks are reviewed here before mint. They do not appear in the main gallery until mint succeeds.</p>
       </section>
-      {!user ? <section className="card surface-section"><p style={{ margin: 0 }}>Login with Pi to rate artworks during review.</p></section> : null}
+      <section className="card surface-section"><p style={{ margin: 0 }}>Log in with Pi to rate artworks during review.</p></section>
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No artworks are currently in public review.</p></section> : (
         <section className="stack-md">
           {artworks.map((artwork: any) => {
@@ -43,7 +40,7 @@ export default async function ReviewPage() {
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>
-                <div className="split-list-side"><RatingStars artworkId={artwork.id} canRate={Boolean(user)} currentAverage={Number(artwork.averageRating)} currentVotes={artwork.ratingsCount} /></div>
+                <div className="split-list-side"><AuthAwareRatingStars artworkId={artwork.id} currentAverage={Number(artwork.averageRating)} currentVotes={artwork.ratingsCount} /></div>
               </article>
             );
           })}

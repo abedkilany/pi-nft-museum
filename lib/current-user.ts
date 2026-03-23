@@ -1,8 +1,6 @@
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import type { SessionUser } from './auth';
 import { extractBearerToken, resolvePiSessionFromToken } from './pi-session';
-
-const APP_SESSION_COOKIE_NAME = 'pi_app_session';
 
 async function resolveFromAppSession(token: string | null | undefined): Promise<SessionUser | null> {
   if (!token) return null;
@@ -18,12 +16,9 @@ async function resolveFromAppSession(token: string | null | undefined): Promise<
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
     const headerStore = headers();
-    const cookieStore = cookies();
     const token =
       extractBearerToken(headerStore.get('authorization')) ||
-      headerStore.get('x-auth-token') ||
-      cookieStore.get(APP_SESSION_COOKIE_NAME)?.value ||
-      null;
+      headerStore.get('x-auth-token');
 
     return resolveFromAppSession(token);
   } catch {

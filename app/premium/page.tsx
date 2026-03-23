@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { timeToPremium } from '@/lib/timeToPremium';
-import { getCurrentUser } from '@/lib/current-user';
-import { ReactionButtons } from '@/components/reactions/ReactionButtons';
+import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function PremiumPage() {
-  const user = await getCurrentUser();
   const settings = await getSiteSettingsMap();
   const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
 
@@ -21,14 +19,6 @@ export default async function PremiumPage() {
         }
       },
       category: true,
-      reactions: user
-        ? {
-            where: {
-              userId: user.userId
-            },
-            take: 1
-          }
-        : false
     },
     orderBy: { premiumScore: 'desc' }
   });
@@ -53,11 +43,6 @@ export default async function PremiumPage() {
               art.artist.artistProfile?.displayName ||
               art.artist.fullName ||
               art.artist.username;
-
-            const myReaction =
-              user && Array.isArray(art.reactions) && art.reactions.length > 0
-                ? art.reactions[0].type
-                : null;
 
             return (
               <div
@@ -111,12 +96,11 @@ export default async function PremiumPage() {
                 </div>
 
                 <div style={{ minWidth: '240px' }}>
-                  <ReactionButtons
+                  <AuthAwareReactionButtons
                     artworkId={art.id}
-                    canReact={Boolean(user)}
                     likesCount={art.likesCount}
                     dislikesCount={art.dislikesCount}
-                    myReaction={myReaction}
+                    myReaction={null}
                     isPremium={true}
                     premiumAllowDislike={premiumAllowDislike}
                   />

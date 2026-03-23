@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       newValues: { role: user.role.key, piUid: user.piUid, authMode: 'short-lived-app-session' },
     });
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
       authMode: 'short-lived-app-session',
@@ -180,16 +180,6 @@ export async function POST(request: Request) {
         piUsername: user.piUsername,
       },
     });
-
-    response.cookies.set('pi_app_session', session.token, {
-      httpOnly: false,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: session.expiresInSeconds,
-    });
-
-    return response;
   } catch (error) {
     logger.error('Pi login failed', error);
     return NextResponse.json(

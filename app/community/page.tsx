@@ -1,68 +1,10 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
-import { getCurrentUser } from '@/lib/current-user';
-import { PostComposer } from '@/components/community/PostComposer';
-import { CommunityFeed } from '@/components/community/CommunityFeed';
-import { ActiveCreatorCard } from '@/components/community/ActiveCreatorCard';
-import { scoreCommunityPost, scoreCreator } from '@/lib/community';
+import { scoreCreator } from '@/lib/community';
+import { CommunityClientShell } from '@/components/community/CommunityClientShell';
 
 export const dynamic = 'force-dynamic';
-
-
-function serializeArtwork(artwork: {
-  id: number;
-  title: string;
-  imageUrl: string;
-  status: unknown;
-  price: { toString(): string } | number | string | null;
-  currency: string;
-} | null) {
-  if (!artwork) return null;
-  return {
-    id: artwork.id,
-    title: artwork.title,
-    imageUrl: artwork.imageUrl,
-    status: String(artwork.status),
-    price: artwork.price == null ? 0 : artwork.price.toString(),
-    currency: artwork.currency,
-  };
-}
-
-function serializeComments(comments: Array<any>) {
-  const byId = new Map<number, any>();
-  const roots: any[] = [];
-
-  for (const comment of comments) {
-    byId.set(comment.id, {
-      id: comment.id,
-      body: comment.body,
-      createdAt: comment.createdAt.toISOString(),
-      updatedAt: comment.updatedAt.toISOString(),
-      authorId: comment.authorId,
-      parentId: comment.parentId,
-      author: comment.author,
-      replies: [],
-    });
-  }
-
-  for (const comment of comments) {
-    const serialized = byId.get(comment.id);
-    if (!serialized) continue;
-    if (comment.parentId) {
-      const parent = byId.get(comment.parentId);
-      if (parent) {
-        parent.replies.push(serialized);
-      } else {
-        roots.push(serialized);
-      }
-    } else {
-      roots.push(serialized);
-    }
-  }
-
-  return roots;
-}
 
 export default async function CommunityPage({
   searchParams,
@@ -89,129 +31,42 @@ export default async function CommunityPage({
     );
   }
 
-  const currentUser = await getCurrentUser();
-  const likeUserId = currentUser?.userId ?? -1;
   const feedMode = searchParams?.feed === 'latest' ? 'latest' : 'top';
 
-  const [posts, creators, myArtworks] = await Promise.all([
-    prisma.communityPost.findMany({
-      where: { isPublished: true },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-      include: {
-        author: {
-          select: {
-            username: true,
-            fullName: true,
-            profileImage: true,
-            headline: true,
-          },
-        },
-        artwork: {
-          select: {
-            id: true,
-            title: true,
-            imageUrl: true,
-            status: true,
-            price: true,
-            currency: true,
-          },
-        },
-        comments: {
-          orderBy: { createdAt: 'asc' },
-          take: 30,
-          include: {
-            author: {
-              select: {
-                username: true,
-                fullName: true,
-                profileImage: true,
-              },
-            },
-          },
-        },
-        likes: {
-          where: { userId: likeUserId },
-          select: { id: true },
-        },
-      },
-    }),
-    prisma.user.findMany({
-      where: {
-        status: 'ACTIVE',
-        OR: [
-          { posts: { some: { isPublished: true } } },
-          { artworks: { some: {} } },
-        ],
-      },
-      take: 20,
-      select: {
-        id: true,
-        username: true,
-        fullName: true,
-        headline: true,
-        profileImage: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            posts: true,
-            artworks: true,
-            followers: true,
-          },
-        },
-        posts: {
-          where: { isPublished: true },
-          select: {
-            createdAt: true,
-            likesCount: true,
-            commentsCount: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 12,
-        },
-      },
-    }),
-    currentUser ? prisma.artwork.findMany({
-      where: { artistUserId: currentUser.userId },
-      orderBy: [
-        { publishedAt: 'desc' },
-        { createdAt: 'desc' },
+  const creators = await prisma.user.findMany({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { posts: { some: { isPublished: true } } },
+        { artworks: { some: {} } },
       ],
-      take: 12,
-      select: {
-        id: true,
-        title: true,
-        status: true,
+    },
+    take: 20,
+    select: {
+      id: true,
+      username: true,
+      fullName: true,
+      headline: true,
+      profileImage: true,
+      updatedAt: true,
+      _count: {
+        select: {
+          posts: true,
+          artworks: true,
+          followers: true,
+        },
       },
-    }) : Promise.resolve([]),
-  ]);
-
-  const serializedPosts = posts.map((post) => ({
-    id: post.id,
-    body: post.body,
-    createdAt: post.createdAt.toISOString(),
-    updatedAt: post.updatedAt.toISOString(),
-    likesCount: post.likesCount,
-    commentsCount: post.commentsCount,
-    viewerLiked: currentUser ? post.likes.length > 0 : false,
-    authorId: post.authorId,
-    author: post.author,
-    artwork: serializeArtwork(post.artwork),
-    feedScore: scoreCommunityPost({
-      createdAt: post.createdAt,
-      likesCount: post.likesCount,
-      commentsCount: post.commentsCount,
-      linkedArtwork: Boolean(post.artworkId),
-    }),
-    comments: serializeComments(post.comments),
-  }));
-
-  serializedPosts.sort((a, b) => {
-    if (feedMode === 'latest') {
-      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-    }
-    if (b.feedScore !== a.feedScore) return b.feedScore - a.feedScore;
-    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+      posts: {
+        where: { isPublished: true },
+        select: {
+          createdAt: true,
+          likesCount: true,
+          commentsCount: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 12,
+      },
+    },
   });
 
   const rankedCreators = creators
@@ -228,35 +83,26 @@ export default async function CommunityPage({
         lastPostAt,
       });
       return {
-        ...creator,
-        creatorScore,
+        id: creator.id,
+        username: creator.username,
+        fullName: creator.fullName,
+        headline: creator.headline,
+        profileImage: creator.profileImage,
+        score: creatorScore,
+        updatedAt: creator.updatedAt,
+        stats: {
+          posts: creator._count.posts,
+          artworks: creator._count.artworks,
+          followers: creator._count.followers,
+        },
       };
     })
     .sort((a, b) => {
-      if (b.creatorScore !== a.creatorScore) return b.creatorScore - a.creatorScore;
+      if (b.score !== a.score) return b.score - a.score;
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     })
-    .slice(0, 6);
-
-  const creatorIds = rankedCreators.map((creator) => creator.id);
-  let followingSet = new Set<number>();
-  let reverseSet = new Set<number>();
-
-  if (currentUser && creatorIds.length > 0) {
-    const [mine, reverse] = await Promise.all([
-      prisma.follow.findMany({
-        where: { followerId: currentUser.userId, followingId: { in: creatorIds } },
-        select: { followingId: true },
-      }),
-      prisma.follow.findMany({
-        where: { followerId: { in: creatorIds }, followingId: currentUser.userId },
-        select: { followerId: true },
-      }),
-    ]);
-
-    followingSet = new Set(mine.map((item) => item.followingId));
-    reverseSet = new Set(reverse.map((item) => item.followerId));
-  }
+    .slice(0, 6)
+    .map(({ updatedAt, ...creator }) => creator);
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
@@ -274,56 +120,6 @@ export default async function CommunityPage({
         </div>
       </section>
 
-      <PostComposer
-        disabled={!currentUser}
-        username={currentUser?.username || null}
-        artworks={myArtworks.map((artwork) => ({
-          id: artwork.id,
-          title: artwork.title,
-          status: artwork.status,
-        }))}
-      />
-
-      <section style={{ display: 'grid', gap: 16 }}>
-        <div className="section-head compact">
-          <div>
-            <span className="section-kicker">Creators</span>
-            <h2>Active creators</h2>
-          </div>
-          <p>A compact shortlist of the strongest creators right now, so visitors reach the feed quickly.</p>
-        </div>
-
-        {rankedCreators.length > 0 ? (
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-            {rankedCreators.map((creator) => (
-              <ActiveCreatorCard
-                key={creator.id}
-                creator={{
-                  id: creator.id,
-                  username: creator.username,
-                  fullName: creator.fullName,
-                  headline: creator.headline,
-                  profileImage: creator.profileImage,
-                  score: creator.creatorScore,
-                  stats: {
-                    posts: creator._count.posts,
-                    artworks: creator._count.artworks,
-                    followers: creator._count.followers,
-                  },
-                }}
-                isFollowing={followingSet.has(creator.id)}
-                followsYou={reverseSet.has(creator.id)}
-                isSelf={currentUser?.userId === creator.id}
-              />
-            ))}
-          </div>
-        ) : (
-          <section className="card" style={{ padding: 24 }}>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>No active creators are available yet. As soon as creators publish posts or artworks, they will appear here.</p>
-          </section>
-        )}
-      </section>
-
       <section style={{ display: 'grid', gap: 16 }}>
         <div className="section-head compact">
           <div>
@@ -335,8 +131,9 @@ export default async function CommunityPage({
             <Link href="/community?feed=latest" className={feedMode === 'latest' ? 'button primary' : 'button secondary'}>Latest</Link>
           </div>
         </div>
-        <CommunityFeed posts={serializedPosts} currentUserId={currentUser?.userId || null} canInteract={Boolean(currentUser)} />
       </section>
+
+      <CommunityClientShell feedMode={feedMode} creators={rankedCreators} />
     </div>
   );
 }

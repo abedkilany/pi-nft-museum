@@ -1,22 +1,15 @@
 import Link from 'next/link';
-import { GalleryLoginNotice } from '@/components/gallery/GalleryLoginNotice';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { ReactionButtons } from '@/components/reactions/ReactionButtons';
-import { getGalleryStatuses } from '@/lib/artwork-workflow';
-import { getSiteSettingsMap } from '@/lib/site-settings';
+import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
+import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function GalleryPage() {
-  const user = await getCurrentUser();
-  const settings = await getSiteSettingsMap();
-  const galleryStatuses = getGalleryStatuses(settings);
   const artworks = await prisma.artwork.findMany({
-    where: { status: { in: galleryStatuses as any } },
+    where: { status: 'APPROVED' },
     include: {
       artist: { include: { artistProfile: true } },
       category: true,
-      reactions: user ? { where: { userId: user.userId }, take: 1 } : false
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }]
   });
@@ -25,16 +18,15 @@ export default async function GalleryPage() {
     <div className="page-stack">
       <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Gallery</h1>
-        <p style={{ margin: 0, color: 'var(--muted)' }}>Only minted and published artworks appear here. Nothing enters the gallery before mint.</p>
+        <p style={{ margin: 0, color: 'var(--muted)' }}>Approved artworks that passed review and are now visible to the public gallery.</p>
       </section>
 
-      <GalleryLoginNotice initiallyAuthenticated={Boolean(user)} />
+      <ReactionFilterBar />
 
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
         <section className="stack-md">
           {artworks.map((artwork: any) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
-            const myReaction = user && Array.isArray(artwork.reactions) && artwork.reactions.length > 0 ? artwork.reactions[0].type : null;
             return (
               <article key={artwork.id} className="card split-list-card">
                 <img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="split-list-media" />
@@ -46,7 +38,7 @@ export default async function GalleryPage() {
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>
-                <div className="split-list-side"><ReactionButtons artworkId={artwork.id} canReact={Boolean(user)} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={myReaction} /></div>
+                <div className="split-list-side"><AuthAwareReactionButtons artworkId={artwork.id} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={null} /></div>
               </article>
             );
           })}
