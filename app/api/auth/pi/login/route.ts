@@ -42,11 +42,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
     }
 
-    const roleKey = await resolvePiRole(piUser);
-    const role = await prisma.role.findUnique({ where: { key: roleKey } });
+    const resolvedRoleKey = await resolvePiRole(piUser);
+    const resolvedRole = await prisma.role.findUnique({ where: { key: resolvedRoleKey } });
 
-    if (!role) {
-      return NextResponse.json({ error: `Role "${roleKey}" is not configured in the database.` }, { status: 500 });
+    if (!resolvedRole) {
+      return NextResponse.json({ error: `Role "${resolvedRoleKey}" is not configured in the database.` }, { status: 500 });
     }
 
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
           fullName: piUser.username || username,
           email: syntheticEmail,
           passwordHash: null,
-          roleId: role.id,
+          roleId: resolvedRole.id,
           status: 'ACTIVE',
           piUid: piUser.uid,
           piUsername: piUser.username || username,
@@ -90,7 +90,22 @@ export async function POST(request: Request) {
       });
     } else {
       const username = await ensureUniqueUsername(piUser.username || user.username, user.id);
-      const roleChanged = user.roleId !== role.id;
+
+      const currentRoleKey = user.role?.key || 'artist_or_trader';
+      const rolePriority: Record<string, number> = {
+        artist_or_trader: 1,
+        moderator: 2,
+        admin: 3,
+        superadmin: 4,
+      };
+
+      const shouldPromoteFromEnv =
+        (rolePriority[resolvedRole.key] || 0) > (rolePriority[currentRoleKey] || 0);
+
+      const targetRoleId = shouldPromoteFromEnv ? resolvedRole.id : user.roleId;
+      const targetRoleKey = shouldPromoteFromEnv ? resolvedRole.key : currentRoleKey;
+      const roleChanged = user.roleId !== targetRoleId;
+
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -98,7 +113,7 @@ export async function POST(request: Request) {
           fullName: user.fullName || piUser.username || username,
           email: user.email || syntheticEmail,
           status: user.status === 'PENDING' ? 'ACTIVE' : user.status,
-          roleId: role.id,
+          roleId: targetRoleId,
           roleVersion: roleChanged ? { increment: 1 } : undefined,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
@@ -109,6 +124,16 @@ export async function POST(request: Request) {
         },
         include: { role: true }
       });
+
+      if (currentRoleKey !== targetRoleKey) {
+        logger.info('Pi login preserved or promoted existing role', {
+          userId: user.id,
+          previousRole: currentRoleKey,
+          resolvedRole: resolvedRole.key,
+          appliedRole: targetRoleKey,
+          promotedFromEnv: shouldPromoteFromEnv,
+        });
+      }
     }
 
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
