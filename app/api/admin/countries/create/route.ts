@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/admin/countries', request.url));
   }
 
-  await prisma.country.create({
+  const country = await prisma.country.create({
     data: {
       name,
       isoCode,
@@ -29,6 +30,14 @@ export async function POST(request: Request) {
       allowed,
       sortOrder: 9999
     }
+  });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_COUNTRY_CREATED',
+    targetType: 'COUNTRY',
+    targetId: country.id,
+    newValues: { name, isoCode, phoneCode, allowed }
   });
 
   logger.info('Admin created country', { adminUserId: admin.user.userId, isoCode, name });

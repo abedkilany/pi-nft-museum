@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 function normalizeSlug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
     const slug = normalizeSlug(String(body.slug || '').trim());
     if (!pageId || !title || !slug) {
       return NextResponse.json({ error: 'Page, title, and slug are required.' }, { status: 400 });
+    }
+
+    const currentPage = await prisma.page.findUnique({ where: { id: pageId }, include: { sections: true } });
+    if (!currentPage) {
+      return NextResponse.json({ error: 'Page not found.' }, { status: 404 });
     }
 
     await prisma.page.update({
@@ -52,6 +58,15 @@ export async function POST(request: Request) {
         }))
       });
     }
+
+    await createAuditLog({
+      userId: admin.user.userId,
+      action: 'ADMIN_PAGE_UPDATED',
+      targetType: 'PAGE',
+      targetId: pageId,
+      oldValues: { title: currentPage.title, slug: currentPage.slug, status: currentPage.status, sectionsCount: currentPage.sections.length },
+      newValues: { title, slug, status: body.status || 'DRAFT', sectionsCount: Array.isArray(body.sections) ? body.sections.length : currentPage.sections.length }
+    });
 
     logger.info('Page updated', { userId: admin.user.userId, pageId, slug });
     return NextResponse.json({ ok: true, message: 'Page updated successfully.' });

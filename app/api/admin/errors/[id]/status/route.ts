@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 
 const allowed = new Set(['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED']);
@@ -49,6 +50,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
   await prisma.errorLog.update({
     where: { id },
     data: updateData
+  });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_ERROR_STATUS_UPDATED',
+    targetType: 'ERROR_LOG',
+    targetId: id,
+    oldValues: { status: current.status, resolvedAt: current.resolvedAt, ignoredAt: current.ignoredAt },
+    newValues: { status, note: note || null }
   });
 
   logger.info('Error log status updated', { errorLogId: id, status, adminUserId: admin.user.userId });

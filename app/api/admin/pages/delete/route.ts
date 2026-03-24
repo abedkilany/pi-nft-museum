@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

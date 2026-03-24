@@ -4,6 +4,7 @@ import { requireAdminApi } from '@/lib/admin';
 import { SITE_SETTING_DEFINITIONS, ensureDefaultSiteSettings } from '@/lib/site-settings';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
 
   await ensureDefaultSiteSettings();
   const formData = await request.formData();
+  const previousSettings = await prisma.siteSetting.findMany({ select: { settingKey: true, settingValue: true } });
 
   for (const definition of SITE_SETTING_DEFINITIONS) {
     const value = String(formData.get(definition.key) ?? definition.defaultValue).trim();
@@ -22,6 +24,17 @@ export async function POST(request: Request) {
       create: { settingKey: definition.key, settingValue: value, settingGroup: definition.group, isPublic: definition.isPublic ?? false }
     });
   }
+
+  const updatedSettings = await prisma.siteSetting.findMany({ select: { settingKey: true, settingValue: true } });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_SETTINGS_UPDATED',
+    targetType: 'SITE_SETTINGS',
+    targetId: 'global',
+    oldValues: previousSettings,
+    newValues: updatedSettings
+  });
 
   logger.info('Settings updated', { userId: admin.user.userId });
   return NextResponse.redirect(new URL('/admin/settings', request.url));

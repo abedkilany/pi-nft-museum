@@ -4,6 +4,7 @@ import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -57,6 +58,14 @@ export async function POST(request: Request) {
       await recalculateArtworkPremiumState(comment.artworkId);
     }
 
+    await createAuditLog({
+      userId: admin.user.userId,
+      action: 'ADMIN_COMMENT_REPORT_UPDATED',
+      targetType: 'COMMENT_REPORT',
+      targetId: reportId,
+      newValues: { commentId, status, commentAction, adminNote: adminNote || null }
+    });
+
     logger.info('Admin updated comment report', { adminUserId: admin.user.userId, reportId, commentId, status, commentAction });
     return NextResponse.redirect(new URL('/admin/reports', request.url));
   }
@@ -105,6 +114,14 @@ export async function POST(request: Request) {
         }
       }
     }
+  });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_ARTWORK_REPORT_UPDATED',
+    targetType: 'ARTWORK_REPORT',
+    targetId: reportId,
+    newValues: { artworkId, status, artworkAction, adminNote: adminNote || null }
   });
 
   logger.info('Admin updated artwork report', { adminUserId: admin.user.userId, reportId, artworkId, status, artworkAction });

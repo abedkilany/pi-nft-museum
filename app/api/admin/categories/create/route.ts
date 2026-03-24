@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 const normalizeSlug = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 
@@ -16,15 +17,28 @@ export async function POST(request: Request) {
   const slug = normalizeSlug(String(formData.get('slug') || name));
   if (!name || !slug) return NextResponse.redirect(new URL('/admin/categories', request.url));
 
-  await prisma.artworkCategory.create({
+  const description = String(formData.get('description') || '').trim() || null;
+  const sortOrder = Number(formData.get('sortOrder') || 0);
+  const isActive = String(formData.get('isActive') || 'true') === 'true';
+
+  const category = await prisma.artworkCategory.create({
     data: {
       name,
       slug,
-      description: String(formData.get('description') || '').trim() || null,
-      sortOrder: Number(formData.get('sortOrder') || 0),
-      isActive: String(formData.get('isActive') || 'true') === 'true'
+      description,
+      sortOrder,
+      isActive
     }
   });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_CATEGORY_CREATED',
+    targetType: 'ARTWORK_CATEGORY',
+    targetId: category.id,
+    newValues: { name, slug, description, sortOrder, isActive }
+  });
+
   logger.info('Category created', { userId: admin.user.userId, slug });
   return NextResponse.redirect(new URL('/admin/categories', request.url));
 }

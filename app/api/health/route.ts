@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeAppEventQuery } from '@/lib/app-events';
 import { isTokenProtectedInternalRouteAuthorized } from '@/lib/api-guards';
 
 export async function GET(request: Request) {
@@ -9,9 +10,17 @@ export async function GET(request: Request) {
 
   try {
     await prisma.$queryRaw`SELECT 1`;
+    const [appEventsCount, openErrorsCount] = await Promise.all([
+      safeAppEventQuery(() => prisma.appEvent.count(), 0),
+      prisma.errorLog.count({ where: { status: { in: ['OPEN', 'INVESTIGATING'] } } }).catch(() => 0)
+    ]);
+
     return NextResponse.json({
       ok: true,
       database: 'connected',
+      environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'unknown',
+      appEventsCount,
+      openErrorsCount,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

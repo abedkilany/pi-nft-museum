@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -22,9 +23,23 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL('/admin/countries', request.url));
   }
 
+  const currentCountry = await prisma.country.findUnique({ where: { id: countryId } });
+  if (!currentCountry) {
+    return NextResponse.redirect(new URL('/admin/countries?error=not-found', request.url));
+  }
+
   await prisma.country.update({
     where: { id: countryId },
     data: { name, isoCode, phoneCode, allowed }
+  });
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_COUNTRY_UPDATED',
+    targetType: 'COUNTRY',
+    targetId: countryId,
+    oldValues: { name: currentCountry.name, isoCode: currentCountry.isoCode, phoneCode: currentCountry.phoneCode, allowed: currentCountry.allowed },
+    newValues: { name, isoCode, phoneCode, allowed }
   });
 
   logger.info('Admin updated country', { adminUserId: admin.user.userId, countryId, isoCode, name });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 import { requireAdminApi } from '@/lib/admin';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
     }
   });
 
+  let updatedCount = 0;
+
   for (const artwork of artworks) {
     const dates = await buildPublicReviewDates(artwork.publicReviewStartedAt || new Date());
 
@@ -33,7 +36,17 @@ export async function POST(request: Request) {
         mintWindowEndsAt: dates.mintWindowEndsAt
       }
     });
+
+    updatedCount += 1;
   }
+
+  await createAuditLog({
+    userId: admin.user.userId,
+    action: 'ADMIN_RECALCULATED_REVIEW_WINDOWS',
+    targetType: 'ARTWORK_REVIEW_WINDOWS',
+    targetId: 'bulk',
+    newValues: { updatedCount }
+  });
 
   return NextResponse.redirect(new URL('/admin/settings', request.url));
 }

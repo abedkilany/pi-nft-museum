@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 type Payload = {
   title?: string;
@@ -62,6 +63,14 @@ export async function POST(request: Request) {
           }))
         }
       }
+    });
+
+    await createAuditLog({
+      userId: admin.user.userId,
+      action: 'ADMIN_PAGE_CREATED',
+      targetType: 'PAGE',
+      targetId: page.id,
+      newValues: { title, slug, status: body.status || 'DRAFT', sectionsCount: (body.sections || []).length }
     });
 
     logger.info('Page created', { userId: admin.user.userId, pageId: page.id, slug });

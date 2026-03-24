@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { requireAdminApi } from '@/lib/admin';
 import { assertSameOrigin } from '@/lib/security';
+import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
     if (!artworkId || !allowedStatuses.includes(status)) return NextResponse.json({ error: 'Invalid artwork ID or status.' }, { status: 400 });
     if (status === 'REJECTED' && !reviewNote) return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
 
+    const currentArtwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
+    if (!currentArtwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });
+
     const publicReviewDates = status === 'APPROVED' ? await buildPublicReviewDates() : null;
     const artwork = await prisma.artwork.update({
       where: { id: artworkId },
@@ -31,6 +35,15 @@ export async function POST(request: Request) {
         mintWindowOpensAt: publicReviewDates?.mintWindowOpensAt || null,
         mintWindowEndsAt: publicReviewDates?.mintWindowEndsAt || null
       }
+    });
+
+    await createAuditLog({
+      userId: admin.user.userId,
+      action: 'ADMIN_ARTWORK_STATUS_UPDATED',
+      targetType: 'ARTWORK',
+      targetId: artwork.id,
+      oldValues: { status: currentArtwork.status, reviewNote: currentArtwork.reviewNote },
+      newValues: { requestedStatus: status, appliedStatus: artwork.status, reviewNote: reviewNote || null }
     });
 
     logger.info('Artwork status updated', { artworkId: artwork.id, newStatus: artwork.status, adminUserId: admin.user.userId });
