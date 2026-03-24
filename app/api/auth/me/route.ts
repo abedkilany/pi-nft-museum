@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const authResult = await resolveAuthenticatedUserFromHeaders(request.headers);
 
-    logger.info('AUTH_ME_START', {
+    logger.debug('AUTH_ME_START', {
       feature: 'auth',
       route: '/api/auth/me',
       method: 'GET',
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const authz = await getAuthorizationSnapshot(authResult.user);
 
-    logger.info('AUTH_ME_CONFIRMED', {
+    logger.debug('AUTH_ME_CONFIRMED', {
       feature: 'auth',
       route: '/api/auth/me',
       method: 'GET',

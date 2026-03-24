@@ -51,6 +51,19 @@ const redactedKeys = new Set([
   'auth_secret'
 ]);
 
+const NOISY_EVENT_NAMES = new Set([
+  'PAGE_VIEWED',
+  'BUTTON_CLICKED',
+  'LINK_CLICKED',
+  'IMAGE_CLICKED',
+  'FORM_SUBMITTED',
+  'AUTH_ME_START',
+  'AUTH_ME_CONFIRMED',
+  'PI_CONNECT_BUTTON_AUTH_ATTEMPT',
+  'PI_CONNECT_BUTTON_AUTH_RESOLVED',
+  'POST_AUTH_REDIRECT_START',
+]);
+
 export function sanitizeEventValue(value: unknown): unknown {
   if (value instanceof Error) {
     return {
@@ -88,6 +101,23 @@ function asJson(value: unknown) {
   return sanitized as Prisma.InputJsonValue;
 }
 
+function shouldPersistEvent(input: AppEventInput) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!isProduction) return true;
+
+  const status = String(input.status || '').toUpperCase();
+  const severity = String(input.severity || '').toUpperCase();
+  const category = String(input.category || '').toUpperCase();
+  const name = String(input.name || input.eventKey || '').toUpperCase();
+  const feature = String(input.feature || '').toLowerCase();
+
+  if (status === 'FAILED' || status === 'WARNING') return true;
+  if (severity === 'HIGH' || severity === 'CRITICAL') return true;
+  if (category === 'ERROR' || category === 'AUDIT') return true;
+  if (feature === 'admin' || feature === 'security' || feature === 'payments') return true;
+  if (NOISY_EVENT_NAMES.has(name)) return false;
+  return false;
+}
 
 export function normalizeRoutePath(route: string | null | undefined, url?: string | null | undefined) {
   const candidate = route || url || null;
@@ -168,6 +198,8 @@ function buildFingerprint(input: AppEventInput) {
 
 export async function trackAppEvent(input: AppEventInput) {
   try {
+    if (!shouldPersistEvent(input)) return;
+
     const feature = inferFeature(input);
     const step = inferStep(input);
     const tags = {
@@ -215,6 +247,47 @@ export async function trackAppEvent(input: AppEventInput) {
   } catch {}
 }
 
+export async function cleanupObservabilityEvents() {
+  const now = Date.now();
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const ninetyDaysAgo = new Date(now - 90 * 24 * 60 * 60 * 1000);
+
+  const [lowValue, mediumValue, oldAudit] = await Promise.all([
+    prisma.appEvent.deleteMany({
+      where: {
+        createdAt: { lt: sevenDaysAgo },
+        status: { in: ['STARTED', 'SUCCESS'] },
+        category: { notIn: ['ERROR', 'AUDIT'] },
+        name: { in: Array.from(NOISY_EVENT_NAMES) },
+      },
+    }),
+    prisma.appEvent.deleteMany({
+      where: {
+        createdAt: { lt: thirtyDaysAgo },
+        status: { notIn: ['FAILED', 'WARNING'] },
+        OR: [
+          { severity: null },
+          { severity: { notIn: ['HIGH', 'CRITICAL'] } },
+        ],
+        category: { not: 'AUDIT' },
+      },
+    }),
+    prisma.appEvent.deleteMany({
+      where: {
+        createdAt: { lt: ninetyDaysAgo },
+        category: 'AUDIT',
+      },
+    }),
+  ]);
+
+  return {
+    lowValueDeleted: lowValue.count,
+    mediumValueDeleted: mediumValue.count,
+    oldAuditDeleted: oldAudit.count,
+    totalDeleted: lowValue.count + mediumValue.count + oldAudit.count,
+  };
+}
 
 export function isAppEventTableMissingError(error: unknown) {
   if (!error || typeof error !== 'object') return false;

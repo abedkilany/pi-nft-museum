@@ -4,19 +4,42 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { withAdminGrant } from '@/lib/admin-url';
 
-const adminLinks = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/artworks', label: 'Artworks' },
-  { href: '/admin/users', label: 'Users' },
-  { href: '/admin/countries', label: 'Countries' },
-  { href: '/admin/reports', label: 'Reports' },
-  { href: '/admin/settings', label: 'Settings' },
-  { href: '/admin/categories', label: 'Categories' },
-  { href: '/admin/menu', label: 'Menu' },
-  { href: '/admin/pages', label: 'Pages' },
-  { href: '/admin/events', label: 'Event stream' },
-  { href: '/admin/errors', label: 'Error center' },
-  { href: '/admin/system', label: 'System logs' },
+type AdminLinkGroup = {
+  title: string;
+  description: string;
+  links: Array<{ href: string; label: string }>;
+};
+
+const adminLinkGroups: AdminLinkGroup[] = [
+  {
+    title: 'Operations',
+    description: 'Daily moderation and content tools.',
+    links: [
+      { href: '/admin', label: 'Dashboard' },
+      { href: '/admin/artworks', label: 'Artworks' },
+      { href: '/admin/reports', label: 'Reports' },
+      { href: '/admin/users', label: 'Users' },
+      { href: '/admin/categories', label: 'Categories' },
+      { href: '/admin/countries', label: 'Countries' },
+      { href: '/admin/pages', label: 'Pages' },
+      { href: '/admin/menu', label: 'Menu' },
+      { href: '/admin/settings', label: 'Settings' },
+    ],
+  },
+  {
+    title: 'Observability',
+    description: 'Useful monitoring and admin activity.',
+    links: [
+      { href: '/admin/errors', label: 'Error center' },
+      { href: '/admin/events', label: 'Event stream' },
+      { href: '/admin/audit', label: 'Audit trail' },
+    ],
+  },
+  {
+    title: 'Developer tools',
+    description: 'Technical logs kept outside the main workflow.',
+    links: [{ href: '/admin/system', label: 'Developer logs' }],
+  },
 ];
 
 export function AdminSidebar() {
@@ -33,29 +56,41 @@ export function AdminSidebar() {
           <strong style={{ display: 'block' }}>Protected area</strong>
           <span style={{ color: 'var(--muted)' }}>Only admin-approved roles can open these tools.</span>
         </div>
-        <nav style={{ display: 'grid', gap: '8px' }}>
-          {adminLinks.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
-            return (
-              <Link
-                key={link.href}
-                href={withAdminGrant(link.href, adminGrant)}
-                className="button secondary"
-                aria-current={isActive ? 'page' : undefined}
-                style={{
-                  justifyContent: 'flex-start',
-                  borderColor: isActive ? 'rgba(229, 181, 103, 0.45)' : undefined,
-                  background: isActive ? 'rgba(229, 181, 103, 0.12)' : undefined,
-                }}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+
+        <div style={{ display: 'grid', gap: '18px' }}>
+          {adminLinkGroups.map((group) => (
+            <section key={group.title} style={{ display: 'grid', gap: '8px' }}>
+              <div>
+                <strong style={{ display: 'block' }}>{group.title}</strong>
+                <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{group.description}</span>
+              </div>
+              <nav style={{ display: 'grid', gap: '8px' }}>
+                {group.links.map((link) => {
+                  const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                  return (
+                    <Link
+                      key={link.href}
+                      href={withAdminGrant(link.href, adminGrant)}
+                      className="button secondary"
+                      aria-current={isActive ? 'page' : undefined}
+                      style={{
+                        justifyContent: 'flex-start',
+                        borderColor: isActive ? 'rgba(229, 181, 103, 0.45)' : undefined,
+                        background: isActive ? 'rgba(229, 181, 103, 0.12)' : undefined,
+                      }}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </section>
+          ))}
+
           <Link href="/account" className="button secondary" style={{ justifyContent: 'flex-start' }}>
             Back to account
           </Link>
-        </nav>
+        </div>
       </div>
     </aside>
   );

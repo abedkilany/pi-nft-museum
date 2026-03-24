@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 
 type EventPayload = Record<string, unknown> & {
@@ -10,6 +9,8 @@ type EventPayload = Record<string, unknown> & {
   name: string;
   status?: string;
 };
+
+const isProduction = process.env.NODE_ENV === 'production';
 
 function sendEvent(payload: EventPayload, options?: { beginTrace?: boolean }) {
   const sessionId = getClientSessionId();
@@ -65,12 +66,17 @@ function buildClickPayload(target: HTMLElement): EventPayload | null {
   const src = clickable instanceof HTMLImageElement ? clickable.currentSrc || clickable.src : clickable.getAttribute('src');
   const entityType = clickable.getAttribute('data-entity-type');
   const entityId = clickable.getAttribute('data-entity-id');
+  const feature = clickable.getAttribute('data-feature');
+
+  if (isProduction && !explicit && !entityType && !entityId && !feature) {
+    return null;
+  }
 
   return {
     category: 'USER_ACTION',
     type: explicit ? 'CUSTOM_CLICK' : clickable.tagName === 'IMG' ? 'IMAGE_CLICK' : 'CLICK',
     name: explicit || (clickable.tagName === 'IMG' ? 'IMAGE_CLICKED' : clickable.tagName === 'A' ? 'LINK_CLICKED' : 'BUTTON_CLICKED'),
-    feature: clickable.getAttribute('data-feature') || null,
+    feature: feature || null,
     entityType,
     entityId,
     message: getElementLabel(clickable),
@@ -87,30 +93,6 @@ function buildClickPayload(target: HTMLElement): EventPayload | null {
 }
 
 export function AppEventClient() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const lastPageViewKey = useRef('');
-
-  useEffect(() => {
-    const query = searchParams?.toString() || '';
-    const key = `${pathname}?${query}`;
-    if (lastPageViewKey.current === key) return;
-    lastPageViewKey.current = key;
-
-    sendEvent({
-      category: 'USER_ACTION',
-      type: 'PAGE_VIEW',
-      name: 'PAGE_VIEWED',
-      feature: 'navigation',
-      message: document.title,
-      data: {
-        title: document.title,
-        referrer: document.referrer || null,
-        query: query || null
-      }
-    });
-  }, [pathname, searchParams]);
-
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -123,11 +105,14 @@ export function AppEventClient() {
     const onSubmit = (event: SubmitEvent) => {
       const form = event.target as HTMLFormElement | null;
       if (!form) return;
+      const feature = form.getAttribute('data-feature');
+      if (isProduction && !feature) return;
+
       sendEvent({
         category: 'USER_ACTION',
         type: 'FORM_SUBMIT',
         name: 'FORM_SUBMITTED',
-        feature: form.getAttribute('data-feature') || 'form',
+        feature: feature || 'form',
         message: form.getAttribute('name') || form.id || window.location.pathname,
         data: {
           action: form.action || null,

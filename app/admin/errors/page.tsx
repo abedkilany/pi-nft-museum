@@ -49,7 +49,7 @@ function badgeStyle(value: string) {
 
 export default async function AdminErrorsPage({ searchParams }: { searchParams?: SearchParams }) {
   const where = toWhere(searchParams ?? {});
-  const [errors, counts, latest] = await Promise.all([
+  const [errors, counts, latest, topRecurring, topCritical] = await Promise.all([
     prisma.errorLog.findMany({
       where,
       include: { user: { select: { id: true, username: true, email: true } } },
@@ -60,7 +60,9 @@ export default async function AdminErrorsPage({ searchParams }: { searchParams?:
       by: ['status'],
       _count: { _all: true }
     }),
-    prisma.errorLog.findFirst({ orderBy: { lastSeenAt: 'desc' } })
+    prisma.errorLog.findFirst({ orderBy: { lastSeenAt: 'desc' } }),
+    prisma.errorLog.findMany({ orderBy: [{ occurrenceCount: 'desc' }, { lastSeenAt: 'desc' }], take: 5 }),
+    prisma.errorLog.findMany({ where: { severity: 'CRITICAL', status: { in: ['OPEN', 'INVESTIGATING'] } }, orderBy: { lastSeenAt: 'desc' }, take: 5 }),
   ]);
 
   const summary = Object.fromEntries(counts.map((row) => [row.status, row._count._all]));
@@ -78,7 +80,7 @@ export default async function AdminErrorsPage({ searchParams }: { searchParams?:
             <span className="section-kicker">Observability</span>
             <h1>Error center</h1>
           </div>
-          <p>Readable error tracking with direct export for developers and external Sentry support.</p>
+          <p>Readable errors with recurrence, route context, and clear triage status. Developer logs are still available separately, but this is the main page for operational issues.</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '18px' }}>
@@ -97,8 +99,49 @@ export default async function AdminErrorsPage({ searchParams }: { searchParams?:
 
         <div className="card-actions" style={{ marginTop: '18px', flexWrap: 'wrap' }}>
           <ErrorExportButtons queryString={exportQuery.toString()} />
-          <Link href="/admin/system" className="button secondary">Legacy system logs</Link>
+          <Link href="/admin/system" className="button secondary">Developer logs</Link>
+          <form action="/api/admin/errors/cleanup" method="POST">
+            <button className="button secondary" type="submit">Clean resolved errors</button>
+          </form>
           {latest ? <span className="pill">Last error {new Date(latest.lastSeenAt).toLocaleString()}</span> : <span className="pill">No tracked errors yet</span>}
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <h2 style={{ marginTop: 0 }}>Most repeated</h2>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {topRecurring.length === 0 ? <span style={{ color: 'var(--muted)' }}>No repeated errors yet.</span> : topRecurring.map((error) => (
+              <Link key={error.id} href={`/admin/errors/${error.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                <div className="card" style={{ padding: '14px' }}>
+                  <strong style={{ display: 'block' }}>{error.title}</strong>
+                  <span style={{ color: 'var(--muted)' }}>{error.route || error.url || 'Unknown route'}</span>
+                  <div className="card-actions" style={{ marginTop: '8px', gap: '8px' }}>
+                    <span className="pill">Occurrences {error.occurrenceCount}</span>
+                    <span className="pill">{error.severity}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '20px' }}>
+          <h2 style={{ marginTop: 0 }}>Critical now</h2>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {topCritical.length === 0 ? <span style={{ color: 'var(--muted)' }}>No open critical errors right now.</span> : topCritical.map((error) => (
+              <Link key={error.id} href={`/admin/errors/${error.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                <div className="card" style={{ padding: '14px' }}>
+                  <strong style={{ display: 'block' }}>{error.title}</strong>
+                  <span style={{ color: 'var(--muted)' }}>{error.route || error.url || 'Unknown route'}</span>
+                  <div className="card-actions" style={{ marginTop: '8px', gap: '8px' }}>
+                    <span className="pill" style={badgeStyle(error.status)}>{error.status}</span>
+                    <span className="pill" style={badgeStyle(error.severity)}>{error.severity}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
