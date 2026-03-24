@@ -6,8 +6,7 @@ import { isAdminRole } from '@/lib/roles';
 const ADMIN_BRIDGE_AUDIENCE = 'pi-nft-museum-admin-page';
 const ADMIN_BRIDGE_ISSUER = 'pi-nft-museum';
 const ADMIN_BRIDGE_TYPE = 'admin-page-grant';
-export const ADMIN_BRIDGE_COOKIE_NAME = 'pi_admin_bridge';
-const ADMIN_BRIDGE_TTL_SECONDS = 10 * 60;
+const ADMIN_BRIDGE_TTL_SECONDS = 45;
 
 export type AdminBridgeClaims = JWTPayload & {
   typ: typeof ADMIN_BRIDGE_TYPE;

@@ -36,6 +36,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    url: `/api/auth/admin-enter?grant=${encodeURIComponent(grant)}`,
+    url: `/admin?admin_grant=${encodeURIComponent(grant)}`,
   });
 }

@@ -7,6 +7,10 @@ export function normalizeAdminGrant(value: string | string[] | null | undefined)
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function withAdminGrant(path: string) {
-  return path;
+export function withAdminGrant(path: string, adminGrant?: string | null): string {
+  const grant = normalizeAdminGrant(adminGrant);
+  if (!grant) return path;
+
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}admin_grant=${encodeURIComponent(grant)}`;
 }

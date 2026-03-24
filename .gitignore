@@ -1,11 +1,9 @@
 node_modules
 .next
+.vercel
 .env.local
 logs
 localhost.pem
 localhost-key.pem
 tsconfig.tsbuildinfo
 # Keep environment variables out of version control
-
-.vercel
-.env*.local
