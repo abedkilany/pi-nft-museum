@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+import { isProduction } from '@/lib/debug-flags';
 
 export async function POST(request: Request) {
+  if (isProduction) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const event = typeof body?.event === 'string' ? body.event : 'PI_CLIENT_DEBUG';

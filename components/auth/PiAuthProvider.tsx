@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { authenticateWithPi } from '@/lib/pi';
 import { clearPiAuthToken, getPiAuthHeaders, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
+import { isPiDebugEnabled } from '@/lib/debug-flags';
 
 type AuthUser = {
   id: number;
@@ -31,6 +32,8 @@ async function pushClientAuthDebug(
   level: 'info' | 'warn' = 'info',
   traceId?: string | null
 ) {
+  if (!isPiDebugEnabled) return;
+
   try {
     const resolvedTraceId = consumeOrCreateTraceId(traceId);
     await fetch('/api/auth/pi/debug', {
@@ -64,6 +67,8 @@ async function pushPostAuthEvent(
     errorCode?: string | null;
   }
 ) {
+  if (!isPiDebugEnabled) return;
+
   try {
     const resolvedTraceId = consumeOrCreateTraceId(traceId);
     await fetch('/api/events', {

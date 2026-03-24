@@ -4,6 +4,18 @@ import { ReactNode, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { beginClientTrace, buildObservabilityHeaders } from '@/lib/observability-client';
 import { getPiAuthHeaders } from '@/lib/pi-auth-client';
+import { isPiDebugEnabled } from '@/lib/debug-flags';
+
+async function pushPiClientDebug(headers: HeadersInit, payload: Record<string, unknown>) {
+  if (!isPiDebugEnabled) return;
+
+  await fetch('/api/auth/pi/debug', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  }).catch(() => null);
+}
 
 type Props = {
   className?: string;
@@ -56,41 +68,21 @@ export function PiConnectButton({ className = 'button primary', children, redire
         'X-App-Request': 'pi-web',
       }, traceId);
 
-      await fetch('/api/auth/pi/debug', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_CLICKED', meta: { redirectTo: redirectTo || null, traceId } }),
-        cache: 'no-store',
-      }).catch(() => null);
+      await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_CLICKED', meta: { redirectTo: redirectTo || null, traceId } });
 
       await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 1, redirectTo: redirectTo || null });
       let user = await ensureAuthenticated(traceId);
       if (!user) {
-        await fetch('/api/auth/pi/debug', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId, attempt: 1 } }),
-          cache: 'no-store',
-        }).catch(() => null);
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId, attempt: 1 } });
         await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_RETRY_SCHEDULED', 'WARNING', { reason: 'NO_USER', attempt: 1, retryDelayMs: 900 });
         await wait(900);
-        await fetch('/api/auth/pi/debug', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_RETRYING_AFTER_NO_USER', meta: { traceId, attempt: 2 } }),
-          cache: 'no-store',
-        }).catch(() => null);
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_RETRYING_AFTER_NO_USER', meta: { traceId, attempt: 2 } });
         await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 2, redirectTo: redirectTo || null, retry: true });
         user = await ensureAuthenticated(traceId);
       }
 
       if (!user) {
-        await fetch('/api/auth/pi/debug', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ event: 'PI_CONNECT_BUTTON_NO_USER_FINAL', level: 'warn', meta: { traceId, attempts: 2 } }),
-          cache: 'no-store',
-        }).catch(() => null);
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_NO_USER_FINAL', level: 'warn', meta: { traceId, attempts: 2 } });
         await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_FAILED_NO_USER', 'FAILED', { attempts: 2 });
         alert('Pi Browser did not return your Pi user yet. Please wait a moment and try again.');
         return;
@@ -137,20 +129,18 @@ export function PiConnectButton({ className = 'button primary', children, redire
 
       window.location.assign(target);
     } catch (error) {
-      await fetch('/api/auth/pi/debug', {
-        method: 'POST',
-        headers: buildObservabilityHeaders({
+      await pushPiClientDebug(
+        buildObservabilityHeaders({
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-App-Request': 'pi-web',
         }),
-        body: JSON.stringify({
+        {
           event: 'PI_CONNECT_BUTTON_ERROR',
           level: 'warn',
           meta: { message: error instanceof Error ? error.message : 'Unknown error' },
-        }),
-        cache: 'no-store',
-      }).catch(() => null);
+        }
+      );
       console.error('Pi login error:', error);
       alert(error instanceof Error ? error.message : 'Error during login');
     } finally {
