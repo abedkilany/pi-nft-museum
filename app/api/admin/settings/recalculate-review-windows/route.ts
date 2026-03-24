@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
-  const admin = await requireAdminApi(PERMISSIONS.settingsManage);
+  const admin = await requireAdminApi(PERMISSIONS.settingsUpdate);
   if ('error' in admin) return admin.error;
 
   const artworks = await prisma.artwork.findMany({
