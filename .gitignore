@@ -1,6 +1,7 @@
 node_modules
 .next
 .env.local
+.vercel
 logs
 localhost.pem
 localhost-key.pem

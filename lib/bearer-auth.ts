@@ -1,4 +1,3 @@
-import { resolveAdminBridgeToken } from '@/lib/admin-bridge';
 import type { SessionUser } from '@/lib/auth';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 
@@ -97,40 +96,6 @@ export async function resolveAuthenticatedUserFromHeaders(
       hasAuthorizationHeader: true,
       hasMalformedAuthorizationHeader: true,
     };
-  }
-
-  if (options?.allowAdminBridge) {
-    const adminBridgeToken = normalizeHeaderValue(headers.get('x-admin-grant'));
-    if (adminBridgeToken) {
-      try {
-        const user = await resolveAdminBridgeToken(adminBridgeToken);
-        if (user) {
-          return {
-            user,
-            source: 'admin-bridge',
-            reason: 'ok',
-            hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-            hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-          };
-        }
-      } catch {
-        return {
-          user: null,
-          source: 'none',
-          reason: 'invalid_admin_bridge',
-          hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-          hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-        };
-      }
-
-      return {
-        user: null,
-        source: 'none',
-        reason: 'invalid_admin_bridge',
-        hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-        hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-      };
-    }
   }
 
   return {
