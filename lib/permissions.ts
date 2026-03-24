@@ -16,24 +16,39 @@ export const PERMISSIONS = {
   adminAccess: 'admin.access',
   usersView: 'users.view',
   usersEdit: 'users.edit',
+  usersManage: 'users.manage',
   usersStatusManage: 'users.status.manage',
   userRolesManage: 'users.roles.manage',
+
   artworksView: 'artworks.view',
+  artworksModerate: 'artworks.moderate',
   artworksReview: 'artworks.review',
   artworksPublish: 'artworks.publish',
   artworksReject: 'artworks.reject',
+
   reportsView: 'reports.view',
   reportsResolve: 'reports.resolve',
+
   communityModerate: 'community.moderate',
+  commentsModerate: 'comments.moderate',
+  commentsEditAny: 'comments.edit.any',
+  commentsDeleteAny: 'comments.delete.any',
+
   pagesManage: 'pages.manage',
   menuManage: 'menu.manage',
   categoriesManage: 'categories.manage',
   countriesManage: 'countries.manage',
+
   settingsView: 'settings.view',
   settingsUpdate: 'settings.update',
+  settingsManage: 'settings.manage',
+
   logsView: 'logs.view',
   auditView: 'audit.view',
   staffManage: 'staff.manage',
+
+  paymentsCreate: 'payments.create',
+  paymentsCompleteAny: 'payments.complete.any',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
