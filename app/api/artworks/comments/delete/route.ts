@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { isAdminRole } from '@/lib/roles';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { assertSameOrigin } from '@/lib/security';
@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     const { commentId } = await request.json();
     const comment = await prisma.artworkComment.findUnique({ where: { id: Number(commentId) }, include: { artwork: true } });
     if (!comment) return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
-    if (comment.authorId !== currentUser.userId && !isAdminRole(currentUser.role)) {
+    const canModerateComments = await userHasPermission(currentUser, PERMISSIONS.commentsDeleteAny);
+    if (comment.authorId !== currentUser.userId && !canModerateComments) {
       return NextResponse.json({ error: 'You cannot delete this comment.' }, { status: 403 });
     }
     await prisma.artworkComment.delete({ where: { id: comment.id } });

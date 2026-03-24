@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
 import { assertSameOrigin } from '@/lib/security';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payment record not found for completion.' }, { status: 404 });
     }
 
-    if (existing.buyerUserId !== currentUser.userId && !['admin', 'superadmin'].includes(currentUser.role)) {
+    const canCompleteAnyPayment = await userHasPermission(currentUser, PERMISSIONS.paymentsCompleteAny);
+    if (existing.buyerUserId !== currentUser.userId && !canCompleteAnyPayment) {
       return NextResponse.json({ error: 'You are not allowed to complete this payment.' }, { status: 403 });
     }
 

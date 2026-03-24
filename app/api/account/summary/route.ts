@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { getAllowedCountries } from '@/lib/countries';
+import { getPermissionKeysForUserId, PERMISSIONS } from '@/lib/permissions';
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -9,12 +10,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  const [dbUser, countries] = await Promise.all([
+  const [dbUser, countries, permissions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: currentUser.userId },
       include: { artworks: { orderBy: { createdAt: 'desc' }, take: 5 }, role: true }
     }),
-    getAllowedCountries()
+    getAllowedCountries(),
+    getPermissionKeysForUserId(currentUser.userId)
   ]);
 
   if (!dbUser) {
@@ -46,6 +48,8 @@ export async function GET() {
       piWalletAddress: dbUser.piWalletAddress || '',
       roleName: dbUser.role.name,
       roleKey: dbUser.role.key,
+      permissions,
+      adminPanelAccess: permissions.includes(PERMISSIONS.adminAccess),
       linkedAt: dbUser.piLinkedAt?.toISOString() || null,
       artworks: dbUser.artworks,
     },

@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { isStaffRole } from '@/lib/permissions';
 
 const ALLOWED_ROLES = new Set(['visitor', 'artist_or_trader']);
 
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    if (current.role.key === 'admin' || current.role.key === 'superadmin') {
+    if (isStaffRole(current.role.key)) {
       return NextResponse.json({ error: 'Staff roles cannot be changed from this screen.' }, { status: 403 });
     }
 

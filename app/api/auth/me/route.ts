@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
+import { getAuthorizationSnapshot } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const authz = await getAuthorizationSnapshot(authResult.user);
+
     logger.info('AUTH_ME_CONFIRMED', {
       feature: 'auth',
       route: '/api/auth/me',
@@ -84,6 +87,8 @@ export async function GET(request: NextRequest) {
         username: authResult.user.username,
         email: authResult.user.email,
         role: authResult.user.role,
+        permissions: authz.permissions,
+        adminPanelAccess: authz.canAccessAdmin,
         piUid: authResult.user.piUid,
         piUsername: authResult.user.piUsername,
       },

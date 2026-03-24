@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { callPiPaymentApi, ensurePaymentRecord, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
 import { assertSameOrigin } from '@/lib/security';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
 
-    if (!['artist_or_trader', 'admin', 'superadmin'].includes(currentUser.role)) {
+    if (!(await userHasPermission(currentUser, PERMISSIONS.paymentsCreate))) {
       return NextResponse.json({ error: 'Your current role cannot make payments.' }, { status: 403 });
     }
 
