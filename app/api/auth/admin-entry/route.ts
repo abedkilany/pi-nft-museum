@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromHeaders } from '@/lib/current-user';
 import { issueAdminBridgeToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/prisma';
-import { isAdminRole } from '@/lib/roles';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { assertSameOrigin } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
   }
 
-  if (!isAdminRole(currentUser.role)) {
+  if (!(await userHasPermission(currentUser, PERMISSIONS.adminAccess))) {
     return NextResponse.json({ ok: false, error: 'Admin access required.' }, { status: 403 });
   }
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     include: { role: true },
   });
 
-  if (!dbUser || !isAdminRole(dbUser.role.key)) {
+  if (!dbUser || !(await userHasPermission({ userId: dbUser.id, username: dbUser.username, email: dbUser.email, role: dbUser.role.key }, PERMISSIONS.adminAccess))) {
     return NextResponse.json({ ok: false, error: 'Admin access required.' }, { status: 403 });
   }
 

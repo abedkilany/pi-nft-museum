@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { serializeArtworkDetail, buildArtworkViewerState } from '@/lib/artwork-detail';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 async function loadArtwork(id: number) {
   return prisma.artwork.findUnique({
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
   }
 
   const isOwner = currentUser.userId === artwork.artistUserId;
-  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
-  if (!isOwner && !isAdmin) {
+  const canModerateArtwork = await userHasPermission(currentUser, PERMISSIONS.artworksModerate);
+  if (!isOwner && !canModerateArtwork) {
     return NextResponse.json({ ok: false, error: 'Not allowed.' }, { status: 403 });
   }
 

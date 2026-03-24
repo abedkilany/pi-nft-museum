@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAdminContextUser } from '@/lib/current-user';
-import { ADMIN_ROLES } from '@/lib/roles';
+import { PERMISSIONS, type PermissionKey, userHasPermission } from '@/lib/permissions';
 
-export async function requireAdminJson() {
+export async function requireAdminJson(permission: PermissionKey = PERMISSIONS.adminAccess) {
   const currentUser = await getCurrentAdminContextUser();
 
-  if (!currentUser || !ADMIN_ROLES.includes(currentUser.role as (typeof ADMIN_ROLES)[number])) {
+  if (!currentUser || !(await userHasPermission(currentUser, permission))) {
     return {
       currentUser: null,
       errorResponse: NextResponse.json({ error: 'Unauthorized.' }, { status: 403 })
@@ -15,10 +15,10 @@ export async function requireAdminJson() {
   return { currentUser, errorResponse: null };
 }
 
-export async function requireAdminRedirect(request: Request, fallbackPath = '/account') {
+export async function requireAdminRedirect(request: Request, fallbackPath = '/account', permission: PermissionKey = PERMISSIONS.adminAccess) {
   const currentUser = await getCurrentAdminContextUser();
 
-  if (!currentUser || !ADMIN_ROLES.includes(currentUser.role as (typeof ADMIN_ROLES)[number])) {
+  if (!currentUser || !(await userHasPermission(currentUser, permission))) {
     return {
       currentUser: null,
       errorResponse: NextResponse.redirect(new URL(fallbackPath, request.url))

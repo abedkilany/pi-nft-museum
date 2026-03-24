@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { isAdminRole } from '@/lib/roles';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 
@@ -16,13 +16,14 @@ export async function POST(request: Request) {
     if (!comment) return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
 
     const isArtworkArtist = comment.artwork.artistUserId === currentUser.userId;
-    if (!isArtworkArtist && !isAdminRole(currentUser.role)) {
+    const canModerateComments = await userHasPermission(currentUser, PERMISSIONS.commentsModerate);
+    if (!isArtworkArtist && !canModerateComments) {
       return NextResponse.json({ error: 'You cannot hide this comment.' }, { status: 403 });
     }
 
     await prisma.artworkComment.update({
       where: { id: comment.id },
-      data: isAdminRole(currentUser.role) ? { hiddenByModerator: Boolean(hidden) } : { hiddenByArtist: Boolean(hidden) },
+      data: canModerateComments ? { hiddenByModerator: Boolean(hidden) } : { hiddenByArtist: Boolean(hidden) },
     });
     logger.info('Artwork comment visibility changed', { commentId: comment.id, userId: currentUser.userId, hidden: Boolean(hidden) });
     return NextResponse.json({ ok: true, message: Boolean(hidden) ? 'Comment hidden.' : 'Comment shown again.' });
