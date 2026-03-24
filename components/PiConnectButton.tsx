@@ -108,9 +108,11 @@ export function PiConnectButton({ className = 'button primary', children, redire
         }).catch(() => null);
         const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
         if (adminEntryResponse?.ok && adminEntryPayload?.ok) {
-          target = typeof adminEntryPayload?.url === 'string' && adminEntryPayload.url ? String(adminEntryPayload.url) : '/admin';
+          target = typeof adminEntryPayload?.url === 'string' && adminEntryPayload.url ? String(adminEntryPayload.url) : '/api/auth/admin-enter';
         }
       }
+
+      const logTarget = target.startsWith('/api/auth/admin-enter') ? '/admin' : target;
 
       await fetch('/api/events', {
         method: 'POST',
@@ -128,8 +130,8 @@ export function PiConnectButton({ className = 'button primary', children, redire
           sessionId: window.sessionStorage.getItem('app_event_session_id'),
           traceId,
           correlationId: traceId,
-          message: `Redirecting after Pi login to ${target}`,
-          data: { target, role: user.role, userId: user.id }
+          message: `Redirecting after Pi login to ${logTarget}`,
+          data: { target: logTarget, role: user.role, userId: user.id }
         }),
         cache: 'no-store',
         keepalive: true,

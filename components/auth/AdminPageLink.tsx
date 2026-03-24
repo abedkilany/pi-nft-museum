@@ -31,7 +31,7 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
         throw new Error(payload?.error || 'Unable to open admin panel.');
       }
 
-      window.location.assign(payload.url as string);
+      window.location.assign(typeof payload?.url === 'string' && payload.url ? payload.url : '/api/auth/admin-enter');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to open admin panel.');
       setLoading(false);
