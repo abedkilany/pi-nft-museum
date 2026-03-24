@@ -6,6 +6,7 @@ import {
   isSystemRole,
 } from '@/lib/permissions';
 import { requireAdminPage } from '@/lib/admin';
+import { withAdminGrant, normalizeAdminGrant } from '@/lib/admin-url';
 
 function slugifyRoleKey(input: string) {
   return input
@@ -22,6 +23,8 @@ export default async function AdminRolesPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   await requireAdminPage(PERMISSIONS.userRolesManage);
+
+  const adminGrant = normalizeAdminGrant(searchParams?.admin_grant);
 
   const [roles, permissions] = await Promise.all([
     prisma.role.findMany({
@@ -99,7 +102,7 @@ export default async function AdminRolesPage({
           <h2 style={{ margin: 0 }}>Create role</h2>
           <p style={{ color: 'var(--muted)', marginBottom: 0 }}>Use this for support, finance, editors, or any future staff workflow.</p>
         </div>
-        <form action="/api/admin/roles/create" method="POST" style={{ display: 'grid', gap: '16px' }}>
+        <form action={withAdminGrant('/api/admin/roles/create', adminGrant)} method="POST" style={{ display: 'grid', gap: '16px' }}>
           <div className="form-grid">
             <label>
               <span>Role name</span>
@@ -166,7 +169,7 @@ export default async function AdminRolesPage({
                 </div>
               </div>
 
-              <form action="/api/admin/roles/update" method="POST" style={{ display: 'grid', gap: '16px' }}>
+              <form action={withAdminGrant('/api/admin/roles/update', adminGrant)} method="POST" style={{ display: 'grid', gap: '16px' }}>
                 <input type="hidden" name="roleId" value={role.id} />
                 <div className="form-grid">
                   <label>
@@ -224,7 +227,7 @@ export default async function AdminRolesPage({
               </form>
 
               {!isSystem ? (
-                <form action="/api/admin/roles/delete" method="POST">
+                <form action={withAdminGrant('/api/admin/roles/delete', adminGrant)} method="POST">
                   <input type="hidden" name="roleId" value={role.id} />
                   <button className="button secondary" type="submit">Delete role</button>
                 </form>

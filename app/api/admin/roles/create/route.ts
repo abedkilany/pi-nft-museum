@@ -15,6 +15,16 @@ function normalizeRoleKey(input: string) {
     .slice(0, 50);
 }
 
+
+function rolesRedirect(request: Request, query: string) {
+  const url = new URL(`/admin/roles?${query}`, request.url);
+  const adminGrant = new URL(request.url).searchParams.get('admin_grant');
+  if (adminGrant) {
+    url.searchParams.set('admin_grant', adminGrant);
+  }
+  return NextResponse.redirect(url);
+}
+
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
@@ -37,24 +47,24 @@ export async function POST(request: Request) {
   const validPermissionKeys = new Set(getAllPermissionKeys());
 
   if (!name) {
-    return NextResponse.redirect(new URL('/admin/roles?error=missing-fields', request.url));
+    return rolesRedirect(request, 'error=missing-fields');
   }
 
   if (!roleKey || roleKey.length < 3) {
-    return NextResponse.redirect(new URL('/admin/roles?error=invalid-role-key', request.url));
+    return rolesRedirect(request, 'error=invalid-role-key');
   }
 
   if (isSystemRole(roleKey)) {
-    return NextResponse.redirect(new URL('/admin/roles?error=duplicate-role', request.url));
+    return rolesRedirect(request, 'error=duplicate-role');
   }
 
   if (permissionKeys.some((key) => !validPermissionKeys.has(key))) {
-    return NextResponse.redirect(new URL('/admin/roles?error=unknown-permission', request.url));
+    return rolesRedirect(request, 'error=unknown-permission');
   }
 
   const existingRole = await prisma.role.findUnique({ where: { key: roleKey } });
   if (existingRole) {
-    return NextResponse.redirect(new URL('/admin/roles?error=duplicate-role', request.url));
+    return rolesRedirect(request, 'error=duplicate-role');
   }
 
   const permissions = permissionKeys.length
@@ -81,5 +91,5 @@ export async function POST(request: Request) {
   });
 
   logger.info('Admin created role', { adminUserId: admin.user.userId, roleId: role.id, roleKey: role.key });
-  return NextResponse.redirect(new URL('/admin/roles?created=1', request.url));
+  return rolesRedirect(request, 'created=1');
 }

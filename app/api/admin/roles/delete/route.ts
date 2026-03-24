@@ -6,6 +6,16 @@ import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 
+
+function rolesRedirect(request: Request, query: string) {
+  const url = new URL(`/admin/roles?${query}`, request.url);
+  const adminGrant = new URL(request.url).searchParams.get('admin_grant');
+  if (adminGrant) {
+    url.searchParams.set('admin_grant', adminGrant);
+  }
+  return NextResponse.redirect(url);
+}
+
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
@@ -23,7 +33,7 @@ export async function POST(request: Request) {
   const roleId = Number(formData.get('roleId'));
 
   if (!roleId) {
-    return NextResponse.redirect(new URL('/admin/roles?error=missing-fields', request.url));
+    return rolesRedirect(request, 'error=missing-fields');
   }
 
   const role = await prisma.role.findUnique({
@@ -36,15 +46,15 @@ export async function POST(request: Request) {
   });
 
   if (!role) {
-    return NextResponse.redirect(new URL('/admin/roles?error=not-found', request.url));
+    return rolesRedirect(request, 'error=not-found');
   }
 
   if (isSystemRole(role.key)) {
-    return NextResponse.redirect(new URL('/admin/roles?error=cannot-delete-system-role', request.url));
+    return rolesRedirect(request, 'error=cannot-delete-system-role');
   }
 
   if (role._count.users > 0) {
-    return NextResponse.redirect(new URL('/admin/roles?error=role-has-users', request.url));
+    return rolesRedirect(request, 'error=role-has-users');
   }
 
   await prisma.role.delete({ where: { id: role.id } });
@@ -58,5 +68,5 @@ export async function POST(request: Request) {
   });
 
   logger.info('Admin deleted role', { adminUserId: admin.user.userId, roleId: role.id, roleKey: role.key });
-  return NextResponse.redirect(new URL('/admin/roles?deleted=1', request.url));
+  return rolesRedirect(request, 'deleted=1');
 }
