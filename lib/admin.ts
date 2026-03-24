@@ -1,17 +1,17 @@
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
+import { getCurrentAdminContextUser } from '@/lib/current-user';
 import { isAdminRole, isSuperadminRole } from '@/lib/roles';
 
 export async function requireAdminPage() {
-  const user = await getCurrentUser();
+  const user = await getCurrentAdminContextUser();
   if (!user) redirect('/login');
   if (!isAdminRole(user.role)) redirect('/account');
   return user;
 }
 
 export async function requireAdminApi() {
-  const user = await getCurrentUser();
+  const user = await getCurrentAdminContextUser();
   if (!user) {
     return { error: NextResponse.json({ error: 'Authentication required.' }, { status: 401 }) } as const;
   }
@@ -22,7 +22,7 @@ export async function requireAdminApi() {
 }
 
 export async function requireSuperadminApi() {
-  const user = await getCurrentUser();
+  const user = await getCurrentAdminContextUser();
   if (!user) {
     return { error: NextResponse.json({ error: 'Authentication required.' }, { status: 401 }) } as const;
   }

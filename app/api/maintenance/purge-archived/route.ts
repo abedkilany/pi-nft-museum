@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
 import { purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
 import { assertSameOrigin } from '@/lib/security';
-
-function isAuthorized(request: Request) {
-  const secret = process.env.MAINTENANCE_API_SECRET || '';
-  if (!secret) return false;
-
-  const authHeader = request.headers.get('authorization') || '';
-  return authHeader === `Bearer ${secret}`;
-}
+import { isTokenProtectedInternalRouteAuthorized } from '@/lib/api-guards';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
-  if (!isAuthorized(request)) {
+  if (!isTokenProtectedInternalRouteAuthorized(request, 'MAINTENANCE_API_SECRET')) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 

@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
-function isAuthorized(request: Request) {
-  const secret = process.env.HEALTHCHECK_SECRET || '';
-  if (!secret) return true;
-
-  const authHeader = request.headers.get('authorization') || '';
-  return authHeader === `Bearer ${secret}`;
-}
+import { isTokenProtectedInternalRouteAuthorized } from '@/lib/api-guards';
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isTokenProtectedInternalRouteAuthorized(request, 'HEALTHCHECK_SECRET')) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 

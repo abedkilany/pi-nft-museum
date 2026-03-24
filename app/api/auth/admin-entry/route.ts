@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
+import { getCurrentUserFromHeaders } from '@/lib/current-user';
 import { issueAdminBridgeToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/prisma';
 import { isAdminRole } from '@/lib/roles';
+import { assertSameOrigin } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const currentUser = await getCurrentUser();
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
+  const currentUser = await getCurrentUserFromHeaders(request.headers);
   if (!currentUser) {
     return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
   }

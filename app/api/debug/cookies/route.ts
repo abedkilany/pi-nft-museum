@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { extractBearerToken } from '@/lib/pi-session';
-import { isProduction } from '@/lib/debug-flags';
+import { requireDebugRoute } from '@/lib/api-guards';
 
 export async function GET() {
-  if (isProduction) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const debugResponse = requireDebugRoute();
+  if (debugResponse) {
+    return debugResponse;
   }
 
   const headerStore = headers();
