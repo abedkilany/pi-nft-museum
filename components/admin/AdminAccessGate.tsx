@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
-const ADMIN_ROLES = new Set(['admin', 'superadmin']);
+const ADMIN_ROLES = new Set(['superadmin', 'admin', 'moderator', 'reviewer']);
 
 export function AdminAccessGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();

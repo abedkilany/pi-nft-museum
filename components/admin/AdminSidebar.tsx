@@ -19,6 +19,7 @@ const adminLinkGroups: AdminLinkGroup[] = [
       { href: '/admin/artworks', label: 'Artworks' },
       { href: '/admin/reports', label: 'Reports' },
       { href: '/admin/users', label: 'Users' },
+      { href: '/admin/roles', label: 'Roles & permissions' },
       { href: '/admin/categories', label: 'Categories' },
       { href: '/admin/countries', label: 'Countries' },
       { href: '/admin/pages', label: 'Pages' },

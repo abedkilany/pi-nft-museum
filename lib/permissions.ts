@@ -30,6 +30,102 @@ export const PERMISSIONS = {
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
+export const PERMISSION_GROUP_LABELS = {
+  platform: 'Platform access',
+  users: 'Users and roles',
+  artworks: 'Artworks',
+  community: 'Community moderation',
+  commerce: 'Payments',
+  observability: 'Observability',
+  settings: 'Settings',
+} as const;
+
+export const PERMISSION_DEFINITIONS: Array<{
+  key: PermissionKey;
+  label: string;
+  description: string;
+  group: keyof typeof PERMISSION_GROUP_LABELS;
+}> = [
+  {
+    key: PERMISSIONS.adminAccess,
+    label: 'Admin panel access',
+    description: 'Open and use the admin area.',
+    group: 'platform',
+  },
+  {
+    key: PERMISSIONS.usersView,
+    label: 'View users',
+    description: 'Open user management pages and browse account details.',
+    group: 'users',
+  },
+  {
+    key: PERMISSIONS.usersManage,
+    label: 'Manage users',
+    description: 'Edit user profile details and moderation status.',
+    group: 'users',
+  },
+  {
+    key: PERMISSIONS.userRolesManage,
+    label: 'Manage roles and permissions',
+    description: 'Create roles, assign permissions, and change elevated access.',
+    group: 'users',
+  },
+  {
+    key: PERMISSIONS.artworksModerate,
+    label: 'Moderate artworks',
+    description: 'Approve, reject, reopen, and inspect protected artwork states.',
+    group: 'artworks',
+  },
+  {
+    key: PERMISSIONS.artworksReview,
+    label: 'Review artworks',
+    description: 'Handle review-stage workflows and public review queues.',
+    group: 'artworks',
+  },
+  {
+    key: PERMISSIONS.settingsManage,
+    label: 'Manage settings',
+    description: 'Change site settings and business rules.',
+    group: 'settings',
+  },
+  {
+    key: PERMISSIONS.logsView,
+    label: 'View logs',
+    description: 'Access audit trails, app events, and technical observability tools.',
+    group: 'observability',
+  },
+  {
+    key: PERMISSIONS.commentsModerate,
+    label: 'Moderate comments',
+    description: 'Hide or restore comments as staff.',
+    group: 'community',
+  },
+  {
+    key: PERMISSIONS.commentsEditAny,
+    label: 'Edit any comment',
+    description: 'Edit comments created by other users.',
+    group: 'community',
+  },
+  {
+    key: PERMISSIONS.commentsDeleteAny,
+    label: 'Delete any comment',
+    description: 'Delete comments created by other users.',
+    group: 'community',
+  },
+  {
+    key: PERMISSIONS.paymentsCreate,
+    label: 'Create payments',
+    description: 'Initiate Pi payment approval flows.',
+    group: 'commerce',
+  },
+  {
+    key: PERMISSIONS.paymentsCompleteAny,
+    label: 'Complete any payment',
+    description: 'Complete Pi payments on behalf of other users when needed.',
+    group: 'commerce',
+  },
+];
+
 const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, PermissionKey[]> = {
   [ROLE_KEYS.superadmin]: Object.values(PERMISSIONS),
   [ROLE_KEYS.admin]: [
@@ -61,6 +157,10 @@ export function isKnownRole(role?: string | null): role is RoleKey {
   return Boolean(role && Object.values(ROLE_KEYS).includes(role as RoleKey));
 }
 
+export function isSystemRole(role?: string | null) {
+  return isKnownRole(role);
+}
+
 export function isStaffRole(role?: string | null) {
   return hasPermissionForRole(role, PERMISSIONS.adminAccess);
 }
@@ -80,6 +180,14 @@ export function normalizeRoleForRegistration(): RoleKey {
 export function getDefaultPermissionsForRole(role?: string | null): PermissionKey[] {
   if (!isKnownRole(role)) return [];
   return DEFAULT_ROLE_PERMISSIONS[role];
+}
+
+export function getAllPermissionKeys(): PermissionKey[] {
+  return PERMISSION_DEFINITIONS.map((item) => item.key);
+}
+
+export function getPermissionDefinition(permission: PermissionKey) {
+  return PERMISSION_DEFINITIONS.find((item) => item.key === permission) || null;
 }
 
 export function hasPermissionForRole(role: string | null | undefined, permission: PermissionKey): boolean {
@@ -110,8 +218,8 @@ export async function getPermissionKeysForUserId(userId: number): Promise<Permis
   if (!user) return [];
 
   const dbPermissions = user.role.permissions
-    .map((entry) => entry.permission?.key)
-    .filter((value): value is PermissionKey => Boolean(value));
+    .map((entry: any) => entry.permission?.key)
+    .filter((value: any): value is PermissionKey => Boolean(value));
 
   if (dbPermissions.length > 0) {
     return Array.from(new Set(dbPermissions));
