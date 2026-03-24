@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import type { MenuItem } from '@/lib/menu';
-
+import { isAdminRole } from '@/lib/roles';
 import { NavUserMenu } from '@/components/nav/NavUserMenu';
 import { NotificationBell } from '@/components/nav/NotificationBell';
 import { MobileNav } from '@/components/nav/MobileNav';
@@ -20,7 +20,7 @@ export function NavBarClient({ items }: Props) {
   const visibleItems = useMemo(() => {
     return items.filter((item: any) => {
       if (item.enabled === false) return false;
-      if (item.visibility === 'admin') return Boolean(user?.adminPanelAccess);
+      if (item.visibility === 'admin') return isAdminRole(user?.role);
       if (item.visibility === 'auth') return Boolean(user);
       if (item.visibility === 'guest') return checkedAuth ? !user : true;
       return true;
@@ -50,7 +50,7 @@ export function NavBarClient({ items }: Props) {
 
         <div className="nav-actions">
           {user ? <NotificationBell /> : null}
-          <NavUserMenu user={user} showAdmin={Boolean(user?.adminPanelAccess)} />
+          <NavUserMenu user={user} showAdmin={isAdminRole(user?.role)} />
         </div>
       </div>
 

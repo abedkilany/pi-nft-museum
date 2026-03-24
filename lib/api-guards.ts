@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserFromHeaders } from '@/lib/current-user';
-import { PERMISSIONS, type PermissionKey, userHasPermission } from '@/lib/permissions';
+import { isAdminRole, isSuperadminRole } from '@/lib/roles';
 import { isInternalDebugRouteEnabled, isProduction } from '@/lib/debug-flags';
 
 export async function requireAuthenticatedRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
@@ -15,25 +15,22 @@ export async function requireAuthenticatedRequest(request: Request, options?: { 
   return { user } as const;
 }
 
-export async function requirePermissionRequest(
-  request: Request,
-  permission: PermissionKey,
-  options?: { allowAdminBridge?: boolean }
-) {
+export async function requireAdminRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
   const auth = await requireAuthenticatedRequest(request, options);
   if ('error' in auth) return auth;
-  if (!(await userHasPermission(auth.user, permission))) {
-    return { error: NextResponse.json({ error: 'You do not have permission for this action.' }, { status: 403 }) } as const;
+  if (!isAdminRole(auth.user.role)) {
+    return { error: NextResponse.json({ error: 'Admin access required.' }, { status: 403 }) } as const;
   }
   return auth;
 }
 
-export async function requireAdminRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
-  return requirePermissionRequest(request, PERMISSIONS.adminAccess, options);
-}
-
 export async function requireSuperadminRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
-  return requirePermissionRequest(request, PERMISSIONS.userRolesManage, options);
+  const auth = await requireAuthenticatedRequest(request, options);
+  if ('error' in auth) return auth;
+  if (!isSuperadminRole(auth.user.role)) {
+    return { error: NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 }) } as const;
+  }
+  return auth;
 }
 
 export function requireDebugRoute() {

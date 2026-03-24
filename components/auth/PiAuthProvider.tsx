@@ -11,8 +11,6 @@ type AuthUser = {
   username: string;
   email?: string;
   role: string;
-  permissions?: string[];
-  adminPanelAccess?: boolean;
   piUid?: string | null;
   piUsername?: string | null;
 };

@@ -49,7 +49,7 @@ export default function AccountPage() {
   if (error || !data?.user) return <div className="page-stack"><section className="card surface-section"><p>{error || 'Unable to load account.'}</p></section></div>;
 
   const dbUser = data.user;
-  const isAdmin = Boolean(dbUser.adminPanelAccess);
+  const isAdmin = dbUser.roleKey === 'admin' || dbUser.roleKey === 'superadmin';
 
   return (
     <div className="page-stack">

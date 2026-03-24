@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
-import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
+import { isAdminRole } from '@/lib/roles';
 import { logger } from '@/lib/logger';
 import { COMMENT_STANCE_OPTIONS, getCommentStanceWeightKey, recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
@@ -24,14 +24,13 @@ export async function POST(request: Request) {
       getSiteSettingsMap(),
     ]);
     if (!comment) return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
-    const canEditAnyComment = await userHasPermission(currentUser, PERMISSIONS.commentsEditAny);
-    if (comment.authorId !== currentUser.userId && !canEditAnyComment) {
+    if (comment.authorId !== currentUser.userId && !isAdminRole(currentUser.role)) {
       return NextResponse.json({ error: 'You cannot edit this comment.' }, { status: 403 });
     }
 
     const editWindowHours = getNumberSetting(settings, 'comment_edit_window_hours', 12);
     const deadline = comment.editLockedAt || new Date(new Date(comment.createdAt).getTime() + editWindowHours * 60 * 60 * 1000);
-    const canBypass = Boolean(userRecord?.canEditCommentsAfterDeadline) || canEditAnyComment;
+    const canBypass = Boolean(userRecord?.canEditCommentsAfterDeadline) || isAdminRole(currentUser.role);
     if (!canBypass && deadline.getTime() <= Date.now()) {
       return NextResponse.json({ error: 'The edit window for this comment has ended.' }, { status: 400 });
     }

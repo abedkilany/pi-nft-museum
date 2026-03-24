@@ -1,91 +1,42 @@
+
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 async function main() {
   const roles = [
-    { key: 'superadmin', name: 'Super Admin', description: 'Full system access and role management' },
-    { key: 'admin', name: 'Admin', description: 'Administrative operations and site settings' },
-    { key: 'moderator', name: 'Moderator', description: 'Moderates artworks and comments' },
-    { key: 'reviewer', name: 'Reviewer', description: 'Handles review-stage workflows' },
+    { key: 'superadmin', name: 'Super Admin', description: 'Full system access' },
+    { key: 'admin', name: 'Admin', description: 'Administrative access' },
     { key: 'artist_or_trader', name: 'Artist or Trader', description: 'Connected marketplace member account' },
     { key: 'visitor', name: 'Visitor', description: 'Guest browsing role' },
   ];
 
   for (const role of roles) {
-    await prisma.role.upsert({
-      where: { key: role.key },
-      update: { name: role.name, description: role.description },
-      create: role,
-    });
+    await prisma.role.upsert({ where: { key: role.key }, update: { name: role.name, description: role.description }, create: role });
   }
 
   const permissions = [
-    { key: 'admin.access', name: 'Access Admin Panel', description: 'Open and use the admin area' },
-    { key: 'users.view', name: 'View Users', description: 'Open user management screens' },
-    { key: 'users.manage', name: 'Manage Users', description: 'Edit user profiles and statuses' },
-    { key: 'user.roles.manage', name: 'Manage User Roles', description: 'Assign elevated roles and permissions' },
-    { key: 'artworks.moderate', name: 'Moderate Artworks', description: 'Approve, reject, and inspect protected artwork views' },
-    { key: 'artworks.review', name: 'Review Artworks', description: 'Handle review-stage operations' },
-    { key: 'settings.manage', name: 'Manage Settings', description: 'Change site and workflow settings' },
-    { key: 'logs.view', name: 'View Logs', description: 'Access log and observability screens' },
-    { key: 'comments.moderate', name: 'Moderate Comments', description: 'Hide or restore comments as staff' },
-    { key: 'comments.edit.any', name: 'Edit Any Comment', description: 'Edit comments beyond self-service rules' },
-    { key: 'comments.delete.any', name: 'Delete Any Comment', description: 'Delete comments created by other users' },
-    { key: 'payments.create', name: 'Create Payments', description: 'Initiate Pi payment approval flow' },
-    { key: 'payments.complete.any', name: 'Complete Any Payment', description: 'Complete payments for other users when needed' },
+    { key: 'manage_users', name: 'Manage Users' },
+    { key: 'manage_roles', name: 'Manage Roles' },
+    { key: 'manage_artworks', name: 'Manage Artworks' },
+    { key: 'manage_pages', name: 'Manage Pages' },
+    { key: 'manage_settings', name: 'Manage Settings' },
+    { key: 'view_system_logs', name: 'View System Logs' }
   ];
 
   for (const permission of permissions) {
-    await prisma.permission.upsert({
-      where: { key: permission.key },
-      update: { name: permission.name, description: permission.description },
-      create: permission,
-    });
+    await prisma.permission.upsert({ where: { key: permission.key }, update: { name: permission.name }, create: permission });
   }
 
-  const rolePermissionMap = {
-    superadmin: permissions.map((item) => item.key),
-    admin: [
-      'admin.access',
-      'users.view',
-      'artworks.moderate',
-      'artworks.review',
-      'settings.manage',
-      'logs.view',
-      'comments.moderate',
-      'comments.edit.any',
-      'comments.delete.any',
-      'payments.create',
-      'payments.complete.any',
-    ],
-    moderator: [
-      'admin.access',
-      'artworks.moderate',
-      'comments.moderate',
-      'comments.edit.any',
-      'comments.delete.any',
-    ],
-    reviewer: ['admin.access', 'artworks.review'],
-    artist_or_trader: ['payments.create'],
-    visitor: [],
-  };
-
-  for (const [roleKey, permissionKeys] of Object.entries(rolePermissionMap)) {
-    const role = await prisma.role.findUnique({ where: { key: roleKey } });
-    if (!role) continue;
-
-    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-
-    for (const permissionKey of permissionKeys) {
-      const permission = await prisma.permission.findUnique({ where: { key: permissionKey } });
-      if (!permission) continue;
-
-      await prisma.rolePermission.create({
-        data: {
-          roleId: role.id,
-          permissionId: permission.id,
-        },
+  const superadminRole = await prisma.role.findUnique({ where: { key: 'superadmin' } });
+  const adminRole = await prisma.role.findUnique({ where: { key: 'admin' } });
+  const allPermissions = await prisma.permission.findMany();
+  for (const role of [superadminRole, adminRole].filter(Boolean)) {
+    for (const permission of allPermissions) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+        update: {},
+        create: { roleId: role.id, permissionId: permission.id }
       });
     }
   }
@@ -165,7 +116,7 @@ async function main() {
   }
 
   console.log('Seed completed successfully.');
-  console.log('Phase 2 roles and permissions are configured. Run this seed after deployment so the new permission map is written to the database.');
+  console.log('Pi-only login is enabled. Guests browse as Visitors. Connected Pi users are created as Artist or Trader by default. To grant admin access, add your Pi username or Pi UID in .env before first login.');
 }
 
 main().catch((error) => {

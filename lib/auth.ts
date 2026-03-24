@@ -5,7 +5,6 @@ export type SessionUser = {
   username: string;
   email: string;
   role: string;
-  permissions?: string[];
   piUid?: string | null;
   piUsername?: string | null;
 };
