@@ -27,7 +27,7 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
       });
 
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok || !payload?.url) {
+      if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || 'Unable to open admin panel.');
       }
 

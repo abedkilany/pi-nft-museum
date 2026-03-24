@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/current-user';
-import { issueAdminBridgeToken } from '@/lib/admin-bridge';
+import { ADMIN_BRIDGE_COOKIE_NAME, issueAdminBridgeToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/prisma';
 import { isAdminRole } from '@/lib/roles';
 
@@ -34,8 +34,20 @@ export async function POST(request: NextRequest) {
     roleVersion: dbUser.roleVersion,
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
-    url: `/admin?admin_grant=${encodeURIComponent(grant)}`,
+    url: '/admin',
   });
+
+  response.cookies.set({
+    name: ADMIN_BRIDGE_COOKIE_NAME,
+    value: grant,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 10 * 60,
+  });
+
+  return response;
 }

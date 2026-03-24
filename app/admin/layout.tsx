@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminAccessGate } from '@/components/admin/AdminAccessGate';
-import { AdminGrantPropagator } from '@/components/admin/AdminGrantPropagator';
 import { requireAdminPage } from '@/lib/admin';
 
 type AdminLayoutProps = {
@@ -13,7 +12,6 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <AdminAccessGate>
-      <AdminGrantPropagator />
       <div className="admin-layout">
         <aside className="admin-sidebar">
           <AdminSidebar />

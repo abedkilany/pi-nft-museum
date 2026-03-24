@@ -107,8 +107,8 @@ export function PiConnectButton({ className = 'button primary', children, redire
           cache: 'no-store',
         }).catch(() => null);
         const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
-        if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url) {
-          target = String(adminEntryPayload.url);
+        if (adminEntryResponse?.ok && adminEntryPayload?.ok) {
+          target = typeof adminEntryPayload?.url === 'string' && adminEntryPayload.url ? String(adminEntryPayload.url) : '/admin';
         }
       }
 
