@@ -10,7 +10,7 @@ import {
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { issueAppSessionToken } from '@/lib/app-session';
-import { setSessionCookies } from '@/lib/auth-cookies';
+import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 
@@ -290,6 +290,19 @@ export async function POST(request: Request) {
       },
     });
     setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
+    const cookiePolicy = describeCookiePolicy(request);
+    logger.info('PI_LOGIN_ROUTE_COOKIES_SET', {
+      ...baseMeta,
+      userId: user.id,
+      role: user.role.key,
+      cookieNames: ['pi_app_session', 'pi_refresh_session'],
+      secure: cookiePolicy.secure,
+      sameSite: cookiePolicy.sameSite,
+      path: cookiePolicy.path,
+      sessionMaxAge: cookiePolicy.sessionMaxAge,
+      refreshMaxAge: cookiePolicy.refreshMaxAge,
+      setCookieHeaderCount: typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie().length : null,
+    });
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
     return response;

@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 import { getAuthorizationSnapshot } from '@/lib/permissions';
+import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,11 @@ export async function GET(request: NextRequest) {
   const requestId = ctx.requestId;
 
   try {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieNamesSeen = cookieHeader
+      .split(';')
+      .map((entry) => entry.trim().split('=')[0])
+      .filter(Boolean);
     const authResult = await resolveAuthenticatedUserFromHeaders(request.headers);
 
     logger.debug('AUTH_ME_START', {
@@ -32,6 +38,10 @@ export async function GET(request: NextRequest) {
       tokenSource: authResult.source,
       authResolution: authResult.reason,
       authMode: 'short-lived-app-session',
+      cookieHeaderPresent: cookieHeader.length > 0,
+      cookieNamesSeen,
+      hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
+      hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
     });
 
     if (!authResult.user) {
@@ -77,6 +87,10 @@ export async function GET(request: NextRequest) {
       role: authResult.user.role,
       source: authResult.source,
       authMode: 'short-lived-app-session',
+      cookieHeaderPresent: cookieHeader.length > 0,
+      cookieNamesSeen,
+      hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
+      hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
     });
 
     return NextResponse.json({

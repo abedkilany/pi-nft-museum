@@ -179,6 +179,70 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
   return { ok: false, reason: 'server' };
 }
 
+
+async function fetchSessionDebug(traceId?: string | null) {
+  const resolvedTraceId = consumeOrCreateTraceId(traceId);
+  const response = await fetch('/api/auth/session-debug', {
+    method: 'GET',
+    headers: buildObservabilityHeaders({ Accept: 'application/json' }, resolvedTraceId),
+    credentials: 'include',
+    cache: 'no-store',
+  }).catch(() => null);
+
+  if (!response) {
+    return { ok: false, reason: 'network' as const, payload: null };
+  }
+
+  const payload = await response.json().catch(() => null);
+  return {
+    ok: response.ok,
+    reason: response.ok ? 'ok' as const : response.status === 404 ? 'not_available' as const : 'non_success' as const,
+    payload,
+    status: response.status,
+  };
+}
+
+async function resolveUserAfterLogin(traceId?: string | null) {
+  const resolvedTraceId = consumeOrCreateTraceId(traceId);
+  const delays = [0, 350, 900];
+
+  for (let index = 0; index < delays.length; index += 1) {
+    const delayMs = delays[index];
+    if (delayMs > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    }
+
+    const meResult = await fetchCurrentUser(resolvedTraceId);
+    if (meResult.ok) {
+      if (index > 0) {
+        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs }, 'info', resolvedTraceId);
+      }
+      return { ok: true as const, user: meResult.user };
+    }
+
+    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
+  }
+
+  const sessionDebug = await fetchSessionDebug(resolvedTraceId);
+  await pushClientAuthDebug(
+    'PI_AUTH_SESSION_RESTORE_FAILED_AFTER_LOGIN',
+    {
+      debugStatus: sessionDebug.ok ? 200 : sessionDebug.status ?? null,
+      debugReason: sessionDebug.reason,
+      debug: sessionDebug.payload,
+    },
+    'warn',
+    resolvedTraceId
+  );
+
+  const message = sessionDebug.payload?.error
+    || (sessionDebug.reason === 'not_available'
+      ? 'Pi login succeeded, but the session-debug route is not available in this deployment.'
+      : 'Pi login succeeded on the server, but the cookie session could not be restored on the client.');
+
+  return { ok: false as const, error: message };
+}
+
 async function authenticateAndResolveUser(traceId?: string | null) {
   const resolvedTraceId = beginClientTrace(traceId);
   await pushClientAuthDebug('PI_AUTH_SDK_START', {}, 'info', resolvedTraceId);
@@ -236,32 +300,12 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   setPiAuthToken('cookie-session');
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {}, 'info', resolvedTraceId);
 
-  const meResult = await fetchCurrentUser(resolvedTraceId);
-  if (meResult.ok) {
-    return meResult.user;
+  const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);
+  if (resolvedUser.ok) {
+    return resolvedUser.user;
   }
 
-  const sessionDebug = await fetch('/api/auth/session-debug', {
-    method: 'GET',
-    headers: buildObservabilityHeaders({ Accept: 'application/json' }, resolvedTraceId),
-    credentials: 'include',
-    cache: 'no-store',
-  }).then((response) => response.json().catch(() => null)).catch(() => null);
-
-  await pushClientAuthDebug(
-    'PI_AUTH_SESSION_RESTORE_FAILED_AFTER_LOGIN',
-    {
-      meReason: meResult.reason,
-      debug: sessionDebug,
-    },
-    'warn',
-    resolvedTraceId
-  );
-
-  throw new Error(
-    sessionDebug?.error ||
-      'Pi login succeeded on the server, but the cookie session could not be restored on the client.'
-  );
+  throw new Error(resolvedUser.error);
 }
 
 export function PiAuthProvider({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireDebugRoute } from '@/lib/api-guards';
+import { logger } from '@/lib/logger';
+import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, getRefreshCookieFromHeaders, getSessionCookieFromHeaders } from '@/lib/auth-cookies';
 import { verifyAppSessionToken } from '@/lib/app-session';
 import { getActiveSessionByRefreshToken } from '@/lib/session-registry';
@@ -13,8 +14,7 @@ function mask(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const blocked = requireDebugRoute();
-  if (blocked) return blocked;
+  const ctx = getRequestContextFromHeaders(request.headers);
 
   const cookieHeader = request.headers.get('cookie') || '';
   const sessionToken = getSessionCookieFromHeaders(request.headers);
@@ -44,6 +44,18 @@ export async function GET(request: NextRequest) {
     const entry = await getActiveSessionByRefreshToken(refreshToken);
     refreshStatus = entry ? 'active' : 'unknown_or_expired';
   }
+
+  logger.info('AUTH_SESSION_DEBUG_REQUESTED', {
+    feature: 'auth',
+    route: '/api/auth/session-debug',
+    method: 'GET',
+    requestId: ctx.requestId,
+    traceId: ctx.traceId,
+    correlationId: ctx.correlationId,
+    sessionId: ctx.sessionId,
+    ipAddress: ctx.ipAddress,
+    cookieHeaderPresent: cookieHeader.length > 0,
+  });
 
   return NextResponse.json({
     ok: true,

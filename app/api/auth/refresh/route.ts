@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
-import { getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
+import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, describeCookiePolicy, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
 import { issueAppSessionToken } from '@/lib/app-session';
 import { buildRefreshTokenValue, getActiveSessionByRefreshToken, rotateRefreshSession } from '@/lib/session-registry';
 
 export async function POST(request: NextRequest) {
+  const ctx = getRequestContextFromHeaders(request.headers);
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieNamesSeen = cookieHeader
+    .split(';')
+    .map((entry) => entry.trim().split('=')[0])
+    .filter(Boolean);
+
+  logger.info('AUTH_REFRESH_START', {
+    feature: 'auth',
+    route: '/api/auth/refresh',
+    method: 'POST',
+    requestId: ctx.requestId,
+    traceId: ctx.traceId,
+    correlationId: ctx.correlationId,
+    sessionId: ctx.sessionId,
+    ipAddress: ctx.ipAddress,
+    origin: request.headers.get('origin'),
+    referer: request.headers.get('referer'),
+    host: request.headers.get('host'),
+    forwardedProto: request.headers.get('x-forwarded-proto'),
+    cookieHeaderPresent: cookieHeader.length > 0,
+    cookieNamesSeen,
+    hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
+    hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
+  });
+
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
@@ -17,6 +45,18 @@ export async function POST(request: NextRequest) {
 
   const refreshToken = getRefreshCookieFromHeaders(request.headers);
   if (!refreshToken) {
+    logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
+      feature: 'auth',
+      route: '/api/auth/refresh',
+      method: 'POST',
+      requestId: ctx.requestId,
+      traceId: ctx.traceId,
+      correlationId: ctx.correlationId,
+      sessionId: ctx.sessionId,
+      ipAddress: ctx.ipAddress,
+      cookieHeaderPresent: cookieHeader.length > 0,
+      cookieNamesSeen,
+    });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;
@@ -24,6 +64,16 @@ export async function POST(request: NextRequest) {
 
   const sessionEntry = await getActiveSessionByRefreshToken(refreshToken);
   if (!sessionEntry) {
+    logger.warn('AUTH_REFRESH_TOKEN_NOT_ACTIVE', {
+      feature: 'auth',
+      route: '/api/auth/refresh',
+      method: 'POST',
+      requestId: ctx.requestId,
+      traceId: ctx.traceId,
+      correlationId: ctx.correlationId,
+      sessionId: ctx.sessionId,
+      ipAddress: ctx.ipAddress,
+    });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;

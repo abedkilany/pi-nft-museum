@@ -25,7 +25,7 @@ type Props = {
 
 export function PiConnectButton({ className = 'button primary', children, redirectTo }: Props) {
   const [loading, setLoading] = useState(false);
-  const { ensureAuthenticated } = usePiAuth();
+  const { ensureAuthenticated, error: authError } = usePiAuth();
 
   async function wait(ms: number) {
     await new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -82,9 +82,9 @@ export function PiConnectButton({ className = 'button primary', children, redire
       }
 
       if (!user) {
-        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_NO_USER_FINAL', level: 'warn', meta: { traceId, attempts: 2 } });
-        await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_FAILED_NO_USER', 'FAILED', { attempts: 2 });
-        alert('Pi Browser did not return your Pi user yet. Please wait a moment and try again.');
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_NO_USER_FINAL', level: 'warn', meta: { traceId, attempts: 2, authError: authError || null } });
+        await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_FAILED_NO_USER', 'FAILED', { attempts: 2, authError: authError || null });
+        alert(authError || 'Pi login did not complete. Please wait a moment and try again.');
         return;
       }
 

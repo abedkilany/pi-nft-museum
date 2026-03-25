@@ -26,6 +26,20 @@ function resolveSameSite(secure: boolean): 'none' | 'lax' {
   return secure ? 'none' : 'lax';
 }
 
+
+export function describeCookiePolicy(request?: Request | NextRequest | null) {
+  const secure = isSecureCookie(request);
+  const sameSite = resolveSameSite(secure);
+  return {
+    secure,
+    sameSite,
+    path: '/',
+    sessionMaxAge: SESSION_MAX_AGE_SECONDS,
+    refreshMaxAge: REFRESH_MAX_AGE_SECONDS,
+    adminBridgeMaxAge: ADMIN_BRIDGE_MAX_AGE_SECONDS,
+  } as const;
+}
+
 export function getCookieValueFromHeader(cookieHeader: string | null | undefined, key: string) {
   if (!cookieHeader) return null;
 
