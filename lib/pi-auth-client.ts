@@ -1,6 +1,8 @@
 import { buildObservabilityHeaders } from '@/lib/observability-client';
 
 const AUTH_MODE_STORAGE_KEY = 'pi_auth_mode';
+const SESSION_TOKEN_STORAGE_KEY = 'pi_session_token';
+const REFRESH_TOKEN_STORAGE_KEY = 'pi_refresh_token';
 
 function canUseSessionStorage() {
   return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
@@ -30,11 +32,11 @@ function removeStorage(key: string) {
 }
 
 export function getStoredPiSessionToken() {
-  return null;
+  return readStorage(SESSION_TOKEN_STORAGE_KEY);
 }
 
 export function getStoredPiRefreshToken() {
-  return null;
+  return readStorage(REFRESH_TOKEN_STORAGE_KEY);
 }
 
 export function getStoredAuthMode() {
@@ -42,21 +44,33 @@ export function getStoredAuthMode() {
 }
 
 export function shouldUseBearerFallbackClient() {
-  return false;
+  return Boolean(getStoredPiSessionToken());
 }
 
 export function getPiAuthToken() {
-  return 'cookie-session';
+  return getStoredPiSessionToken() || 'cookie-session';
 }
 
-export function setPiAuthToken(_token: string) {}
+export function setPiAuthToken(token: string) {
+  writeStorage(SESSION_TOKEN_STORAGE_KEY, token);
+}
 
 export function storePiBrowserAuth(input: { sessionToken?: string | null; refreshToken?: string | null; mode?: string | null }) {
   if (input.mode) writeStorage(AUTH_MODE_STORAGE_KEY, input.mode);
+
+  if (typeof input.sessionToken === 'string' && input.sessionToken.length > 0) {
+    writeStorage(SESSION_TOKEN_STORAGE_KEY, input.sessionToken);
+  }
+
+  if (typeof input.refreshToken === 'string' && input.refreshToken.length > 0) {
+    writeStorage(REFRESH_TOKEN_STORAGE_KEY, input.refreshToken);
+  }
 }
 
 export function clearPiAuthToken() {
   removeStorage(AUTH_MODE_STORAGE_KEY);
+  removeStorage(SESSION_TOKEN_STORAGE_KEY);
+  removeStorage(REFRESH_TOKEN_STORAGE_KEY);
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): Headers {
@@ -68,19 +82,48 @@ export function getPiAuthHeaders(init?: HeadersInit): Headers {
     headers.set('X-Auth-Mode', authMode);
   }
 
+  headers.set('X-Auth-Fallback-Allowed', '1');
+
+  const sessionToken = getStoredPiSessionToken();
+  if (sessionToken) {
+    headers.set('Authorization', `Bearer ${sessionToken}`);
+  }
+
   return headers;
 }
 
 async function attemptRefresh() {
+  const headers = getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }));
+  const refreshToken = getStoredPiRefreshToken();
+
+  if (refreshToken) {
+    headers.set('X-Refresh-Token', refreshToken);
+  }
+
   const response = await fetch('/api/auth/refresh', {
     method: 'POST',
-    headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' })),
+    headers,
     credentials: 'include',
     cache: 'no-store',
   }).catch(() => null);
 
   if (!response) return false;
-  return response.ok;
+
+  const payload = await response.json().catch(() => null);
+  if (response.ok) {
+    storePiBrowserAuth({
+      mode: payload?.fallback?.enabled ? 'hybrid-session' : payload?.authMode || 'cookie-session',
+      sessionToken: payload?.fallback?.sessionToken || null,
+      refreshToken: payload?.fallback?.refreshToken || null,
+    });
+    return true;
+  }
+
+  if (response.status === 401) {
+    clearPiAuthToken();
+  }
+
+  return false;
 }
 
 function isAuthMaintenanceEndpoint(input: RequestInfo | URL) {

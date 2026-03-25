@@ -314,18 +314,32 @@ export async function POST(request: Request) {
       },
     });
 
-    const transport = 'cookie-session';
+    const prefersClientFallback = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'));
+    const allowsClientFallback = request.headers.get('x-auth-fallback-allowed') === '1';
+    const includeClientFallback = allowsClientFallback;
+    const transport = includeClientFallback ? 'hybrid-session' : 'cookie-session';
 
     const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
-      authMode: 'cookie-session-with-refresh-rotation',
+      authMode: includeClientFallback
+        ? 'hybrid-cookie-session-with-session-storage-fallback'
+        : 'cookie-session-with-refresh-rotation',
       session: {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: session.refreshExpiresAt,
         transport,
       },
+      fallback: includeClientFallback
+        ? {
+            enabled: true,
+            sessionToken: session.token,
+            refreshToken,
+            transport: 'session-storage-bearer-fallback',
+            reason: prefersClientFallback ? 'preferred-for-cookie-restricted-client' : 'compatibility-fallback',
+          }
+        : { enabled: false },
       user: {
         id: user.id,
         username: user.username,
@@ -354,7 +368,7 @@ export async function POST(request: Request) {
     });
 
     response.headers.set('Cache-Control', 'no-store');
-    response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
+    response.headers.set('X-Auth-Session-Mode', includeClientFallback ? 'hybrid-cookie-session-with-session-storage-fallback' : 'cookie-session-with-refresh-rotation');
     response.headers.set('X-Auth-Transport', transport);
 
     return response;

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
 import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -263,7 +264,9 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error('Pi login did not return an access token.');
   }
 
-  await pushClientAuthDebug('PI_AUTH_SERVER_LOGIN_START', {}, 'info', resolvedTraceId);
+  const prefersBearerFallback = shouldPreferPiBrowserBearerFallback();
+
+  await pushClientAuthDebug('PI_AUTH_SERVER_LOGIN_START', { prefersBearerFallback }, 'info', resolvedTraceId);
   const loginResponse = await fetch('/api/auth/pi/login', {
     method: 'POST',
     headers: buildObservabilityHeaders(
@@ -271,6 +274,8 @@ async function authenticateAndResolveUser(traceId?: string | null) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'X-App-Request': 'pi-web',
+        'X-Auth-Fallback-Allowed': '1',
+        'X-Auth-Fallback-Preferred': prefersBearerFallback ? '1' : '0',
       },
       resolvedTraceId
     ),
@@ -297,12 +302,16 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  storePiBrowserAuth({ mode: 'cookie-session' });
+  storePiBrowserAuth({
+    mode: loginPayload?.fallback?.enabled ? 'hybrid-session' : 'cookie-session',
+    sessionToken: loginPayload?.fallback?.sessionToken || null,
+    refreshToken: loginPayload?.fallback?.refreshToken || null,
+  });
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
-    prefersBearerFallback: false,
-    hasFallbackSessionToken: false,
-    hasFallbackRefreshToken: false,
-    transport: 'cookie-session',
+    prefersBearerFallback,
+    hasFallbackSessionToken: Boolean(loginPayload?.fallback?.sessionToken),
+    hasFallbackRefreshToken: Boolean(loginPayload?.fallback?.refreshToken),
+    transport: loginPayload?.fallback?.enabled ? 'hybrid-session' : 'cookie-session',
   }, 'info', resolvedTraceId);
 
   const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);

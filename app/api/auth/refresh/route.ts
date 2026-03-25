@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     cookieNamesSeen,
     hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
     hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
-    refreshHeaderPresent: false,
+    refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
   });
 
   const csrfError = assertSameOrigin(request);
@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitError) return rateLimitError;
 
   const refreshTokenFromCookie = getRefreshCookieFromHeaders(request.headers);
-  const refreshToken = refreshTokenFromCookie;
+  const refreshTokenFromHeader = request.headers.get('x-refresh-token')?.trim() || null;
+  const refreshToken = refreshTokenFromCookie || refreshTokenFromHeader;
   if (!refreshToken) {
     logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
       feature: 'auth',
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       ipAddress: ctx.ipAddress,
       cookieHeaderPresent: cookieHeader.length > 0,
       cookieNamesSeen,
-      refreshHeaderPresent: false,
+      refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
     });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
@@ -109,15 +110,32 @@ export async function POST(request: NextRequest) {
     headers: request.headers,
   });
 
+  const includeClientFallback = Boolean(
+    refreshTokenFromHeader ||
+    request.headers.get('authorization') ||
+    request.headers.get('x-auth-fallback-allowed') === '1' ||
+    request.headers.get('x-auth-mode')?.includes('hybrid')
+  );
+
   const response = NextResponse.json({
     ok: true,
-    authMode: 'cookie-session-with-refresh-rotation',
+    authMode: includeClientFallback
+      ? 'hybrid-cookie-session-with-session-storage-fallback'
+      : 'cookie-session-with-refresh-rotation',
     session: {
       expiresInSeconds: session.expiresInSeconds,
       expiresAt: session.expiresAt,
       refreshExpiresAt: session.refreshExpiresAt,
-      transport: 'cookie-session',
+      transport: includeClientFallback ? 'hybrid-session' : 'cookie-session',
     },
+    fallback: includeClientFallback
+      ? {
+          enabled: true,
+          sessionToken: session.token,
+          refreshToken: nextRefreshToken,
+          transport: 'session-storage-bearer-fallback',
+        }
+      : { enabled: false },
   });
   setSessionCookies(response, { sessionToken: session.token, refreshToken: nextRefreshToken }, request);
   return response;
