@@ -110,23 +110,18 @@ export async function POST(request: NextRequest) {
     headers: request.headers,
   });
 
-  const includeClientFallback = Boolean(
-    refreshTokenFromHeader ||
-    request.headers.get('authorization') ||
-    request.headers.get('x-auth-fallback-allowed') === '1' ||
-    request.headers.get('x-auth-mode')?.includes('hybrid')
-  );
+  const includeClientFallback = true;
 
   const response = NextResponse.json({
     ok: true,
     authMode: includeClientFallback
-      ? 'hybrid-cookie-session-with-session-storage-fallback'
+      ? 'token-first-session-with-cookie-backup'
       : 'cookie-session-with-refresh-rotation',
     session: {
       expiresInSeconds: session.expiresInSeconds,
       expiresAt: session.expiresAt,
       refreshExpiresAt: session.refreshExpiresAt,
-      transport: includeClientFallback ? 'hybrid-session' : 'cookie-session',
+      transport: includeClientFallback ? 'token-session-with-cookie-backup' : 'cookie-session',
     },
     fallback: includeClientFallback
       ? {

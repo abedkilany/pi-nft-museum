@@ -289,7 +289,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
         Accept: 'application/json',
         'X-App-Request': 'pi-web',
         'X-Auth-Fallback-Allowed': '1',
-        'X-Auth-Fallback-Preferred': prefersBearerFallback ? '1' : '0',
+        'X-Auth-Fallback-Preferred': '1',
       },
       resolvedTraceId
     ),
@@ -319,9 +319,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  const initialAuthMode = loginPayload?.fallback?.enabled
-    ? (prefersBearerFallback ? 'fallback' : 'hybrid')
-    : 'cookie';
+  const initialAuthMode = loginPayload?.fallback?.enabled ? 'fallback' : 'cookie';
 
   storePiBrowserAuth({
     mode: initialAuthMode,
@@ -388,6 +386,17 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
 
           if (restored.reason === 'unauthorized') {
             await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode(), hasSessionToken: Boolean(getStoredPiSessionToken()), state: getClientAuthDiagnosticState() }, 'info', resolvedTraceId);
+            if (getStoredAuthMode() !== 'cookie' && Boolean(getStoredPiSessionToken())) {
+              const previousMode = getStoredAuthMode();
+              setStoredAuthMode('fallback');
+              await pushClientAuthDebug('PI_AUTH_FLOW_RETRY_WITH_FALLBACK_AFTER_UNAUTHORIZED', { previousMode, state: getClientAuthDiagnosticState() }, 'info', resolvedTraceId);
+              const retryWithFallback = await fetchCurrentUser(resolvedTraceId);
+              if (retryWithFallback.ok) {
+                setUser(retryWithFallback.user);
+                setStatus('authenticated');
+                return retryWithFallback.user;
+              }
+            }
             if (getStoredAuthMode() === 'cookie') {
               clearPiAuthToken('runAuthFlow_cookie_mode_unauthorized');
             }
@@ -477,7 +486,10 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     await pushClientAuthDebug('PI_AUTH_LOGOUT_START', {}, 'info', traceId);
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
+      headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId), {
+        forceBearer: getStoredAuthMode() !== 'cookie',
+        includeRefreshHeader: true,
+      }),
       credentials: 'include',
     }).catch(() => null);
     clearPiAuthToken('logout');
