@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, getStoredAuthMode, getStoredPiSessionToken, piApiFetch, setStoredAuthMode, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getClientAuthDiagnosticState, getPiAuthHeaders, getStoredAuthMode, getStoredPiSessionToken, piApiFetch, setStoredAuthMode, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
@@ -220,7 +220,7 @@ async function resolveUserAfterLogin(traceId?: string | null) {
       if (currentMode !== 'fallback') {
         forcedFallback = true;
         setStoredAuthMode('fallback');
-        await pushClientAuthDebug('PI_AUTH_SWITCHED_TO_FALLBACK_AFTER_ME_401', { attempt: index + 1, previousMode: currentMode }, 'info', resolvedTraceId);
+        await pushClientAuthDebug('PI_AUTH_SWITCHED_TO_FALLBACK_AFTER_ME_401', { attempt: index + 1, previousMode: currentMode, state: getClientAuthDiagnosticState() }, 'info', resolvedTraceId);
         meResult = await fetchCurrentUser(resolvedTraceId);
       }
     }
@@ -307,6 +307,9 @@ async function authenticateAndResolveUser(traceId?: string | null) {
       hasSessionCookie: Boolean(loginPayload?.session?.expiresAt),
       error: loginPayload?.error ?? null,
       code: loginPayload?.code ?? null,
+      fallbackEnabled: Boolean(loginPayload?.fallback?.enabled),
+      hasFallbackSessionToken: Boolean(loginPayload?.fallback?.sessionToken),
+      hasFallbackRefreshToken: Boolean(loginPayload?.fallback?.refreshToken),
     },
     loginResponse?.ok ? 'info' : 'warn',
     resolvedTraceId
@@ -325,6 +328,9 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     sessionToken: loginPayload?.fallback?.sessionToken || null,
     refreshToken: loginPayload?.fallback?.refreshToken || null,
   });
+  await pushClientAuthDebug('PI_AUTH_SESSION_STORAGE_SNAPSHOT_AFTER_LOGIN', {
+    state: getClientAuthDiagnosticState(),
+  }, 'info', resolvedTraceId);
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
     prefersBearerFallback,
     initialAuthMode,
@@ -361,7 +367,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           if (!restored.ok && restored.reason === 'unauthorized' && getStoredAuthMode() !== 'cookie' && Boolean(getStoredPiSessionToken())) {
             const previousMode = getStoredAuthMode();
             setStoredAuthMode('fallback');
-            await pushClientAuthDebug('PI_AUTH_FLOW_PROMOTED_TO_FALLBACK', { previousMode }, 'info', resolvedTraceId);
+            await pushClientAuthDebug('PI_AUTH_FLOW_PROMOTED_TO_FALLBACK', { previousMode, state: getClientAuthDiagnosticState() }, 'info', resolvedTraceId);
             restored = await fetchCurrentUser(resolvedTraceId);
           }
 
@@ -381,9 +387,9 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (restored.reason === 'unauthorized') {
-            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode(), hasSessionToken: Boolean(getStoredPiSessionToken()) }, 'info', resolvedTraceId);
+            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode(), hasSessionToken: Boolean(getStoredPiSessionToken()), state: getClientAuthDiagnosticState() }, 'info', resolvedTraceId);
             if (getStoredAuthMode() === 'cookie') {
-              clearPiAuthToken();
+              clearPiAuthToken('runAuthFlow_cookie_mode_unauthorized');
             }
             setUser(null);
             setStatus('guest');
@@ -430,7 +436,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           errorName: authError instanceof Error ? authError.name : 'AuthenticationError',
           errorCode: 'POST_AUTH_CLIENT_FAILURE'
         });
-        clearPiAuthToken();
+        clearPiAuthToken('runAuthFlow_catch');
         setUser(null);
         setStatus('guest');
         setError(authError instanceof Error ? authError.message : 'Authentication failed.');
@@ -474,7 +480,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
       headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
       credentials: 'include',
     }).catch(() => null);
-    clearPiAuthToken();
+    clearPiAuthToken('logout');
     setUser(null);
     setStatus('guest');
     setError('');

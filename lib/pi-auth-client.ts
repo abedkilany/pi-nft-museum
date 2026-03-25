@@ -1,4 +1,4 @@
-import { buildObservabilityHeaders } from '@/lib/observability-client';
+import { buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observability-client';
 
 const AUTH_MODE_STORAGE_KEY = 'pi_auth_mode';
 const SESSION_TOKEN_STORAGE_KEY = 'pi_session_token';
@@ -17,6 +17,31 @@ const memoryAuthState: MemoryAuthState = {
   sessionToken: null,
   refreshToken: null,
 };
+
+
+type AuthDiagMeta = Record<string, unknown>;
+
+function canUseWindowFetch() {
+  return typeof window !== 'undefined' && typeof fetch !== 'undefined';
+}
+
+async function pushAuthClientDiag(event: string, meta?: AuthDiagMeta, level: 'info' | 'warn' = 'info') {
+  if (!canUseWindowFetch()) return;
+  try {
+    const traceId = consumeOrCreateTraceId();
+    await fetch('/api/auth/pi/debug', {
+      method: 'POST',
+      headers: buildObservabilityHeaders({
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-App-Request': 'pi-web',
+      }, traceId),
+      body: JSON.stringify({ event, level, meta: { ...(meta || {}), traceId } }),
+      cache: 'no-store',
+      keepalive: true,
+    });
+  } catch {}
+}
 
 function canUseSessionStorage() {
   return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
@@ -76,6 +101,24 @@ function normalizeAuthMode(value?: string | null): PiClientAuthMode {
   return 'cookie';
 }
 
+
+export function getClientAuthDiagnosticState() {
+  const storedMode = readStorage(AUTH_MODE_STORAGE_KEY);
+  const storedSessionToken = readStorage(SESSION_TOKEN_STORAGE_KEY);
+  const storedRefreshToken = readStorage(REFRESH_TOKEN_STORAGE_KEY);
+
+  return {
+    authMode: normalizeAuthMode(storedMode || memoryAuthState.mode),
+    hasStoredMode: Boolean(storedMode),
+    hasMemoryMode: Boolean(memoryAuthState.mode),
+    hasStoredSessionToken: Boolean(storedSessionToken),
+    hasMemorySessionToken: Boolean(memoryAuthState.sessionToken),
+    hasStoredRefreshToken: Boolean(storedRefreshToken),
+    hasMemoryRefreshToken: Boolean(memoryAuthState.refreshToken),
+    sessionStorageAvailable: canUseSessionStorage(),
+  };
+}
+
 export function getStoredPiSessionToken() {
   return readTokenWithMemoryFallback(SESSION_TOKEN_STORAGE_KEY, memoryAuthState.sessionToken);
 }
@@ -125,9 +168,17 @@ export function storePiBrowserAuth(input: { sessionToken?: string | null; refres
       memoryAuthState.refreshToken = value;
     });
   }
+
+  void pushAuthClientDiag('PI_AUTH_CLIENT_STORE_BROWSER_AUTH', {
+    requestedMode: input.mode || null,
+    hasInputSessionToken: Boolean(input.sessionToken),
+    hasInputRefreshToken: Boolean(input.refreshToken),
+    state: getClientAuthDiagnosticState(),
+  });
 }
 
-export function clearPiAuthToken() {
+export function clearPiAuthToken(reason?: string) {
+  const before = getClientAuthDiagnosticState();
   clearTokenWithMemoryFallback(AUTH_MODE_STORAGE_KEY, () => {
     memoryAuthState.mode = null;
   });
@@ -137,6 +188,11 @@ export function clearPiAuthToken() {
   clearTokenWithMemoryFallback(REFRESH_TOKEN_STORAGE_KEY, () => {
     memoryAuthState.refreshToken = null;
   });
+  void pushAuthClientDiag('PI_AUTH_CLIENT_CLEAR_TOKENS', {
+    reason: reason || null,
+    before,
+    after: getClientAuthDiagnosticState(),
+  }, 'warn');
 }
 
 export function getPiAuthHeaders(init?: HeadersInit, options?: { forceBearer?: boolean; includeRefreshHeader?: boolean }): Headers {
@@ -171,6 +227,13 @@ async function attemptRefresh() {
   const hasStoredRefreshToken = Boolean(getStoredPiRefreshToken());
   const shouldIncludeRefreshHeader = currentMode === 'fallback' || hasStoredRefreshToken;
 
+  void pushAuthClientDiag('PI_AUTH_CLIENT_REFRESH_START', {
+    currentMode,
+    hasStoredRefreshToken,
+    shouldIncludeRefreshHeader,
+    state: getClientAuthDiagnosticState(),
+  });
+
   const headers = getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }), {
     forceBearer: currentMode === 'fallback',
     includeRefreshHeader: shouldIncludeRefreshHeader,
@@ -183,9 +246,26 @@ async function attemptRefresh() {
     cache: 'no-store',
   }).catch(() => null);
 
-  if (!response) return false;
+  if (!response) {
+    void pushAuthClientDiag('PI_AUTH_CLIENT_REFRESH_NETWORK_FAILURE', {
+      currentMode,
+      state: getClientAuthDiagnosticState(),
+    }, 'warn');
+    return false;
+  }
 
   const payload = await response.json().catch(() => null);
+  void pushAuthClientDiag('PI_AUTH_CLIENT_REFRESH_RESPONSE', {
+    currentMode,
+    status: response.status,
+    ok: response.ok,
+    sentAuthorization: headers.has('Authorization'),
+    sentRefreshHeader: headers.has('X-Refresh-Token'),
+    payloadHasFallbackSessionToken: Boolean(payload?.fallback?.sessionToken),
+    payloadHasFallbackRefreshToken: Boolean(payload?.fallback?.refreshToken),
+    payloadFallbackEnabled: Boolean(payload?.fallback?.enabled),
+    state: getClientAuthDiagnosticState(),
+  }, response.ok ? 'info' : 'warn');
   if (response.ok) {
     const nextMode: PiClientAuthMode = currentMode === 'fallback'
       ? 'fallback'
@@ -211,7 +291,7 @@ async function attemptRefresh() {
       currentMode === 'fallback');
 
   if (shouldClear) {
-    clearPiAuthToken();
+    clearPiAuthToken('attemptRefresh_shouldClear');
   }
 
   return false;
@@ -223,6 +303,7 @@ function isAuthMaintenanceEndpoint(input: RequestInfo | URL) {
 }
 
 export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
   const requestInit = {
     ...init,
     headers: getPiAuthHeaders(buildObservabilityHeaders(init.headers), {
@@ -232,16 +313,60 @@ export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {
     cache: init.cache ?? 'no-store',
   };
 
+  if (requestUrl.includes('/api/auth/')) {
+    const headers = new Headers(requestInit.headers);
+    void pushAuthClientDiag('PI_AUTH_CLIENT_FETCH_START', {
+      requestUrl,
+      method: requestInit.method || 'GET',
+      authMode: getStoredAuthMode(),
+      sentAuthorization: headers.has('Authorization'),
+      sentRefreshHeader: headers.has('X-Refresh-Token'),
+      fallbackAllowed: headers.get('X-Auth-Fallback-Allowed'),
+      state: getClientAuthDiagnosticState(),
+    });
+  }
+
   let response = await fetch(input, requestInit);
 
+  if (requestUrl.includes('/api/auth/')) {
+    void pushAuthClientDiag('PI_AUTH_CLIENT_FETCH_RESPONSE', {
+      requestUrl,
+      method: requestInit.method || 'GET',
+      status: response.status,
+      ok: response.ok,
+      authMode: getStoredAuthMode(),
+      state: getClientAuthDiagnosticState(),
+    }, response.ok ? 'info' : 'warn');
+  }
+
   if (response.status === 401 && !isAuthMaintenanceEndpoint(input)) {
+    if (requestUrl.includes('/api/auth/')) {
+      void pushAuthClientDiag('PI_AUTH_CLIENT_FETCH_401_BEFORE_REFRESH', {
+        requestUrl,
+        method: requestInit.method || 'GET',
+        authMode: getStoredAuthMode(),
+        state: getClientAuthDiagnosticState(),
+      }, 'warn');
+    }
     const refreshed = await attemptRefresh();
     if (refreshed) {
+      const retryHeaders = getPiAuthHeaders(buildObservabilityHeaders(init.headers), {
+        forceBearer: getStoredAuthMode() === 'fallback',
+      });
+      if (requestUrl.includes('/api/auth/')) {
+        const headers = new Headers(retryHeaders);
+        void pushAuthClientDiag('PI_AUTH_CLIENT_FETCH_RETRY_AFTER_REFRESH', {
+          requestUrl,
+          method: requestInit.method || 'GET',
+          authMode: getStoredAuthMode(),
+          sentAuthorization: headers.has('Authorization'),
+          sentRefreshHeader: headers.has('X-Refresh-Token'),
+          state: getClientAuthDiagnosticState(),
+        }, 'info');
+      }
       response = await fetch(input, {
         ...requestInit,
-        headers: getPiAuthHeaders(buildObservabilityHeaders(init.headers), {
-          forceBearer: getStoredAuthMode() === 'fallback',
-        }),
+        headers: retryHeaders,
       });
     }
   }
