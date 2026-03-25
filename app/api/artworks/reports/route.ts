@@ -123,6 +123,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: reportCount >= REPORT_THRESHOLD ? 'Report submitted. The artwork was queued for manual admin review.' : 'Report submitted successfully. The admin team will review it.' });
   } catch (error) {
     logger.error('Failed to create artwork report', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

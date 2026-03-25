@@ -25,6 +25,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Comment deleted.' });
   } catch (error) {
     logger.error('Failed to delete artwork comment', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

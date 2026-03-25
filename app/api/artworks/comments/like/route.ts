@@ -54,6 +54,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Comment liked.' });
   } catch (error) {
     logger.error('Failed to toggle artwork comment like', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

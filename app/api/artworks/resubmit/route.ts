@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { safeError } from '@/lib/safe-response';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
@@ -73,11 +74,6 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.error('Failed to resubmit artwork', error);
 
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Unknown server error'
-      },
-      { status: 500 }
-    );
+    return safeError(error);
   }
 }

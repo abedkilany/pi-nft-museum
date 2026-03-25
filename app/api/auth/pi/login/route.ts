@@ -313,9 +313,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
-      ? 'pi-browser-bearer-fallback'
-      : 'cookie-session';
+    const transport = 'cookie-session';
 
     const response = NextResponse.json({
       ok: true,
@@ -325,8 +323,6 @@ export async function POST(request: Request) {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: session.refreshExpiresAt,
-        token: session.token,
-        refreshToken,
         transport,
       },
       user: {
@@ -368,9 +364,6 @@ export async function POST(request: Request) {
       stack: error instanceof Error ? error.stack : null,
     });
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown server error' },
-      { status: 500 },
-    );
+    return safeError(error);
   }
 }

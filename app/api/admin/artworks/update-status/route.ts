@@ -50,6 +50,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, artwork });
   } catch (error) {
     logger.error('Failed to update artwork status', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

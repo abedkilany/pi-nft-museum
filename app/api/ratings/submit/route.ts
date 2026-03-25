@@ -42,6 +42,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, averageRating, ratingsCount, premiumScore: recalculated?.premiumScore || 0 });
   } catch (error) {
     logger.error('Failed to submit artwork rating', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

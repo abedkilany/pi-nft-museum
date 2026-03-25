@@ -77,6 +77,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Page created successfully.' });
   } catch (error) {
     logger.error('Failed to create page', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

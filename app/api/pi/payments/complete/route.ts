@@ -68,6 +68,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, payment: completed });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

@@ -100,6 +100,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Profile updated successfully.' });
   } catch (error) {
     logger.error('Profile update failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

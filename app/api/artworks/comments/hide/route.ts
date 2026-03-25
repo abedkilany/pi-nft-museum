@@ -29,6 +29,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: Boolean(hidden) ? 'Comment hidden.' : 'Comment shown again.' });
   } catch (error) {
     logger.error('Failed to hide artwork comment', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

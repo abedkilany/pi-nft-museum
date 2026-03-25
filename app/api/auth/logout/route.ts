@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }).catch(() => null);
   }
 
-  const refreshToken = getRefreshCookieFromHeaders(request.headers) || request.headers.get('x-refresh-token');
+  const refreshToken = getRefreshCookieFromHeaders(request.headers);
   if (refreshToken) {
     await revokeSessionByRefreshToken(refreshToken);
   }

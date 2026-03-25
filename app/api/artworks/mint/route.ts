@@ -29,6 +29,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, artwork: updatedArtwork });
   } catch (error) {
     logger.error('Failed to mint artwork', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return safeError(error);
   }
 }

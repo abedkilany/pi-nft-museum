@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -297,47 +297,12 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  const prefersBearerFallback = shouldUseBearerFallbackClient();
-  const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
-  const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
-
-  if (prefersBearerFallback) {
-    if (!fallbackSessionToken || !fallbackRefreshToken) {
-      await pushClientAuthDebug(
-        'PI_AUTH_BEARER_FALLBACK_MISSING_TOKENS',
-        {
-          hasFallbackSessionToken: Boolean(fallbackSessionToken),
-          hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
-        },
-        'warn',
-        resolvedTraceId
-      );
-      throw new Error('Pi Browser on iOS needs fallback auth tokens, but the login response did not include them.');
-    }
-
-    storePiBrowserAuth({
-      sessionToken: fallbackSessionToken,
-      refreshToken: fallbackRefreshToken,
-      mode: 'pi-browser-bearer-fallback',
-    });
-    await pushClientAuthDebug(
-      'PI_AUTH_BEARER_FALLBACK_ENABLED',
-      {
-        hasRefreshToken: true,
-        transport: loginPayload?.session?.transport ?? null,
-      },
-      'info',
-      resolvedTraceId
-    );
-  } else {
-    storePiBrowserAuth({ mode: 'cookie-session' });
-  }
-
+  storePiBrowserAuth({ mode: 'cookie-session' });
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
-    prefersBearerFallback,
-    hasFallbackSessionToken: Boolean(fallbackSessionToken),
-    hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
-    transport: loginPayload?.session?.transport ?? null,
+    prefersBearerFallback: false,
+    hasFallbackSessionToken: false,
+    hasFallbackRefreshToken: false,
+    transport: 'cookie-session',
   }, 'info', resolvedTraceId);
 
   const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);

@@ -1,8 +1,5 @@
 import { buildObservabilityHeaders } from '@/lib/observability-client';
-import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 
-const APP_SESSION_STORAGE_KEY = 'pi_auth_session_token';
-const REFRESH_SESSION_STORAGE_KEY = 'pi_auth_refresh_token';
 const AUTH_MODE_STORAGE_KEY = 'pi_auth_mode';
 
 function canUseSessionStorage() {
@@ -33,11 +30,11 @@ function removeStorage(key: string) {
 }
 
 export function getStoredPiSessionToken() {
-  return readStorage(APP_SESSION_STORAGE_KEY);
+  return null;
 }
 
 export function getStoredPiRefreshToken() {
-  return readStorage(REFRESH_SESSION_STORAGE_KEY);
+  return null;
 }
 
 export function getStoredAuthMode() {
@@ -45,51 +42,26 @@ export function getStoredAuthMode() {
 }
 
 export function shouldUseBearerFallbackClient() {
-  const authMode = getStoredAuthMode();
-  if (authMode === 'pi-browser-bearer-fallback') return true;
-  if (authMode === 'cookie-session') return false;
-  return shouldPreferPiBrowserBearerFallback();
+  return false;
 }
 
 export function getPiAuthToken() {
-  return getStoredPiSessionToken() || 'cookie-session';
+  return 'cookie-session';
 }
 
-export function setPiAuthToken(token: string) {
-  if (!token || token === 'cookie-session') return;
-  writeStorage(APP_SESSION_STORAGE_KEY, token);
-}
+export function setPiAuthToken(_token: string) {}
 
 export function storePiBrowserAuth(input: { sessionToken?: string | null; refreshToken?: string | null; mode?: string | null }) {
-  if (input.mode === 'cookie-session' && !input.sessionToken && !input.refreshToken) {
-    removeStorage(APP_SESSION_STORAGE_KEY);
-    removeStorage(REFRESH_SESSION_STORAGE_KEY);
-  }
-
-  if (input.sessionToken) writeStorage(APP_SESSION_STORAGE_KEY, input.sessionToken);
-  if (input.refreshToken) writeStorage(REFRESH_SESSION_STORAGE_KEY, input.refreshToken);
   if (input.mode) writeStorage(AUTH_MODE_STORAGE_KEY, input.mode);
 }
 
 export function clearPiAuthToken() {
-  removeStorage(APP_SESSION_STORAGE_KEY);
-  removeStorage(REFRESH_SESSION_STORAGE_KEY);
   removeStorage(AUTH_MODE_STORAGE_KEY);
 }
 
 export function getPiAuthHeaders(init?: HeadersInit): Headers {
   const headers = new Headers(init || {});
   headers.set('X-App-Request', 'pi-web');
-
-  const bearerToken = getStoredPiSessionToken();
-  if (bearerToken) {
-    headers.set('Authorization', `Bearer ${bearerToken}`);
-  }
-
-  const refreshToken = getStoredPiRefreshToken();
-  if (refreshToken) {
-    headers.set('X-Refresh-Token', refreshToken);
-  }
 
   const authMode = getStoredAuthMode();
   if (authMode) {
@@ -108,22 +80,7 @@ async function attemptRefresh() {
   }).catch(() => null);
 
   if (!response) return false;
-
-  const payload = await response.json().catch(() => null);
-  if (response.ok) {
-    const nextSessionToken = payload?.session?.token;
-    const nextRefreshToken = payload?.session?.refreshToken;
-    if (nextSessionToken || nextRefreshToken) {
-      storePiBrowserAuth({
-        sessionToken: typeof nextSessionToken === 'string' ? nextSessionToken : null,
-        refreshToken: typeof nextRefreshToken === 'string' ? nextRefreshToken : null,
-        mode: typeof payload?.session?.transport === 'string' ? payload.session.transport : getStoredAuthMode(),
-      });
-    }
-    return true;
-  }
-
-  return false;
+  return response.ok;
 }
 
 function isAuthMaintenanceEndpoint(input: RequestInfo | URL) {
