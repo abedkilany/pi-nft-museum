@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { withAdminGrant } from '@/lib/admin-url';
 
 type AdminLinkGroup = {
   title: string;
@@ -45,24 +45,8 @@ const adminLinkGroups: AdminLinkGroup[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  async function handleLogout() {
-    if (isLoggingOut) return;
-    setIsLoggingOut(true);
-
-    try {
-      await fetch('/api/admin/auth/logout', {
-        method: 'POST',
-        headers: { 'X-App-Request': 'admin-web' },
-      });
-    } finally {
-      router.replace('/admin-login');
-      router.refresh();
-      setIsLoggingOut(false);
-    }
-  }
+  const searchParams = useSearchParams();
+  const adminGrant = searchParams.get('admin_grant');
 
   return (
     <aside style={{ padding: '24px 0 24px 24px' }}>
@@ -71,7 +55,7 @@ export function AdminSidebar() {
         <h2 style={{ margin: '8px 0 16px' }}>Pi NFT Museum</h2>
         <div className="card" style={{ padding: '14px', marginBottom: '16px' }}>
           <strong style={{ display: 'block' }}>Protected area</strong>
-          <span style={{ color: 'var(--muted)' }}>Admin access now uses a dedicated web session with cookies.</span>
+          <span style={{ color: 'var(--muted)' }}>Only admin-approved roles can open these tools.</span>
         </div>
 
         <div style={{ display: 'grid', gap: '18px' }}>
@@ -87,7 +71,7 @@ export function AdminSidebar() {
                   return (
                     <Link
                       key={link.href}
-                      href={link.href}
+                      href={withAdminGrant(link.href, adminGrant)}
                       className="button secondary"
                       aria-current={isActive ? 'page' : undefined}
                       style={{
@@ -107,9 +91,6 @@ export function AdminSidebar() {
           <Link href="/account" className="button secondary" style={{ justifyContent: 'flex-start' }}>
             Back to account
           </Link>
-          <button type="button" className="button secondary" style={{ justifyContent: 'flex-start' }} onClick={handleLogout} disabled={isLoggingOut}>
-            {isLoggingOut ? 'Signing out…' : 'Sign out admin'}
-          </button>
         </div>
       </div>
     </aside>
