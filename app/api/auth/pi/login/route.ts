@@ -5,7 +5,7 @@ import {
   buildSyntheticEmail,
   ensureUniqueUsername,
   fetchPiUser,
-  resolvePiBootstrapRoleKey
+  resolvePiBootstrapRoleKey,
 } from '@/lib/pi-auth';
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
@@ -13,6 +13,25 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+
+function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
+  if (!userAgent) return false;
+
+  const ua = userAgent.toLowerCase();
+
+  const isPiBrowser =
+    ua.includes('pibrowser') ||
+    ua.includes('pi browser') ||
+    ua.includes('minepi');
+
+  const isIOS =
+    ua.includes('iphone') ||
+    ua.includes('ipad') ||
+    ua.includes('ipod') ||
+    (ua.includes('ios') && !ua.includes('android'));
+
+  return isPiBrowser && isIOS;
+}
 
 export async function POST(request: Request) {
   const ctx = getRequestContextFromHeaders(request.headers);
@@ -56,6 +75,7 @@ export async function POST(request: Request) {
     });
     return csrfError;
   }
+
   try {
     const rateLimitError = applyRateLimit(request, ['pi-login'], 'auth-pi-login', [
       { limit: 10, windowMs: 10 * 60 * 1000 },
@@ -64,7 +84,11 @@ export async function POST(request: Request) {
     if (rateLimitError) return rateLimitError;
 
     const body = await request.json();
-    logger.info('PI_LOGIN_ROUTE_BODY_PARSED', { ...baseMeta, hasAccessToken: Boolean(body?.accessToken) });
+    logger.info('PI_LOGIN_ROUTE_BODY_PARSED', {
+      ...baseMeta,
+      hasAccessToken: Boolean(body?.accessToken),
+    });
+
     const accessToken = String(body.accessToken || '').trim();
 
     logger.info('Pi login request received', {
@@ -82,7 +106,10 @@ export async function POST(request: Request) {
 
     const piUser = await fetchPiUser(accessToken);
     logger.info('PI_LOGIN_ROUTE_PI_USER_FETCHED', {
-        ...baseMeta, piUid: piUser?.uid || null, piUsername: piUser?.username || null });
+      ...baseMeta,
+      piUid: piUser?.uid || null,
+      piUsername: piUser?.username || null,
+    });
 
     if (!piUser?.uid) {
       return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
@@ -96,18 +123,15 @@ export async function POST(request: Request) {
 
     let user = await prisma.user.findUnique({
       where: { piUid: piUser.uid },
-      include: { role: true }
+      include: { role: true },
     });
 
     if (!user && piUser.username) {
       user = await prisma.user.findFirst({
         where: {
-          OR: [
-            { piUsername: piUser.username },
-            { username: piUser.username }
-          ]
+          OR: [{ piUsername: piUser.username }, { username: piUser.username }],
         },
-        include: { role: true }
+        include: { role: true },
       });
     }
 
@@ -119,10 +143,15 @@ export async function POST(request: Request) {
         piUid: piUser.uid,
       });
 
-      const bootstrapRole = await prisma.role.findUnique({ where: { key: bootstrapRoleKey } });
+      const bootstrapRole = await prisma.role.findUnique({
+        where: { key: bootstrapRoleKey },
+      });
 
       if (!bootstrapRole) {
-        return NextResponse.json({ error: `Role "${bootstrapRoleKey}" is not configured in the database.` }, { status: 500 });
+        return NextResponse.json(
+          { error: `Role "${bootstrapRoleKey}" is not configured in the database.` },
+          { status: 500 },
+        );
       }
 
       const username = await ensureUniqueUsername(usernameSource);
@@ -141,7 +170,7 @@ export async function POST(request: Request) {
           piAuthVerified: true,
           lastLoginAt: new Date(),
         },
-        include: { role: true }
+        include: { role: true },
       });
 
       roleSource = 'bootstrap-env';
@@ -170,9 +199,8 @@ export async function POST(request: Request) {
           piAuthVerified: true,
           lastLoginAt: new Date(),
         },
-        include: { role: true }
+        include: { role: true },
       });
-
     }
 
     if (!user.role) {
@@ -231,7 +259,11 @@ export async function POST(request: Request) {
           sessionId: ctx.sessionId,
         },
       });
-      return NextResponse.json({ error: 'Your account is not allowed to sign in right now.' }, { status: 403 });
+
+      return NextResponse.json(
+        { error: 'Your account is not allowed to sign in right now.' },
+        { status: 403 },
+      );
     }
 
     const session = await issueAppSessionToken({
@@ -242,7 +274,9 @@ export async function POST(request: Request) {
       sessionVersion: user.sessionVersion,
       roleVersion: user.roleVersion,
     });
+
     const refreshToken = buildRefreshTokenValue();
+
     await createSessionRegistryEntry({
       userId: user.id,
       jti: session.jti,
@@ -253,7 +287,13 @@ export async function POST(request: Request) {
     });
 
     logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', {
-        ...baseMeta, userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion, jti: session.jti });
+      ...baseMeta,
+      userId: user.id,
+      role: user.role.key,
+      sessionVersion: user.sessionVersion,
+      roleVersion: user.roleVersion,
+      jti: session.jti,
+    });
 
     await createAuditLog({
       userId: user.id,
@@ -296,7 +336,9 @@ export async function POST(request: Request) {
         piUsername: user.piUsername,
       },
     });
+
     setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
+
     const cookiePolicy = describeCookiePolicy(request);
     logger.info('PI_LOGIN_ROUTE_COOKIES_SET', {
       ...baseMeta,
@@ -308,11 +350,16 @@ export async function POST(request: Request) {
       path: cookiePolicy.path,
       sessionMaxAge: cookiePolicy.sessionMaxAge,
       refreshMaxAge: cookiePolicy.refreshMaxAge,
-      setCookieHeaderCount: typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie().length : null,
+      setCookieHeaderCount:
+        typeof response.headers.getSetCookie === 'function'
+          ? response.headers.getSetCookie().length
+          : null,
     });
+
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
     response.headers.set('X-Auth-Transport', transport);
+
     return response;
   } catch (error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {
@@ -320,9 +367,10 @@ export async function POST(request: Request) {
       message: error instanceof Error ? error.message : 'Unknown server error',
       stack: error instanceof Error ? error.stack : null,
     });
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown server error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
