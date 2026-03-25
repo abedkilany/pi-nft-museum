@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, getStoredAuthMode, piApiFetch, setStoredAuthMode, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
@@ -56,7 +56,7 @@ async function pushClientAuthDebug(
 }
 
 type FetchCurrentUserResult =
-  | { ok: true; user: AuthUser }
+  | { ok: true; user: AuthUser; source?: string | null }
   | { ok: false; reason: 'unauthorized' | 'network' | 'server' };
 
 async function pushPostAuthEvent(
@@ -146,7 +146,7 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
         role: payload.user.role,
       }
     });
-    return { ok: true, user: payload.user as AuthUser };
+    return { ok: true, user: payload.user as AuthUser, source: typeof payload?.source === 'string' ? payload.source : null };
   }
 
   await pushClientAuthDebug(
@@ -215,13 +215,16 @@ async function resolveUserAfterLogin(traceId?: string | null) {
 
     const meResult = await fetchCurrentUser(resolvedTraceId);
     if (meResult.ok) {
+      if (meResult.source === 'bearer') {
+        setStoredAuthMode('fallback');
+      }
       if (index > 0) {
-        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs }, 'info', resolvedTraceId);
+        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs, source: meResult.source ?? null }, 'info', resolvedTraceId);
       }
       return { ok: true as const, user: meResult.user };
     }
 
-    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
+    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason, authMode: getStoredAuthMode() }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
   }
 
   const sessionDebug = await fetchSessionDebug(resolvedTraceId);
@@ -302,13 +305,18 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
+  const initialAuthMode = loginPayload?.fallback?.enabled
+    ? (prefersBearerFallback ? 'fallback' : 'hybrid')
+    : 'cookie';
+
   storePiBrowserAuth({
-    mode: loginPayload?.fallback?.enabled ? 'hybrid-session' : 'cookie-session',
+    mode: initialAuthMode,
     sessionToken: loginPayload?.fallback?.sessionToken || null,
     refreshToken: loginPayload?.fallback?.refreshToken || null,
   });
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
     prefersBearerFallback,
+    initialAuthMode,
     hasFallbackSessionToken: Boolean(loginPayload?.fallback?.sessionToken),
     hasFallbackRefreshToken: Boolean(loginPayload?.fallback?.refreshToken),
     transport: loginPayload?.fallback?.enabled ? 'hybrid-session' : 'cookie-session',
@@ -352,8 +360,10 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (restored.reason === 'unauthorized') {
-            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', {}, 'info', resolvedTraceId);
-            clearPiAuthToken();
+            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode() }, 'info', resolvedTraceId);
+            if (getStoredAuthMode() === 'cookie') {
+              clearPiAuthToken();
+            }
             setUser(null);
             setStatus('guest');
             return null;
