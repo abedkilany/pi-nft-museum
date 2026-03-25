@@ -273,6 +273,10 @@ export async function POST(request: Request) {
       },
     });
 
+    const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
+      ? 'pi-browser-bearer-fallback'
+      : 'cookie-session';
+
     const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
@@ -281,6 +285,9 @@ export async function POST(request: Request) {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: session.refreshExpiresAt,
+        token: session.token,
+        refreshToken,
+        transport,
       },
       user: {
         id: user.id,
@@ -305,6 +312,7 @@ export async function POST(request: Request) {
     });
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
+    response.headers.set('X-Auth-Transport', transport);
     return response;
   } catch (error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {
