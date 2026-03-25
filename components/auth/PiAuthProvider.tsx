@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, getPiAuthToken, setPiAuthToken } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, setPiAuthToken } from '@/lib/pi-auth-client';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -110,10 +110,9 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
     data: { endpoint: '/api/auth/me' }
   });
 
-  const response = await fetch('/api/auth/me', {
+  const response = await piApiFetch('/api/auth/me', {
     method: 'GET',
-    headers: getPiAuthHeaders(buildObservabilityHeaders(undefined, resolvedTraceId)),
-    credentials: 'include',
+    headers: buildObservabilityHeaders(undefined, resolvedTraceId),
     cache: 'no-store',
   }).catch(() => null);
 
@@ -264,13 +263,11 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
         setError('');
         await pushClientAuthDebug('PI_AUTH_FLOW_START', { forcePiAuth }, 'info', resolvedTraceId);
 
-        const hasStoredToken = Boolean(getPiAuthToken());
-
-        if (!forcePiAuth && hasStoredToken) {
+        if (!forcePiAuth) {
           const restored = await fetchCurrentUser(resolvedTraceId);
           if (restored.ok) {
             await pushClientAuthDebug(
-              'PI_AUTH_FLOW_RESTORED_FROM_SESSION',
+              'PI_AUTH_FLOW_RESTORED_FROM_COOKIE_SESSION',
               { userId: restored.user.id, role: restored.user.role },
               'info',
               resolvedTraceId
@@ -281,16 +278,14 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (restored.reason === 'unauthorized') {
-            await pushClientAuthDebug('PI_AUTH_FLOW_STORED_SESSION_UNAUTHORIZED', {}, 'info', resolvedTraceId);
+            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', {}, 'info', resolvedTraceId);
             clearPiAuthToken();
             setUser(null);
             setStatus('guest');
             return null;
           }
-        }
 
-        if (!forcePiAuth) {
-          await pushClientAuthDebug('PI_AUTH_FLOW_NO_SESSION_AND_NO_FORCE', {}, 'info', resolvedTraceId);
+          await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAVAILABLE', { reason: restored.reason }, 'info', resolvedTraceId);
           setUser(null);
           setStatus('guest');
           return null;

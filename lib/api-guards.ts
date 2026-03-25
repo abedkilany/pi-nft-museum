@@ -3,13 +3,17 @@ import { getCurrentUserFromHeaders } from '@/lib/current-user';
 import { PERMISSIONS, type PermissionKey, userHasPermission } from '@/lib/permissions';
 import { isInternalDebugRouteEnabled, isProduction } from '@/lib/debug-flags';
 
+function buildUnauthorizedResponse(reason: 'NO_SESSION_TOKEN' | 'INVALID_OR_EXPIRED_SESSION' = 'NO_SESSION_TOKEN') {
+  return NextResponse.json({ ok: false, error: 'Authentication required.', reason }, { status: 401 });
+}
+
 export async function requireAuthenticatedRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
   const user = await getCurrentUserFromHeaders(request.headers, {
     allowAdminBridge: options?.allowAdminBridge ?? false,
   });
 
   if (!user) {
-    return { error: NextResponse.json({ error: 'Authentication required.' }, { status: 401 }) } as const;
+    return { error: buildUnauthorizedResponse() } as const;
   }
 
   return { user } as const;
