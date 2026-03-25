@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { assertSameOrigin } from '@/lib/security';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
+import { clearAdminBridgeCookie, clearSessionCookies, getRefreshCookieFromHeaders } from '@/lib/auth-cookies';
 import { prisma } from '@/lib/prisma';
+import { revokeSessionByRefreshToken } from '@/lib/session-registry';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -15,5 +17,13 @@ export async function POST(request: Request) {
     }).catch(() => null);
   }
 
-  return NextResponse.json({ success: true, authMode: 'short-lived-app-session' });
+  const refreshToken = getRefreshCookieFromHeaders(request.headers);
+  if (refreshToken) {
+    await revokeSessionByRefreshToken(refreshToken);
+  }
+
+  const response = NextResponse.json({ success: true, authMode: 'cookie-session-with-refresh-rotation' });
+  clearSessionCookies(response, request);
+  clearAdminBridgeCookie(response, request);
+  return response;
 }

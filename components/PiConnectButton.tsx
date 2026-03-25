@@ -97,6 +97,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
           method: 'POST',
           headers: getPiAuthHeaders(headers),
           cache: 'no-store',
+          credentials: 'include',
         }).catch(() => null);
         const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
         if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url) {

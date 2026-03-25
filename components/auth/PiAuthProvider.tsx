@@ -113,6 +113,7 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
   const response = await fetch('/api/auth/me', {
     method: 'GET',
     headers: getPiAuthHeaders(buildObservabilityHeaders(undefined, resolvedTraceId)),
+    credentials: 'include',
     cache: 'no-store',
   }).catch(() => null);
 
@@ -211,6 +212,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
       resolvedTraceId
     ),
     body: JSON.stringify({ accessToken: auth.accessToken }),
+    credentials: 'include',
   }).catch(() => null);
 
   const loginPayload = loginResponse ? await loginResponse.json().catch(() => null) : null;
@@ -220,7 +222,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     {
       ok: Boolean(loginResponse?.ok),
       status: loginResponse?.status ?? null,
-      hasSessionToken: Boolean(loginPayload?.session?.token),
+      hasSessionCookie: Boolean(loginPayload?.session?.expiresAt),
       error: loginPayload?.error ?? null,
       code: loginPayload?.code ?? null,
     },
@@ -228,11 +230,11 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     resolvedTraceId
   );
 
-  if (!loginResponse?.ok || !loginPayload?.ok || !loginPayload?.session?.token) {
+  if (!loginResponse?.ok || !loginPayload?.ok) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  setPiAuthToken(String(loginPayload.session.token));
+  setPiAuthToken('cookie-session');
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {}, 'info', resolvedTraceId);
 
   const meResult = await fetchCurrentUser(resolvedTraceId);
@@ -370,6 +372,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     await fetch('/api/auth/logout', {
       method: 'POST',
       headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
+      credentials: 'include',
     }).catch(() => null);
     clearPiAuthToken();
     setUser(null);

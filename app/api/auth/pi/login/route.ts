@@ -10,6 +10,8 @@ import {
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { issueAppSessionToken } from '@/lib/app-session';
+import { setSessionCookies } from '@/lib/auth-cookies';
+import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 export async function POST(request: Request) {
@@ -240,9 +242,18 @@ export async function POST(request: Request) {
       sessionVersion: user.sessionVersion,
       roleVersion: user.roleVersion,
     });
+    const refreshToken = buildRefreshTokenValue();
+    await createSessionRegistryEntry({
+      userId: user.id,
+      jti: session.jti,
+      refreshToken,
+      expiresAt: new Date(session.expiresAt),
+      refreshExpiresAt: new Date(session.refreshExpiresAt),
+      headers: request.headers,
+    });
 
     logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', {
-        ...baseMeta, userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion });
+        ...baseMeta, userId: user.id, role: user.role.key, sessionVersion: user.sessionVersion, roleVersion: user.roleVersion, jti: session.jti });
 
     await createAuditLog({
       userId: user.id,
@@ -262,14 +273,14 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
-      authMode: 'short-lived-app-session',
+      authMode: 'cookie-session-with-refresh-rotation',
       session: {
-        token: session.token,
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
+        refreshExpiresAt: session.refreshExpiresAt,
       },
       user: {
         id: user.id,
@@ -278,6 +289,8 @@ export async function POST(request: Request) {
         piUsername: user.piUsername,
       },
     });
+    setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
+    return response;
   } catch (error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {
       ...baseMeta,

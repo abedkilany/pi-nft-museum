@@ -1,12 +1,14 @@
-import { randomUUID } from "crypto";
-import { SignJWT, jwtVerify, type JWTPayload } from "jose";
-import { prisma } from "@/lib/prisma";
-import type { SessionUser } from "@/lib/auth";
+import { randomUUID } from 'crypto';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { prisma } from '@/lib/prisma';
+import type { SessionUser } from '@/lib/auth';
+import { touchSessionRegistryEntry } from '@/lib/session-registry';
 
 const APP_SESSION_AUDIENCE = 'pi-nft-museum-app';
 const APP_SESSION_ISSUER = 'pi-nft-museum';
 const APP_SESSION_TYPE = 'app-session';
 const DEFAULT_TTL_SECONDS = 10 * 60;
+const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export type AppSessionClaims = JWTPayload & {
   typ: typeof APP_SESSION_TYPE;
@@ -35,9 +37,11 @@ export async function issueAppSessionToken(input: {
   sessionVersion: number;
   roleVersion: number;
   expiresInSeconds?: number;
+  jti?: string;
 }) {
   const now = Math.floor(Date.now() / 1000);
   const expiresInSeconds = input.expiresInSeconds ?? DEFAULT_TTL_SECONDS;
+  const jti = input.jti || randomUUID();
   const payload: AppSessionClaims = {
     typ: APP_SESSION_TYPE,
     sub: String(input.userId),
@@ -46,7 +50,7 @@ export async function issueAppSessionToken(input: {
     piUsername: input.piUsername ?? null,
     sv: input.sessionVersion,
     rv: input.roleVersion,
-    jti: randomUUID(),
+    jti,
     iat: now,
     nbf: now - 5,
     exp: now + expiresInSeconds,
@@ -58,7 +62,14 @@ export async function issueAppSessionToken(input: {
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .sign(getSessionSecret());
 
-  return { token, expiresInSeconds, expiresAt: new Date((now + expiresInSeconds) * 1000).toISOString() };
+  return {
+    token,
+    jti,
+    expiresInSeconds,
+    refreshExpiresInSeconds: REFRESH_TTL_SECONDS,
+    expiresAt: new Date((now + expiresInSeconds) * 1000).toISOString(),
+    refreshExpiresAt: new Date((now + REFRESH_TTL_SECONDS) * 1000).toISOString(),
+  };
 }
 
 export async function verifyAppSessionToken(token: string) {
@@ -90,6 +101,8 @@ export async function resolveAppSession(token: string) {
   if (user.sessionVersion !== payload.sv) return null;
   if (user.roleVersion !== payload.rv) return null;
   if (user.role.key !== payload.role) return null;
+
+  await touchSessionRegistryEntry(payload.jti);
 
   const sessionUser: SessionUser = {
     userId: user.id,

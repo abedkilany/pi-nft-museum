@@ -24,6 +24,7 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
           'X-App-Request': 'pi-web',
         }),
         cache: 'no-store',
+        credentials: 'include',
       });
 
       const payload = await response.json().catch(() => null);

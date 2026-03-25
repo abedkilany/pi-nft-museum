@@ -5,6 +5,7 @@ import { PERMISSIONS, getAllPermissionKeys, isSystemRole, type PermissionKey } f
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { logger } from '@/lib/logger';
+import { can } from '@/lib/policy';
 
 function normalizeRoleKey(input: string) {
   return input
@@ -18,10 +19,6 @@ function normalizeRoleKey(input: string) {
 
 function rolesRedirect(request: Request, query: string) {
   const url = new URL(`/admin/roles?${query}`, request.url);
-  const adminGrant = new URL(request.url).searchParams.get('admin_grant');
-  if (adminGrant) {
-    url.searchParams.set('admin_grant', adminGrant);
-  }
   return NextResponse.redirect(url);
 }
 
@@ -31,6 +28,9 @@ export async function POST(request: Request) {
 
   const admin = await requireAdminApi(PERMISSIONS.userRolesManage);
   if ('error' in admin) return admin.error;
+  if (!(await can(admin.user, PERMISSIONS.userRolesManage))) {
+    return NextResponse.json({ error: 'You do not have permission for this action.' }, { status: 403 });
+  }
 
   const rateLimitError = applyRateLimit(request, [admin.user.userId], 'admin-role-create', [
     { limit: 10, windowMs: 10 * 60 * 1000 },

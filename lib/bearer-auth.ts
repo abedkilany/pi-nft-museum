@@ -1,5 +1,6 @@
 import { resolveAdminBridgeToken } from '@/lib/admin-bridge';
 import type { SessionUser } from '@/lib/auth';
+import { getAdminBridgeCookieFromHeaders, getSessionCookieFromHeaders } from '@/lib/auth-cookies';
 import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
 
 type HeaderReader = {
@@ -8,14 +9,14 @@ type HeaderReader = {
 
 export type BearerTokenReadResult = {
   token: string | null;
-  source: 'authorization' | 'none';
+  source: 'authorization' | 'cookie' | 'none';
   hasAuthorizationHeader: boolean;
   hasMalformedAuthorizationHeader: boolean;
 };
 
 export type AuthenticatedRequestResult = {
   user: SessionUser | null;
-  source: 'bearer' | 'admin-bridge' | 'none';
+  source: 'bearer' | 'cookie' | 'admin-bridge' | 'none';
   reason:
     | 'ok'
     | 'missing_bearer_token'
@@ -34,21 +35,31 @@ export function readBearerToken(headers: HeaderReader): BearerTokenReadResult {
   const authorizationHeader = normalizeHeaderValue(headers.get('authorization'));
   const hasAuthorizationHeader = authorizationHeader.length > 0;
 
-  if (!hasAuthorizationHeader) {
+  if (hasAuthorizationHeader) {
+    const token = extractBearerToken(authorizationHeader);
     return {
-      token: null,
-      source: 'none',
+      token,
+      source: token ? 'authorization' : 'none',
+      hasAuthorizationHeader: true,
+      hasMalformedAuthorizationHeader: !token,
+    };
+  }
+
+  const cookieToken = getSessionCookieFromHeaders(headers);
+  if (cookieToken) {
+    return {
+      token: cookieToken,
+      source: 'cookie',
       hasAuthorizationHeader: false,
       hasMalformedAuthorizationHeader: false,
     };
   }
 
-  const token = extractBearerToken(authorizationHeader);
   return {
-    token,
-    source: token ? 'authorization' : 'none',
-    hasAuthorizationHeader: true,
-    hasMalformedAuthorizationHeader: !token,
+    token: null,
+    source: 'none',
+    hasAuthorizationHeader: false,
+    hasMalformedAuthorizationHeader: false,
   };
 }
 
@@ -64,7 +75,7 @@ export async function resolveAuthenticatedUserFromHeaders(
       if (session?.sessionUser) {
         return {
           user: session.sessionUser,
-          source: 'bearer',
+          source: bearer.source === 'cookie' ? 'cookie' : 'bearer',
           reason: 'ok',
           hasAuthorizationHeader: bearer.hasAuthorizationHeader,
           hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
@@ -100,7 +111,7 @@ export async function resolveAuthenticatedUserFromHeaders(
   }
 
   if (options?.allowAdminBridge) {
-    const adminBridgeToken = normalizeHeaderValue(headers.get('x-admin-grant'));
+    const adminBridgeToken = normalizeHeaderValue(headers.get('x-admin-grant')) || getAdminBridgeCookieFromHeaders(headers) || '';
     if (adminBridgeToken) {
       try {
         const user = await resolveAdminBridgeToken(adminBridgeToken);

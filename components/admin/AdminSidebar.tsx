@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { withAdminGrant } from '@/lib/admin-url';
 
 type AdminLinkGroup = {
@@ -45,8 +45,6 @@ const adminLinkGroups: AdminLinkGroup[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const adminGrant = searchParams.get('admin_grant');
 
   return (
     <aside style={{ padding: '24px 0 24px 24px' }}>
@@ -71,7 +69,7 @@ export function AdminSidebar() {
                   return (
                     <Link
                       key={link.href}
-                      href={withAdminGrant(link.href, adminGrant)}
+                      href={withAdminGrant(link.href)}
                       className="button secondary"
                       aria-current={isActive ? 'page' : undefined}
                       style={{

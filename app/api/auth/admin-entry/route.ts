@@ -4,6 +4,7 @@ import { issueAdminBridgeToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { assertSameOrigin } from '@/lib/security';
+import { setAdminBridgeCookie } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +37,10 @@ export async function POST(request: NextRequest) {
     piUsername: dbUser.piUsername,
     sessionVersion: dbUser.sessionVersion,
     roleVersion: dbUser.roleVersion,
+    expiresInSeconds: 5 * 60,
   });
 
-  return NextResponse.json({
-    ok: true,
-    url: `/admin?admin_grant=${encodeURIComponent(grant)}`,
-  });
+  const response = NextResponse.json({ ok: true, url: '/admin' });
+  setAdminBridgeCookie(response, grant, request);
+  return response;
 }

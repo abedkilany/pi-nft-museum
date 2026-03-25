@@ -95,7 +95,29 @@ model User {
   purchasePayments             PiPayment[]            @relation("PiPaymentBuyer")
   salesPayments                PiPayment[]            @relation("PiPaymentSeller")
   ratings                      Rating[]
+  sessions                     UserSession[]
   role                         Role                   @relation(fields: [roleId], references: [id])
+}
+
+
+model UserSession {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  jti              String   @unique
+  refreshTokenHash String   @unique
+  deviceInfo       String?
+  ipHash           String?
+  userAgent        String?
+  lastSeenAt       DateTime?
+  expiresAt        DateTime
+  refreshExpiresAt DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([refreshExpiresAt])
 }
 
 model Follow {
