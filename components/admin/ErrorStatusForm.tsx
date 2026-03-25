@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { adminApiFetch } from '@/lib/admin-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 type Props = {
   errorId: number;
@@ -22,7 +22,7 @@ export function ErrorStatusForm({ errorId, currentStatus }: Props) {
       formData.set('status', status);
       if (note.trim()) formData.set('note', note.trim());
 
-      const response = await adminApiFetch(`/api/admin/errors/${errorId}/status`, {
+      const response = await piApiFetch(`/api/admin/errors/${errorId}/status`, {
         method: 'POST',
         body: formData,
       });

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { adminApiFetch } from '@/lib/admin-auth-client';
+import { piApiFetch } from '../../lib/pi-auth-client';
 
 type SectionType = 'hero' | 'rich_text' | 'image' | 'cta';
 
@@ -142,7 +142,7 @@ function PageCard({ page, isNew = false }: { page: PageRecord; isNew?: boolean }
   async function savePage() {
     setBusy(true);
     setMessage('');
-    const response = await adminApiFetch(isNew ? '/api/admin/pages/create' : '/api/admin/pages/update', {
+    const response = await piApiFetch(isNew ? '/api/admin/pages/create' : '/api/admin/pages/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -171,7 +171,7 @@ function PageCard({ page, isNew = false }: { page: PageRecord; isNew?: boolean }
       return;
     }
     setBusy(true);
-    const response = await adminApiFetch('/api/admin/pages/delete', {
+    const response = await piApiFetch('/api/admin/pages/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pageId: page.id })

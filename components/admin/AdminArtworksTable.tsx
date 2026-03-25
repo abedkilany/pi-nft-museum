@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { adminApiFetch } from '@/lib/admin-auth-client';
+import { piApiFetch } from '../../lib/pi-auth-client';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 type AdminArtwork = {
@@ -32,7 +32,7 @@ export function AdminArtworksTable({
 
       const reviewNote = reviewNotes[artworkId] || '';
 
-      const response = await adminApiFetch('/api/admin/artworks/update-status', {
+      const response = await piApiFetch('/api/admin/artworks/update-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

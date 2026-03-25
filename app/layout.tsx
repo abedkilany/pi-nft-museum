@@ -1,7 +1,11 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { NavBar } from '@/components/NavBar';
-import { AppShell } from '@/components/layout/AppShell';
+import { PiScript } from '@/components/PiScript';
+import { PiAuthProvider } from '@/components/auth/PiAuthProvider';
+import { ErrorMonitorClient } from '@/components/error/ErrorMonitorClient';
+import { AppEventClient } from '@/components/analytics/AppEventClient';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'Pi NFT Museum',
@@ -18,7 +22,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AppShell nav={<NavBar />}>{children}</AppShell>
+        <PiScript />
+        <PiAuthProvider>
+          <ErrorMonitorClient />
+          <Suspense fallback={null}>
+            <AppEventClient />
+          </Suspense>
+          <div className="page-shell">
+            <NavBar />
+            <main className="container">{children}</main>
+          </div>
+        </PiAuthProvider>
       </body>
     </html>
   );

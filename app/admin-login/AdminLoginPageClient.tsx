@@ -1,11 +1,14 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-export default function AdminLoginPageClient() {
+type Props = {
+  nextPath?: string;
+};
+
+export default function AdminLoginPageClient({ nextPath }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +37,8 @@ export default function AdminLoginPageClient() {
         throw new Error(payload?.error || 'Unable to sign in.');
       }
 
-      const next = searchParams.get('next');
-      router.replace(next && next.startsWith('/admin') ? next : '/admin');
+      const destination = nextPath && nextPath.startsWith('/admin') ? nextPath : '/admin';
+      router.replace(destination);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in.');
