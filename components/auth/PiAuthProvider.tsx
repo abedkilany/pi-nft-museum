@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, getStoredAuthMode, piApiFetch, setStoredAuthMode, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, getStoredAuthMode, getStoredPiSessionToken, piApiFetch, setStoredAuthMode, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
@@ -206,6 +206,7 @@ async function fetchSessionDebug(traceId?: string | null) {
 async function resolveUserAfterLogin(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
   const delays = [0, 350, 900];
+  let forcedFallback = false;
 
   for (let index = 0; index < delays.length; index += 1) {
     const delayMs = delays[index];
@@ -213,18 +214,28 @@ async function resolveUserAfterLogin(traceId?: string | null) {
       await new Promise((resolve) => window.setTimeout(resolve, delayMs));
     }
 
-    const meResult = await fetchCurrentUser(resolvedTraceId);
+    let meResult = await fetchCurrentUser(resolvedTraceId);
+    if (!meResult.ok && meResult.reason === 'unauthorized' && !forcedFallback && Boolean(getStoredPiSessionToken())) {
+      const currentMode = getStoredAuthMode();
+      if (currentMode !== 'fallback') {
+        forcedFallback = true;
+        setStoredAuthMode('fallback');
+        await pushClientAuthDebug('PI_AUTH_SWITCHED_TO_FALLBACK_AFTER_ME_401', { attempt: index + 1, previousMode: currentMode }, 'info', resolvedTraceId);
+        meResult = await fetchCurrentUser(resolvedTraceId);
+      }
+    }
+
     if (meResult.ok) {
       if (meResult.source === 'bearer') {
         setStoredAuthMode('fallback');
       }
-      if (index > 0) {
-        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs, source: meResult.source ?? null }, 'info', resolvedTraceId);
+      if (index > 0 || forcedFallback) {
+        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs, source: meResult.source ?? null, authMode: getStoredAuthMode() }, 'info', resolvedTraceId);
       }
       return { ok: true as const, user: meResult.user };
     }
 
-    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason, authMode: getStoredAuthMode() }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
+    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason, authMode: getStoredAuthMode(), forcedFallback }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
   }
 
   const sessionDebug = await fetchSessionDebug(resolvedTraceId);
@@ -346,21 +357,31 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
         await pushClientAuthDebug('PI_AUTH_FLOW_START', { forcePiAuth }, 'info', resolvedTraceId);
 
         if (!forcePiAuth) {
-          const restored = await fetchCurrentUser(resolvedTraceId);
+          let restored = await fetchCurrentUser(resolvedTraceId);
+          if (!restored.ok && restored.reason === 'unauthorized' && getStoredAuthMode() !== 'cookie' && Boolean(getStoredPiSessionToken())) {
+            const previousMode = getStoredAuthMode();
+            setStoredAuthMode('fallback');
+            await pushClientAuthDebug('PI_AUTH_FLOW_PROMOTED_TO_FALLBACK', { previousMode }, 'info', resolvedTraceId);
+            restored = await fetchCurrentUser(resolvedTraceId);
+          }
+
           if (restored.ok) {
             await pushClientAuthDebug(
               'PI_AUTH_FLOW_RESTORED_FROM_COOKIE_SESSION',
-              { userId: restored.user.id, role: restored.user.role },
+              { userId: restored.user.id, role: restored.user.role, source: restored.source ?? null, authMode: getStoredAuthMode() },
               'info',
               resolvedTraceId
             );
+            if (restored.source === 'bearer') {
+              setStoredAuthMode('fallback');
+            }
             setUser(restored.user);
             setStatus('authenticated');
             return restored.user;
           }
 
           if (restored.reason === 'unauthorized') {
-            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode() }, 'info', resolvedTraceId);
+            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', { authMode: getStoredAuthMode(), hasSessionToken: Boolean(getStoredPiSessionToken()) }, 'info', resolvedTraceId);
             if (getStoredAuthMode() === 'cookie') {
               clearPiAuthToken();
             }
@@ -369,7 +390,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
             return null;
           }
 
-          await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAVAILABLE', { reason: restored.reason }, 'info', resolvedTraceId);
+          await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAVAILABLE', { reason: restored.reason, authMode: getStoredAuthMode() }, 'info', resolvedTraceId);
           setUser(null);
           setStatus('guest');
           return null;
