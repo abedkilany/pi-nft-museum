@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, describeCookiePolicy, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
+import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import { issueAppSessionToken } from '@/lib/app-session';
 import { buildRefreshTokenValue, getActiveSessionByRefreshToken, rotateRefreshSession } from '@/lib/session-registry';
 
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     cookieNamesSeen,
     hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
     hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
+    refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
   });
 
   const csrfError = assertSameOrigin(request);
@@ -43,7 +45,9 @@ export async function POST(request: NextRequest) {
   ]);
   if (rateLimitError) return rateLimitError;
 
-  const refreshToken = getRefreshCookieFromHeaders(request.headers);
+  const refreshTokenFromCookie = getRefreshCookieFromHeaders(request.headers);
+  const refreshTokenFromHeader = request.headers.get('x-refresh-token');
+  const refreshToken = refreshTokenFromCookie || refreshTokenFromHeader;
   if (!refreshToken) {
     logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
       feature: 'auth',
@@ -56,6 +60,7 @@ export async function POST(request: NextRequest) {
       ipAddress: ctx.ipAddress,
       cookieHeaderPresent: cookieHeader.length > 0,
       cookieNamesSeen,
+      refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
     });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
@@ -112,6 +117,9 @@ export async function POST(request: NextRequest) {
       expiresInSeconds: session.expiresInSeconds,
       expiresAt: session.expiresAt,
       refreshExpiresAt: session.refreshExpiresAt,
+      token: session.token,
+      refreshToken: nextRefreshToken,
+      transport: shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent')) ? 'pi-browser-bearer-fallback' : 'cookie-session',
     },
   });
   setSessionCookies(response, { sessionToken: session.token, refreshToken: nextRefreshToken }, request);

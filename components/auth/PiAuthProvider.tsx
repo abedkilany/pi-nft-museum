@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, setPiAuthToken } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, setPiAuthToken, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -297,8 +297,27 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  setPiAuthToken('cookie-session');
-  await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {}, 'info', resolvedTraceId);
+  const prefersBearerFallback = shouldUseBearerFallbackClient();
+  const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
+  const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
+
+  if (prefersBearerFallback && fallbackSessionToken) {
+    storePiBrowserAuth({
+      sessionToken: fallbackSessionToken,
+      refreshToken: fallbackRefreshToken,
+      mode: 'pi-browser-bearer-fallback',
+    });
+    await pushClientAuthDebug('PI_AUTH_BEARER_FALLBACK_ENABLED', { hasRefreshToken: Boolean(fallbackRefreshToken) }, 'info', resolvedTraceId);
+  } else {
+    storePiBrowserAuth({ mode: 'cookie-session' });
+  }
+
+  setPiAuthToken(fallbackSessionToken || 'cookie-session');
+  await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
+    prefersBearerFallback,
+    hasFallbackSessionToken: Boolean(fallbackSessionToken),
+    hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
+  }, 'info', resolvedTraceId);
 
   const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);
   if (resolvedUser.ok) {

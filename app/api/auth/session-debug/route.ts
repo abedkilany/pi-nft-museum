@@ -17,8 +17,11 @@ export async function GET(request: NextRequest) {
   const ctx = getRequestContextFromHeaders(request.headers);
 
   const cookieHeader = request.headers.get('cookie') || '';
-  const sessionToken = getSessionCookieFromHeaders(request.headers);
-  const refreshToken = getRefreshCookieFromHeaders(request.headers);
+  const authorizationHeader = request.headers.get('authorization');
+  const headerSessionToken = authorizationHeader?.startsWith('Bearer ') ? authorizationHeader.slice(7).trim() : null;
+  const headerRefreshToken = request.headers.get('x-refresh-token');
+  const sessionToken = getSessionCookieFromHeaders(request.headers) || headerSessionToken;
+  const refreshToken = getRefreshCookieFromHeaders(request.headers) || headerRefreshToken;
 
   let sessionStatus: 'missing' | 'valid' | 'invalid_or_expired' = 'missing';
   let sessionClaims: Record<string, unknown> | null = null;
@@ -67,6 +70,8 @@ export async function GET(request: NextRequest) {
       xForwardedProto: request.headers.get('x-forwarded-proto'),
       secFetchSite: request.headers.get('sec-fetch-site'),
       cookieHeaderPresent: cookieHeader.length > 0,
+      authorizationHeaderPresent: Boolean(authorizationHeader),
+      refreshHeaderPresent: Boolean(headerRefreshToken),
       cookieNamesSeen: cookieHeader
         .split(';')
         .map((entry) => entry.trim().split('=')[0])
@@ -81,6 +86,8 @@ export async function GET(request: NextRequest) {
       refreshPresent: Boolean(refreshToken),
       sessionPreview: mask(sessionToken),
       refreshPreview: mask(refreshToken),
+      sessionSource: getSessionCookieFromHeaders(request.headers) ? 'cookie' : headerSessionToken ? 'authorization' : 'none',
+      refreshSource: getRefreshCookieFromHeaders(request.headers) ? 'cookie' : headerRefreshToken ? 'header' : 'none',
     },
     validation: {
       sessionStatus,
@@ -89,13 +96,13 @@ export async function GET(request: NextRequest) {
     },
     error:
       !sessionToken && !refreshToken
-        ? 'No auth cookies reached the server on this request.'
+        ? 'No auth session reached the server on this request, neither by cookies nor auth headers.'
         : !sessionToken
-          ? 'Refresh cookie reached the server, but the main session cookie is missing.'
+          ? 'A refresh credential reached the server, but the main session credential is missing.'
           : sessionStatus !== 'valid'
-            ? 'Session cookie reached the server, but it is invalid or expired.'
+            ? 'The session credential reached the server, but it is invalid or expired.'
             : refreshStatus === 'unknown_or_expired'
-              ? 'Refresh cookie reached the server, but it is not active in the session registry.'
+              ? 'The refresh credential reached the server, but it is not active in the session registry.'
               : null,
   });
 }
