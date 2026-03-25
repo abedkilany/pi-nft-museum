@@ -290,6 +290,8 @@ export async function POST(request: Request) {
       },
     });
     setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
     return response;
   } catch (error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {

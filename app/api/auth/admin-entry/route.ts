@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   const currentUser = await getCurrentUserFromHeaders(request.headers);
   if (!currentUser) {
-    return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'Authentication required.', reason: 'NO_SESSION_TOKEN' }, { status: 401 });
   }
 
   if (!(await userHasPermission(currentUser, PERMISSIONS.adminAccess))) {

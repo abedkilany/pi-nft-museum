@@ -17,14 +17,14 @@ export async function POST(request: NextRequest) {
 
   const refreshToken = getRefreshCookieFromHeaders(request.headers);
   if (!refreshToken) {
-    const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.' }, { status: 401 });
+    const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;
   }
 
   const sessionEntry = await getActiveSessionByRefreshToken(refreshToken);
   if (!sessionEntry) {
-    const response = NextResponse.json({ ok: false, error: 'Refresh token is invalid or expired.' }, { status: 401 });
+    const response = NextResponse.json({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;
   }

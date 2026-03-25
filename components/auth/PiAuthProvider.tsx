@@ -241,11 +241,27 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     return meResult.user;
   }
 
-  if (loginPayload?.user) {
-    return loginPayload.user as AuthUser;
-  }
+  const sessionDebug = await fetch('/api/auth/session-debug', {
+    method: 'GET',
+    headers: buildObservabilityHeaders({ Accept: 'application/json' }, resolvedTraceId),
+    credentials: 'include',
+    cache: 'no-store',
+  }).then((response) => response.json().catch(() => null)).catch(() => null);
 
-  throw new Error('Pi login succeeded, but the session could not be restored.');
+  await pushClientAuthDebug(
+    'PI_AUTH_SESSION_RESTORE_FAILED_AFTER_LOGIN',
+    {
+      meReason: meResult.reason,
+      debug: sessionDebug,
+    },
+    'warn',
+    resolvedTraceId
+  );
+
+  throw new Error(
+    sessionDebug?.error ||
+      'Pi login succeeded on the server, but the cookie session could not be restored on the client.'
+  );
 }
 
 export function PiAuthProvider({ children }: { children: React.ReactNode }) {
