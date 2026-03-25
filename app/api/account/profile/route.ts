@@ -10,6 +10,7 @@ import {
 } from '@/lib/validators';
 import { saveUploadedImage } from '@/lib/uploads';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 function toBoolean(value: FormDataEntryValue | null) {
   return String(value || '') === 'true';

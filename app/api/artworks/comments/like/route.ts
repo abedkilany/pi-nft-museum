@@ -6,6 +6,7 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

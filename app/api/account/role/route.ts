@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { isStaffRole } from '@/lib/permissions';
+import { safeError } from '@/lib/safe-response';
 
 const ALLOWED_ROLES = new Set(['visitor', 'artist_or_trader']);
 

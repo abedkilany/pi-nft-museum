@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

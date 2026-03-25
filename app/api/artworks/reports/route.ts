@@ -6,6 +6,7 @@ import { saveUploadedFile } from '@/lib/uploads';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { isValidPublicUrl, validateEmail } from '@/lib/validators';
+import { safeError } from '@/lib/safe-response';
 
 const REPORT_THRESHOLD = 5;
 const ALLOWED_REASONS = new Set(['COPYRIGHT', 'PLAGIARISM', 'SPAM', 'OFFENSIVE', 'SCAM', 'OTHER']);

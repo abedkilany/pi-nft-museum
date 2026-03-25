@@ -4,6 +4,7 @@ import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

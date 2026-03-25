@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
 import { assertSameOrigin } from '@/lib/security';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

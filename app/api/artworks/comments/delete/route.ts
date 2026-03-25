@@ -5,6 +5,7 @@ import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

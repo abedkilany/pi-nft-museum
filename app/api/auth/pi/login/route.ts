@@ -13,6 +13,7 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+import { safeError } from '@/lib/safe-response';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
   if (!userAgent) return false;

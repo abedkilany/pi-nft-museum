@@ -4,6 +4,7 @@ import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { safeError } from '@/lib/safe-response';
 
 function normalizeSlug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');

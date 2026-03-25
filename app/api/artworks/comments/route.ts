@@ -7,6 +7,7 @@ import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { getBooleanSetting, getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   try {

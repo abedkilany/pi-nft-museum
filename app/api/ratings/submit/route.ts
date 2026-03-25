@@ -7,6 +7,7 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveRatings } from '@/lib/artwork-status';
 import { toSafeInt } from '@/lib/validators';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

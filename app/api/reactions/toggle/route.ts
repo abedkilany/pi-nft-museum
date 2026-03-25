@@ -9,6 +9,7 @@ import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { toSafeInt, toTrimmedString } from '@/lib/validators';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   try {

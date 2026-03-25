@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 import { assertSameOrigin } from '@/lib/security';
+import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
