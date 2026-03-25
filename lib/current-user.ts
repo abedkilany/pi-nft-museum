@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import type { SessionUser } from './auth';
 import { resolveAuthenticatedUserFromHeaders } from './bearer-auth';
+import { resolveAdminSessionFromCookieHeader } from './admin-session';
 
 type HeaderReader = {
   get(name: string): string | null;
@@ -34,5 +35,11 @@ export async function getCurrentUser(options?: CurrentUserOptions): Promise<Sess
 }
 
 export async function getCurrentAdminContextUser(): Promise<SessionUser | null> {
-  return getCurrentUser({ allowAdminBridge: true });
+  try {
+    const headerStore = await headers();
+    const adminSession = await resolveAdminSessionFromCookieHeader(headerStore.get('cookie'));
+    return adminSession?.sessionUser ?? null;
+  } catch {
+    return null;
+  }
 }

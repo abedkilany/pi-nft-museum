@@ -5,7 +5,7 @@ import { PERMISSIONS, type PermissionKey, userHasPermission } from '@/lib/permis
 
 export async function requireAdminPage(permission: PermissionKey = PERMISSIONS.adminAccess) {
   const user = await getCurrentAdminContextUser();
-  if (!user) redirect('/login');
+  if (!user) redirect('/admin-login');
   if (!(await userHasPermission(user, permission))) redirect('/account');
   return user;
 }
