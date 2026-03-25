@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { piApiFetch } from '@/lib/pi-auth-client';
+import { adminApiFetch } from '@/lib/admin-auth-client';
 
 type Props = {
   queryString?: string;
@@ -22,7 +22,7 @@ export function ErrorExportButtons({ queryString = '', id }: Props) {
       setBusy(format);
       const suffix = queryString ? `&${queryString}` : '';
       const idParam = id ? `&id=${id}` : '';
-      const response = await piApiFetch(`/api/admin/errors/export?format=${format}${idParam}${suffix}`, {
+      const response = await adminApiFetch(`/api/admin/errors/export?format=${format}${idParam}${suffix}`, {
         method: 'GET',
       });
 
