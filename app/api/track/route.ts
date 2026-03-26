@@ -1,7 +1,7 @@
-export const runtime = "nodejs"
-
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+
+export const runtime = "nodejs"
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,17 +9,20 @@ export async function POST(req: NextRequest) {
 
     await prisma.event.create({
       data: {
-        type: body.type,
-        sessionId: body.sessionId,
-        path: body.path,
-        metadata: body.data,
-        createdAt: new Date(body.ts),
+        type: typeof body.type === "string" ? body.type : "unknown",
+        userId: typeof body.userId === "string" ? body.userId : null,
+        sessionId: typeof body.sessionId === "string" ? body.sessionId : "anonymous",
+        path: typeof body.path === "string" ? body.path : req.headers.get("x-tracking-path"),
+        method: typeof body.method === "string" ? body.method : req.headers.get("x-tracking-method"),
+        status: typeof body.status === "number" ? body.status : null,
+        metadata: body.data ?? body.metadata ?? {},
+        createdAt: body.ts ? new Date(body.ts) : new Date(),
       },
     })
 
     return NextResponse.json({ ok: true })
-  } catch (e) {
-    console.error("TRACK ERROR:", e)
+  } catch (error) {
+    console.error("TRACK ERROR:", error)
     return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
