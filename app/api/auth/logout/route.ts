@@ -17,12 +17,12 @@ export async function POST(request: Request) {
     }).catch(() => null);
   }
 
-  const refreshToken = getRefreshCookieFromHeaders(request.headers) || request.headers.get('x-refresh-token')?.trim() || null;
+  const refreshToken = request.headers.get('x-refresh-token')?.trim() || getRefreshCookieFromHeaders(request.headers) || null;
   if (refreshToken) {
     await revokeSessionByRefreshToken(refreshToken);
   }
 
-  const response = NextResponse.json({ success: true, authMode: 'cookie-session-with-refresh-rotation' });
+  const response = NextResponse.json({ success: true, authMode: 'token-first-session-with-cookie-backup' });
   clearSessionCookies(response, request);
   clearAdminBridgeCookie(response, request);
   return response;

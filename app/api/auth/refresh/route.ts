@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     hasAppSessionCookie: cookieNamesSeen.includes(APP_SESSION_COOKIE),
     hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
     refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
+    refreshTokenSource,
   });
 
   const csrfError = assertSameOrigin(request);
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
 
   const refreshTokenFromCookie = getRefreshCookieFromHeaders(request.headers);
   const refreshTokenFromHeader = request.headers.get('x-refresh-token')?.trim() || null;
-  const refreshToken = refreshTokenFromCookie || refreshTokenFromHeader;
+  const refreshTokenSource = refreshTokenFromHeader ? 'header' : refreshTokenFromCookie ? 'cookie' : 'none';
+  const refreshToken = refreshTokenFromHeader || refreshTokenFromCookie;
   if (!refreshToken) {
     logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
       feature: 'auth',
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
       cookieHeaderPresent: cookieHeader.length > 0,
       cookieNamesSeen,
       refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
+      refreshTokenSource,
     });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
       correlationId: ctx.correlationId,
       sessionId: ctx.sessionId,
       ipAddress: ctx.ipAddress,
+      refreshTokenSource,
     });
     const response = NextResponse.json({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
     clearSessionCookies(response, request);
@@ -117,6 +121,7 @@ export async function POST(request: NextRequest) {
     authMode: includeClientFallback
       ? 'token-first-session-with-cookie-backup'
       : 'cookie-session-with-refresh-rotation',
+    refreshTokenSource,
     session: {
       expiresInSeconds: session.expiresInSeconds,
       expiresAt: session.expiresAt,
@@ -133,5 +138,7 @@ export async function POST(request: NextRequest) {
       : { enabled: false },
   });
   setSessionCookies(response, { sessionToken: session.token, refreshToken: nextRefreshToken }, request);
+  response.headers.set('X-Auth-Refresh-Source', refreshTokenSource);
+  response.headers.set('X-Auth-Session-Mode', includeClientFallback ? 'token-first-session-with-cookie-backup' : 'cookie-session-with-refresh-rotation');
   return response;
 }
