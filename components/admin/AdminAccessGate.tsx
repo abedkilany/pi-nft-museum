@@ -1,41 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { usePiAuth } from '@/components/auth/PiAuthProvider';
-
-const ADMIN_ROLES = new Set(['superadmin', 'admin', 'moderator', 'reviewer']);
-
-export function AdminAccessGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { user, status } = usePiAuth();
-
-  useEffect(() => {
-    if (status === 'guest') {
-      router.replace('/account');
-      return;
-    }
-
-    if (status === 'authenticated' && !ADMIN_ROLES.has(user?.role || '')) {
-      router.replace('/account');
-    }
-  }, [router, status, user?.role]);
-
-  if (status === 'loading') {
-    return (
-      <div className="card" style={{ padding: 24 }}>
-        <p style={{ margin: 0 }}>Checking your admin access…</p>
-      </div>
-    );
-  }
-
-  if (status !== 'authenticated' || !ADMIN_ROLES.has(user?.role || '')) {
-    return (
-      <div className="card" style={{ padding: 24 }}>
-        <p style={{ margin: 0 }}>Admin access is required.</p>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+import type { ReactNode } from 'react';
+import { PERMISSIONS } from '@/lib/permissions';
+import { ProtectedPageGate } from '@/components/auth/ProtectedPageGate';
+export function AdminAccessGate({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedPageGate
+      loadingText="Checking your admin access…"
+      guestText="Please connect with Pi to continue."
+      unauthorizedText="Admin access is required."
+      fallbackPath="/account"
+      requirePermissions={[PERMISSIONS.adminAccess]}
+    >
+      {children}
+    </ProtectedPageGate>
+  );
 }

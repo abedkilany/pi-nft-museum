@@ -4,7 +4,7 @@ import { issueAdminBridgeToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { assertSameOrigin } from '@/lib/security';
-import { setAdminBridgeCookie } from '@/lib/auth-cookies';
+import { setAdminBridgeCookie, setSessionCookies } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
   });
 
   const response = NextResponse.json({ ok: true, url: '/admin' });
+  const sessionToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() || null;
+  const refreshToken = request.headers.get('x-refresh-token')?.trim() || null;
+  if (sessionToken && refreshToken) {
+    setSessionCookies(response, { sessionToken, refreshToken }, request);
+  }
   setAdminBridgeCookie(response, grant, request);
   return response;
 }

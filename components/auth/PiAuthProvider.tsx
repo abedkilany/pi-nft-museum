@@ -181,6 +181,30 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
 }
 
 
+
+async function syncServerPageSession(input: { includeAdminBridge?: boolean; traceId?: string | null } = {}) {
+  const resolvedTraceId = consumeOrCreateTraceId(input.traceId);
+  const response = await fetch('/api/auth/page-session', {
+    method: 'POST',
+    headers: getPiAuthHeaders(buildObservabilityHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-App-Request': 'pi-web',
+    }, resolvedTraceId)),
+    credentials: 'include',
+    cache: 'no-store',
+    body: JSON.stringify({ includeAdminBridge: Boolean(input.includeAdminBridge) }),
+  }).catch(() => null);
+
+  await pushClientAuthDebug('PI_AUTH_PAGE_SESSION_SYNC_RESULT', {
+    ok: Boolean(response?.ok),
+    status: response?.status ?? null,
+    includeAdminBridge: Boolean(input.includeAdminBridge),
+  }, response?.ok ? 'info' : 'warn', resolvedTraceId);
+
+  return Boolean(response?.ok);
+}
+
 async function fetchSessionDebug(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
   const response = await fetch('/api/auth/session-debug', {
@@ -356,6 +380,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
       }
     })();
 
+    await syncServerPageSession({ includeAdminBridge: Boolean((loginPayload.user as AuthUser | undefined)?.adminPanelAccess), traceId: resolvedTraceId });
     return loginPayload.user as AuthUser;
   }
 
@@ -418,6 +443,9 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
             if (restored.source === 'bearer') {
               setStoredAuthMode('fallback');
             }
+            if (restored.source === 'bearer' || getStoredAuthMode() !== 'cookie') {
+              void syncServerPageSession({ includeAdminBridge: Boolean(restored.user.adminPanelAccess), traceId: resolvedTraceId });
+            }
             setUser(restored.user);
             setStatus('authenticated');
             return restored.user;
@@ -462,6 +490,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
           status: 'STARTED',
           data: { userId: authenticatedUser.id, role: authenticatedUser.role }
         });
+        await syncServerPageSession({ includeAdminBridge: Boolean(authenticatedUser.adminPanelAccess), traceId: resolvedTraceId });
         setUser(authenticatedUser);
         setStatus('authenticated');
         await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_SUCCESS', resolvedTraceId, {
