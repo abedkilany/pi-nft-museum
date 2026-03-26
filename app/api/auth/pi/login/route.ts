@@ -1,3 +1,4 @@
+import { flowTrack } from '@/lib/tracking/flow'
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -15,7 +16,8 @@ import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/sessio
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
-  if (!userAgent) return false;
+  if (!userAgent) await flowTrack('login','complete','success')
+  return false;
 
   const ua = userAgent.toLowerCase();
 
@@ -30,6 +32,7 @@ function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefine
     ua.includes('ipod') ||
     (ua.includes('ios') && !ua.includes('android'));
 
+  await flowTrack('login','complete','success')
   return isPiBrowser && isIOS;
 }
 
@@ -73,15 +76,18 @@ export async function POST(request: Request) {
       secFetchMode: request.headers.get('sec-fetch-mode'),
       xAppRequest: request.headers.get('x-app-request'),
     });
-    return csrfError;
+    await flowTrack('login','complete','success')
+  return csrfError;
   }
 
+  await flowTrack('login','start','start')
   try {
     const rateLimitError = applyRateLimit(request, ['pi-login'], 'auth-pi-login', [
       { limit: 10, windowMs: 10 * 60 * 1000 },
       { limit: 40, windowMs: 60 * 60 * 1000 },
     ]);
-    if (rateLimitError) return rateLimitError;
+    if (rateLimitError) await flowTrack('login','complete','success')
+  return rateLimitError;
 
     const body = await request.json();
     logger.info('PI_LOGIN_ROUTE_BODY_PARSED', {
@@ -101,7 +107,8 @@ export async function POST(request: Request) {
     });
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'Pi access token is required.' }, { status: 400 });
+      await flowTrack('login','complete','success')
+  return NextResponse.json({ error: 'Pi access token is required.' }, { status: 400 });
     }
 
     const piUser = await fetchPiUser(accessToken);
@@ -112,7 +119,9 @@ export async function POST(request: Request) {
     });
 
     if (!piUser?.uid) {
-      return NextResponse.json({ error: 'Pi did not return a valid user id.' }, { status: 401 });
+      await flowTrack('login','complete','success')
+  return NextResponse.json({ error: 'Pi did not await flowTrack('login','complete','success')
+  return a valid user id.' }, { status: 401 });
     }
 
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
@@ -148,7 +157,8 @@ export async function POST(request: Request) {
       });
 
       if (!bootstrapRole) {
-        return NextResponse.json(
+        await flowTrack('login','complete','success')
+  return NextResponse.json(
           { error: `Role "${bootstrapRoleKey}" is not configured in the database.` },
           { status: 500 },
         );
@@ -204,7 +214,8 @@ export async function POST(request: Request) {
     }
 
     if (!user.role) {
-      return NextResponse.json({ error: 'User role is missing from the database.' }, { status: 500 });
+      await flowTrack('login','complete','success')
+  return NextResponse.json({ error: 'User role is missing from the database.' }, { status: 500 });
     }
 
     if (!user.piUsername && piUser.username) {
@@ -260,7 +271,8 @@ export async function POST(request: Request) {
         },
       });
 
-      return NextResponse.json(
+      await flowTrack('login','complete','success')
+  return NextResponse.json(
         { error: 'Your account is not allowed to sign in right now.' },
         { status: 403 },
       );
@@ -360,15 +372,19 @@ export async function POST(request: Request) {
     response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
     response.headers.set('X-Auth-Transport', transport);
 
-    return response;
-  } catch (error) {
+    await flowTrack('login','complete','success')
+  return response;
+  } catch (e) {
+    await flowTrack('login','error','fail',{error:String(e)})
+error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {
       ...baseMeta,
       message: error instanceof Error ? error.message : 'Unknown server error',
       stack: error instanceof Error ? error.stack : null,
     });
 
-    return NextResponse.json(
+    await flowTrack('login','complete','success')
+  return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown server error' },
       { status: 500 },
     );
