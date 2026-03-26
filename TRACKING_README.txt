@@ -1,0 +1,1 @@
+Tracking system scaffold added. Next step: connect to DB (Prisma).
