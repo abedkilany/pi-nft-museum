@@ -556,6 +556,8 @@ model AppEvent {
   sessionId       String?
   requestId       String?
   traceId         String?
+  spanId          String?
+  parentSpanId    String?
   correlationId   String?
   entityType      String?
   entityId        String?
@@ -582,6 +584,8 @@ model AppEvent {
   @@index([route])
   @@index([requestId])
   @@index([traceId])
+  @@index([spanId])
+  @@index([parentSpanId])
   @@index([correlationId])
   @@index([entityType, entityId])
 }

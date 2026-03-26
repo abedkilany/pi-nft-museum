@@ -1,18 +1,34 @@
 'use client'
 
-import { trackEvent } from './tracker'
+import { sendClientEvent } from '@/lib/observability-client'
 
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (e) => {
-    trackEvent('error', {
+    sendClientEvent({
+      category: 'ERROR',
+      type: 'CLIENT_ERROR',
+      name: 'window.error',
+      status: 'FAILED',
+      feature: 'client-runtime',
       message: e.message,
-      source: e.filename,
+      errorName: 'WindowError',
+      data: {
+        source: e.filename,
+        line: e.lineno,
+        column: e.colno,
+      }
     })
   })
 
   window.addEventListener('unhandledrejection', (e) => {
-    trackEvent('error', {
-      message: e.reason?.toString(),
+    sendClientEvent({
+      category: 'ERROR',
+      type: 'UNHANDLED_REJECTION',
+      name: 'window.unhandledrejection',
+      status: 'FAILED',
+      feature: 'client-runtime',
+      message: e.reason instanceof Error ? e.reason.message : String(e.reason),
+      errorName: e.reason instanceof Error ? e.reason.name : 'UnhandledRejection',
     })
   })
 }

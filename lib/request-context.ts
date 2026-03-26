@@ -4,6 +4,10 @@ export function generateRequestId() {
   return crypto.randomUUID();
 }
 
+export function generateSpanId() {
+  return crypto.randomUUID();
+}
+
 export function getHeaderCaseInsensitive(headersLike: Headers | Record<string, string | null | undefined>, key: string) {
   if (headersLike instanceof Headers) {
     return headersLike.get(key) || headersLike.get(key.toLowerCase()) || headersLike.get(key.toUpperCase());
@@ -33,8 +37,13 @@ export function getRequestContextFromHeaders(headersLike: Headers | Record<strin
     getHeaderCaseInsensitive(headersLike, 'x-real-ip') ||
     null;
 
+  const spanId = getHeaderCaseInsensitive(headersLike, 'x-span-id') || null;
+  const parentSpanId = getHeaderCaseInsensitive(headersLike, 'x-parent-span-id') || null;
+
   return {
     traceId,
+    spanId,
+    parentSpanId,
     correlationId: traceId,
     requestId,
     sessionId,

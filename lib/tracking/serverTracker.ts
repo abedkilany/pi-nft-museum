@@ -1,30 +1,27 @@
-import { prisma } from "@/lib/prisma"
+import { withServerSpan } from '@/lib/server-trace'
 
 export async function trackFlow({
   flow,
   step,
   status,
-  userId,
-  sessionId,
   metadata
 }: {
   flow: string
   step: string
-  status: "start" | "success" | "fail"
+  status: 'start' | 'success' | 'fail'
   userId?: string
   sessionId?: string
-  metadata?: any
+  metadata?: Record<string, unknown>
 }) {
-  try {
-    await prisma.event.create({
-      data: {
-        type: flow + "_" + step + "_" + status,
-        userId,
-        sessionId: sessionId || "server",
-        metadata: metadata || {},
-      },
-    })
-  } catch (e) {
-    console.error("FLOW TRACK ERROR", e)
-  }
+  await withServerSpan({
+    name: `${flow}.${step}`,
+    eventKey: `${flow}.${step}`,
+    type: 'FLOW_STEP',
+    category: 'TRACE',
+    feature: 'server-flow',
+    data: {
+      status,
+      ...(metadata || {}),
+    }
+  }, async () => undefined)
 }

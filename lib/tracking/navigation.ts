@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
-import { trackEvent } from './tracker'
+import { sendClientEvent } from '@/lib/observability-client'
 
 export function useNavigationTracking() {
   const pathname = usePathname()
@@ -10,10 +10,18 @@ export function useNavigationTracking() {
 
   useEffect(() => {
     if (prev.current !== pathname) {
-      trackEvent('navigation', {
-        from: prev.current,
-        to: pathname,
-      })
+      sendClientEvent({
+        category: 'TRACE',
+        type: 'NAVIGATION',
+        name: 'navigation.change',
+        status: 'SUCCESS',
+        feature: 'navigation',
+        message: `${prev.current} -> ${pathname}`,
+        data: {
+          from: prev.current,
+          to: pathname,
+        }
+      }, { beginTrace: true, beginSpan: true })
       prev.current = pathname
     }
   }, [pathname])

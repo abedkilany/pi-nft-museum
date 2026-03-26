@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import type { NextFetchEvent, NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export function middleware(req: NextRequest, event: NextFetchEvent) {
+function createId() {
+  return crypto.randomUUID()
+}
+
+export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
 
   if (
-    pathname.startsWith('/api/track') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.includes('.')
@@ -13,28 +16,25 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
     return NextResponse.next()
   }
 
-  const res = NextResponse.next()
+  const requestHeaders = new Headers(req.headers)
+  const traceId = requestHeaders.get('x-trace-id') || requestHeaders.get('x-correlation-id') || createId()
+  const requestId = requestHeaders.get('x-request-id') || requestHeaders.get('x-vercel-id') || createId()
+  const sessionId = requestHeaders.get('x-session-id') || req.cookies.get('pi_session')?.value || 'server'
 
-  event.waitUntil(
-    fetch(new URL('/api/track', req.url), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'request',
-        sessionId: req.cookies.get('pi_session')?.value || 'server',
-        path: pathname,
-        ts: Date.now(),
-        data: {
-          method: req.method,
-          source: 'middleware',
-        },
-      }),
-    }).catch(() => undefined)
-  )
+  requestHeaders.set('x-trace-id', traceId)
+  requestHeaders.set('x-correlation-id', traceId)
+  requestHeaders.set('x-request-id', requestId)
+  requestHeaders.set('x-session-id', sessionId)
 
-  return res
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+
+  response.headers.set('x-trace-id', traceId)
+  response.headers.set('x-request-id', requestId)
+  return response
 }
 
 export const config = {

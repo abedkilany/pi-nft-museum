@@ -7,6 +7,7 @@ import { getSiteSettingsMap, getStringSetting } from '@/lib/site-settings';
 import { isMemberRole } from '@/lib/roles';
 import { clampNumber, validateArtworkInput } from '@/lib/validators';
 import { assertSameOrigin } from '@/lib/security';
+import { getServerTraceMeta, runWithServerRequestTrace, withServerSpan } from '@/lib/server-trace';
 
 function slugify(text: string) {
   return text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -31,15 +32,16 @@ async function resolveArtworkCategory(rawValue: FormDataEntryValue | null) {
 }
 
 export async function POST(request: Request) {
-  const csrfError = assertSameOrigin(request);
-  if (csrfError) return csrfError;
-  try {
+  return runWithServerRequestTrace(request, { route: '/api/artworks/create', method: 'POST', feature: 'artwork', name: 'artwork.create' }, async () => {
+    const csrfError = assertSameOrigin(request);
+    if (csrfError) return csrfError;
+    try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in.' }, { status: 401 });
     if (!isMemberRole(currentUser.role)) return NextResponse.json({ error: 'Visitors cannot upload artworks. Connect with Pi first.' }, { status: 403 });
 
-    const settings = await getSiteSettingsMap();
-    const formData = await request.formData();
+    const settings = await withServerSpan({ name: 'artwork.create.load_settings', feature: 'artwork' }, async () => getSiteSettingsMap());
+    const formData = await withServerSpan({ name: 'artwork.create.parse_form', feature: 'artwork' }, async () => request.formData());
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
     const category = String(formData.get('category') || '').trim();
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
     if (imageFile instanceof File && imageFile.size > 0) finalImageUrl = (await saveUploadedImage(imageFile)) || '';
     if (!finalImageUrl) finalImageUrl = getStringSetting(settings, 'placeholder_artwork_image_url', '/placeholder-artwork.svg');
 
-    const categoryRecord = await resolveArtworkCategory(formData.get('category'));
+    const categoryRecord = await withServerSpan({ name: 'artwork.create.resolve_category', feature: 'artwork' }, async () => resolveArtworkCategory(formData.get('category')));
     if (category && !categoryRecord) {
       return NextResponse.json({ error: 'Invalid category selected.' }, { status: 400 });
     }
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
     const baseSlug = slugify(title);
     const uniqueSlug = `${baseSlug}-${Date.now()}`;
 
-    const artwork = await prisma.artwork.create({
+    const artwork = await withServerSpan({ name: 'artwork.create.persist', feature: 'artwork', entityType: 'artwork' }, async () => prisma.artwork.create({
       data: {
         artistUserId: currentUser.userId,
         categoryId: categoryRecord?.id || null,
@@ -80,12 +82,13 @@ export async function POST(request: Request) {
         price: finalPrice,
         currency: getStringSetting(settings, 'default_currency', 'PI')
       }
-    });
+    }));
 
-    logger.info('Artwork created', { artworkId: artwork.id, userId: currentUser.userId, status, basePrice, discountPercent, finalPrice });
+    logger.info('Artwork created', { ...getServerTraceMeta({ artworkId: artwork.id, userId: currentUser.userId, status, basePrice, discountPercent, finalPrice }), artworkId: artwork.id, userId: currentUser.userId, status, basePrice, discountPercent, finalPrice });
     return NextResponse.json({ ok: true, artwork });
   } catch (error) {
-    logger.error('Failed to create artwork', error);
+    logger.error('Failed to create artwork', { ...getServerTraceMeta(), error });
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
+  });
 }

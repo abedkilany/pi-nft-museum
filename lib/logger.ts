@@ -39,6 +39,8 @@ function extractContext(meta: unknown) {
     sessionId: typeof record?.sessionId === 'string' ? record.sessionId : null,
     requestId: typeof record?.requestId === 'string' ? record.requestId : null,
     traceId: typeof record?.traceId === 'string' ? record.traceId : null,
+    spanId: typeof record?.spanId === 'string' ? record.spanId : null,
+    parentSpanId: typeof record?.parentSpanId === 'string' ? record.parentSpanId : null,
     correlationId: typeof record?.correlationId === 'string'
       ? record.correlationId
       : typeof record?.traceId === 'string'
@@ -191,6 +193,8 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
       sessionId: context.sessionId,
       requestId: context.requestId,
       traceId: context.traceId,
+      spanId: context.spanId,
+      parentSpanId: context.parentSpanId,
       correlationId: context.correlationId,
       entityType: context.entityType,
       entityId: context.entityId,

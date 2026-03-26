@@ -22,6 +22,8 @@ export type AppEventInput = {
   sessionId?: string | null;
   requestId?: string | null;
   traceId?: string | null;
+  spanId?: string | null;
+  parentSpanId?: string | null;
   correlationId?: string | null;
   entityType?: string | null;
   entityId?: string | number | null;
@@ -229,6 +231,8 @@ export async function trackAppEvent(input: AppEventInput) {
         sessionId: compactText(input.sessionId, 180),
         requestId: compactText(input.requestId, 180),
         traceId: compactText(input.traceId, 180),
+        spanId: compactText(input.spanId, 180),
+        parentSpanId: compactText(input.parentSpanId, 180),
         correlationId: compactText(input.correlationId, 180),
         entityType: compactText(input.entityType, 120),
         entityId: input.entityId == null ? null : compactText(String(input.entityId), 180),
