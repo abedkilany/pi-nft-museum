@@ -1,3 +1,5 @@
+import { getBooleanEnv, getEnv } from '@/lib/env';
+
 declare global {
   interface Window {
     Pi?: {
@@ -34,11 +36,11 @@ declare global {
 const PI_SDK_URL = 'https://sdk.minepi.com/pi-sdk.js';
 
 function isSandboxMode() {
-  return process.env.NEXT_PUBLIC_PI_SANDBOX === 'true';
+  return getBooleanEnv('NEXT_PUBLIC_PI_SANDBOX', false);
 }
 
 function getPiApiKey() {
-  return process.env.NEXT_PUBLIC_PI_API_KEY || '';
+  return getEnv('NEXT_PUBLIC_PI_API_KEY');
 }
 
 function ensureSdkScript() {

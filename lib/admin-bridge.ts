@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { prisma } from '@/lib/prisma';
 import type { SessionUser } from '@/lib/auth';
 import { isAdminRole } from '@/lib/roles';
+import { requireOneOfEnv } from '@/lib/env';
 
 const ADMIN_BRIDGE_AUDIENCE = 'pi-nft-museum-admin-page';
 const ADMIN_BRIDGE_ISSUER = 'pi-nft-museum';
@@ -19,7 +20,7 @@ export type AdminBridgeClaims = JWTPayload & {
 };
 
 function getSecret() {
-  const raw = process.env.APP_SESSION_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || '';
+  const raw = requireOneOfEnv(['APP_SESSION_SECRET', 'AUTH_SECRET', 'NEXTAUTH_SECRET']);
   if (!raw || raw.length < 32) {
     throw new Error('APP_SESSION_SECRET must be set and at least 32 characters long.');
   }

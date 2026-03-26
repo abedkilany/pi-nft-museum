@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/env';
 
 const PI_API_BASE = 'https://api.minepi.com/v2';
 
 function getServerApiKey() {
-  return process.env.PI_SERVER_API_KEY || process.env.PI_API_KEY || '';
+  return getEnv('PI_SERVER_API_KEY') || getEnv('PI_API_KEY');
 }
 
 function getAuthHeaders() {
@@ -56,7 +57,7 @@ export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: 
 }
 
 export function assertTestnetNetwork(network: string | undefined | null) {
-  const testnetOnly = String(process.env.PI_PAYMENT_TESTNET_ONLY || 'true') !== 'false';
+  const testnetOnly = String(getEnv('PI_PAYMENT_TESTNET_ONLY', 'true')) !== 'false';
   if (testnetOnly && network && network !== 'Pi Testnet') {
     throw new Error(`Payment network must be Pi Testnet during testing. Received: ${network}`);
   }

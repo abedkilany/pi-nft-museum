@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { prisma } from '@/lib/prisma';
 import type { SessionUser } from '@/lib/auth';
 import { touchSessionRegistryEntry } from '@/lib/session-registry';
+import { requireOneOfEnv } from '@/lib/env';
 
 const APP_SESSION_AUDIENCE = 'pi-nft-museum-app';
 const APP_SESSION_ISSUER = 'pi-nft-museum';
@@ -22,7 +23,7 @@ export type AppSessionClaims = JWTPayload & {
 };
 
 function getSessionSecret() {
-  const raw = process.env.APP_SESSION_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || '';
+  const raw = requireOneOfEnv(['APP_SESSION_SECRET', 'AUTH_SECRET', 'NEXTAUTH_SECRET']);
   if (!raw || raw.length < 32) {
     throw new Error('APP_SESSION_SECRET must be set and at least 32 characters long.');
   }

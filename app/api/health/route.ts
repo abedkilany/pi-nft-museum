@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerEnvSummary } from '@/lib/env';
 import { safeAppEventQuery } from '@/lib/app-events';
 import { isTokenProtectedInternalRouteAuthorized } from '@/lib/api-guards';
 
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       database: 'connected',
-      environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'unknown',
+      environment: getServerEnvSummary(),
       appEventsCount,
       openErrorsCount,
       timestamp: new Date().toISOString(),

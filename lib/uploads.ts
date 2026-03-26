@@ -1,5 +1,6 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { getEnv } from '@/lib/env';
 
 const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const PINATA_API_URL = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
@@ -52,18 +53,18 @@ function extensionForMimeType(type: string) {
 }
 
 function hasMatchingSignature(buffer: Uint8Array, type: string) {
-  const signature = FILE_SIGNATURES.find((item: any) => item.mime === type);
+  const signature = FILE_SIGNATURES.find((item) => item.mime === type);
   if (!signature) return false;
   if (signature.validator) return signature.validator(buffer);
   return signature.bytes?.every((byte, index) => buffer[index] === byte) ?? false;
 }
 
 function getPinataJwt() {
-  return process.env.PINATA_JWT || process.env.pinata_jwt || '';
+  return getEnv('PINATA_JWT') || getEnv('pinata_jwt');
 }
 
 function getGatewayBase() {
-  const raw = process.env.PINATA_GATEWAY_URL || process.env.pinata_gateway_url || 'https://gateway.pinata.cloud/ipfs';
+  const raw = getEnv('PINATA_GATEWAY_URL') || getEnv('pinata_gateway_url') || 'https://gateway.pinata.cloud/ipfs';
   return raw.replace(/\/+$/, '');
 }
 

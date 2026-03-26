@@ -28,6 +28,29 @@ Copy `.env.example` to `.env` and fill the required values:
 - `NEXT_PUBLIC_PI_SANDBOX=true` for test mode
 - `PI_PAYMENT_TESTNET_ONLY=true` to block non-testnet payments during development
 
+## Environment setup
+
+Copy `.env.example` to `.env` for local development.
+
+Before a production deploy, make sure these values are present in Vercel:
+
+- `DATABASE_URL`
+- `APP_SESSION_SECRET` (preferred) or `AUTH_SECRET`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_PI_API_KEY`
+
+Optional but feature-dependent:
+
+- `PI_SERVER_API_KEY` for payments
+- `PINATA_JWT` for IPFS uploads
+- `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` for observability
+
+You can verify required server variables locally with:
+
+```bash
+npm run check:env
+```
+
 ## Optional admin bootstrap
 
 To make your Pi account become an admin automatically on first login, set one of these before signing in. These values are used only when the local user is created for the first time:
