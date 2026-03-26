@@ -701,3 +701,21 @@ enum ErrorSource {
   CRON
   UNKNOWN
 }
+
+
+model Event {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  sessionId String
+  path      String?
+  method    String?
+  status    Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([type])
+  @@index([createdAt])
+}
