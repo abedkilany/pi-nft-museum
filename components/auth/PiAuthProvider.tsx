@@ -264,6 +264,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   }
 
   await pushClientAuthDebug('PI_AUTH_SERVER_LOGIN_START', {}, 'info', resolvedTraceId);
+  const prefersBearerFallback = shouldUseBearerFallbackClient();
   const loginResponse = await fetch('/api/auth/pi/login', {
     method: 'POST',
     headers: buildObservabilityHeaders(
@@ -271,10 +272,11 @@ async function authenticateAndResolveUser(traceId?: string | null) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'X-App-Request': 'pi-web',
+        'X-Auth-Mode': prefersBearerFallback ? 'pi-browser-bearer-fallback' : 'cookie-session',
       },
       resolvedTraceId
     ),
-    body: JSON.stringify({ accessToken: auth.accessToken }),
+    body: JSON.stringify({ accessToken: auth.accessToken, requiresFallbackAuth: prefersBearerFallback }),
     credentials: 'include',
   }).catch(() => null);
 
@@ -297,7 +299,6 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  const prefersBearerFallback = shouldUseBearerFallbackClient();
   const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
   const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
 

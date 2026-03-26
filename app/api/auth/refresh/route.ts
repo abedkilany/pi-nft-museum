@@ -110,7 +110,10 @@ export async function POST(request: NextRequest) {
     headers: request.headers,
   });
 
-  const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent')) ? 'pi-browser-bearer-fallback' : 'cookie-session';
+  const requestedAuthMode = request.headers.get('x-auth-mode');
+  const transport = requestedAuthMode === 'pi-browser-bearer-fallback' || requestedAuthMode === 'fallback' || shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
+    ? 'pi-browser-bearer-fallback'
+    : 'cookie-session';
   const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
 
   const response = NextResponse.json({
