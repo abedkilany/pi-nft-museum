@@ -216,7 +216,7 @@ export function getPiAuthHeaders(init?: HeadersInit, options?: { forceBearer?: b
   return headers;
 }
 
-async function attemptRefresh() {
+export async function refreshPiBrowserSession() {
   const currentMode = getStoredAuthMode();
   const hasStoredRefreshToken = Boolean(getStoredPiRefreshToken());
   const shouldIncludeRefreshHeader = hasStoredRefreshToken;
@@ -340,7 +340,7 @@ export async function piApiFetch(input: RequestInfo | URL, init: RequestInit = {
         state: getClientAuthDiagnosticState(),
       }, 'warn');
     }
-    const refreshed = await attemptRefresh();
+    const refreshed = await refreshPiBrowserSession();
     if (refreshed) {
       const retryHeaders = getPiAuthHeaders(buildObservabilityHeaders(init.headers), {
         forceBearer: getStoredAuthMode() !== 'cookie',
