@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getNumberSetting } from '@/lib/site-settings';
 import { getArchiveMessage, purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
-import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows.server';
+import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  await syncExpiredPublicReviewWindows();
+  await syncExpiredPublicReviewWindows(prisma);
   await purgeExpiredArchivedArtworks();
 
   const settings = await getSiteSettingsMap();

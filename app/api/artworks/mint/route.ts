@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
-import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows.server';
+import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
   try {
-    await syncExpiredPublicReviewWindows();
+    await syncExpiredPublicReviewWindows(prisma);
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in.' }, { status: 401 });
 
