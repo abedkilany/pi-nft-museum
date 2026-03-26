@@ -16,6 +16,11 @@ export async function POST(request: NextRequest) {
     .map((entry) => entry.trim().split('=')[0])
     .filter(Boolean);
 
+  const refreshTokenFromCookie = getRefreshCookieFromHeaders(request.headers);
+  const refreshTokenFromHeader = request.headers.get('x-refresh-token')?.trim() || null;
+  const refreshTokenSource = refreshTokenFromHeader ? 'header' : refreshTokenFromCookie ? 'cookie' : 'none';
+  const refreshToken = refreshTokenFromHeader || refreshTokenFromCookie;
+
   logger.info('AUTH_REFRESH_START', {
     feature: 'auth',
     route: '/api/auth/refresh',
@@ -46,10 +51,6 @@ export async function POST(request: NextRequest) {
   ]);
   if (rateLimitError) return rateLimitError;
 
-  const refreshTokenFromCookie = getRefreshCookieFromHeaders(request.headers);
-  const refreshTokenFromHeader = request.headers.get('x-refresh-token')?.trim() || null;
-  const refreshTokenSource = refreshTokenFromHeader ? 'header' : refreshTokenFromCookie ? 'cookie' : 'none';
-  const refreshToken = refreshTokenFromHeader || refreshTokenFromCookie;
   if (!refreshToken) {
     logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
       feature: 'auth',
