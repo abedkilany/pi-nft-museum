@@ -111,7 +111,7 @@ export async function resolveAuthenticatedUserFromHeaders(
   }
 
   if (options?.allowAdminBridge) {
-    const adminBridgeToken = normalizeHeaderValue(headers.get('x-admin-grant')) || getAdminBridgeCookieFromHeaders(headers) || '';
+    const adminBridgeToken = getAdminBridgeCookieFromHeaders(headers) || '';
     if (adminBridgeToken) {
       try {
         const user = await resolveAdminBridgeToken(adminBridgeToken);
