@@ -6,11 +6,7 @@ export async function flowTrack(flow: string, step: string, status: string, meta
       data: {
         type: flow,
         sessionId: "server",
-        metadata: {
-          step,
-          status,
-          ...meta
-        }
+        metadata: { step, status, ...meta }
       }
     })
   } catch {}
