@@ -1,0 +1,9 @@
+This version adds full flow tracking capability.
+
+Use serverTracker.trackServerEvent in critical flows:
+- login steps
+- like actions
+- API processing stages
+
+Track stages:
+start -> validation -> db -> success/failure

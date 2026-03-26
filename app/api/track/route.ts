@@ -5,21 +5,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    const {
-      type,
-      data,
-      sessionId,
-      path,
-      ts
-    } = body
-
     await prisma.event.create({
       data: {
-        type,
-        sessionId,
-        path,
-        metadata: data,
-        createdAt: new Date(ts),
+        type: body.type,
+        sessionId: body.sessionId,
+        path: body.path,
+        metadata: body.data,
+        createdAt: new Date(body.ts),
       },
     })
 
