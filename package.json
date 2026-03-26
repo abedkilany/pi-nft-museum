@@ -10,6 +10,7 @@
     "seed": "node prisma/seed.js",
     "typecheck": "tsc --noEmit",
     "dev:https": "node server.js",
+    "check": "npm run lint && tsc --noEmit && npm run build",
     "postinstall": "prisma generate"
   },
   "dependencies": {
