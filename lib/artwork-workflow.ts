@@ -1,4 +1,3 @@
-import 'server-only';
 import { ArtworkStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {

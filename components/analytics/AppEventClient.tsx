@@ -1,9 +1,48 @@
 'use client';
 
 import { useEffect } from 'react';
-import { beginClientSpan, beginClientTrace, endClientSpan, sendClientEvent } from '@/lib/observability-client';
+import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
+
+type EventPayload = Record<string, unknown> & {
+  category: string;
+  type: string;
+  name: string;
+  status?: string;
+};
 
 const isProduction = process.env.NODE_ENV === 'production';
+
+function sendEvent(payload: EventPayload, options?: { beginTrace?: boolean }) {
+  const sessionId = getClientSessionId();
+  const traceId = options?.beginTrace
+    ? beginClientTrace(typeof payload.traceId === 'string' ? payload.traceId : null)
+    : consumeOrCreateTraceId(typeof payload.traceId === 'string' ? payload.traceId : null);
+
+  const body = JSON.stringify({
+    status: 'SUCCESS',
+    source: 'CLIENT',
+    ...payload,
+    sessionId,
+    traceId,
+    correlationId: traceId,
+    url: window.location.href,
+    route: window.location.pathname,
+  });
+
+  if (navigator.sendBeacon) {
+    const blob = new Blob([body], { type: 'application/json' });
+    navigator.sendBeacon('/api/events', blob);
+    return;
+  }
+
+  void fetch('/api/events', {
+    method: 'POST',
+    headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
+    body,
+    keepalive: true,
+    cache: 'no-store'
+  }).catch(() => null);
+}
 
 function getElementLabel(element: HTMLElement) {
   return (
@@ -18,7 +57,7 @@ function getElementLabel(element: HTMLElement) {
   );
 }
 
-function buildClickPayload(target: HTMLElement) {
+function buildClickPayload(target: HTMLElement): EventPayload | null {
   const clickable = target.closest('button, a, img, [role="button"], [data-track-event]') as HTMLElement | null;
   if (!clickable) return null;
 
@@ -60,8 +99,7 @@ export function AppEventClient() {
       if (!target) return;
       const payload = buildClickPayload(target);
       if (!payload) return;
-      beginClientTrace();
-      sendClientEvent(payload, { beginSpan: true });
+      sendEvent(payload, { beginTrace: true });
     };
 
     const onSubmit = (event: SubmitEvent) => {
@@ -70,8 +108,7 @@ export function AppEventClient() {
       const feature = form.getAttribute('data-feature');
       if (isProduction && !feature) return;
 
-      beginClientTrace();
-      sendClientEvent({
+      sendEvent({
         category: 'USER_ACTION',
         type: 'FORM_SUBMIT',
         name: 'FORM_SUBMITTED',
@@ -83,92 +120,7 @@ export function AppEventClient() {
           method: form.method || null,
           classes: form.className || null
         }
-      }, { beginSpan: true });
-    };
-
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.includes('/api/events')) {
-        return originalFetch(input, init);
-      }
-
-      const method = ((init?.method || (typeof input !== 'string' && !(input instanceof URL) ? input.method : undefined)) || 'GET').toUpperCase();
-      const isApiCall = url.includes('/api/');
-      const previousSpanId = null;
-      const span = isApiCall ? beginClientSpan() : null;
-
-      if (isApiCall && span) {
-        sendClientEvent({
-          category: 'TRACE',
-          type: 'HTTP_REQUEST',
-          name: 'client.api.request',
-          status: 'STARTED',
-          feature: 'network',
-          method,
-          url,
-          traceId: span.traceId,
-          spanId: span.spanId,
-          parentSpanId: span.parentSpanId,
-          data: { phase: 'request', lifecycle: 'start' }
-        });
-      }
-
-      const headers = isApiCall ? new Headers(init?.headers || (typeof input !== 'string' && !(input instanceof URL) ? input.headers : undefined)) : new Headers(init?.headers);
-      if (isApiCall && span) {
-        headers.set('X-Trace-Id', span.traceId);
-        headers.set('X-Correlation-Id', span.traceId);
-        headers.set('X-Session-Id', window.sessionStorage.getItem('app_event_session_id') || 'browser');
-        headers.set('X-Span-Id', span.spanId);
-        if (span.parentSpanId) headers.set('X-Parent-Span-Id', span.parentSpanId);
-      }
-
-      const startedAt = Date.now();
-      try {
-        const response = await originalFetch(input, { ...init, headers });
-        if (isApiCall && span) {
-          sendClientEvent({
-            category: 'TRACE',
-            type: 'HTTP_REQUEST',
-            name: 'client.api.request',
-            status: response.ok ? 'SUCCESS' : 'FAILED',
-            feature: 'network',
-            method,
-            url,
-            httpStatus: response.status,
-            durationMs: Date.now() - startedAt,
-            traceId: span.traceId,
-            spanId: span.spanId,
-            parentSpanId: span.parentSpanId,
-            data: { phase: 'request', lifecycle: 'complete' }
-          });
-        }
-        return response;
-      } catch (error) {
-        if (isApiCall && span) {
-          sendClientEvent({
-            category: 'TRACE',
-            type: 'HTTP_REQUEST',
-            name: 'client.api.request',
-            status: 'FAILED',
-            feature: 'network',
-            method,
-            url,
-            durationMs: Date.now() - startedAt,
-            traceId: span.traceId,
-            spanId: span.spanId,
-            parentSpanId: span.parentSpanId,
-            errorName: error instanceof Error ? error.name : 'FetchError',
-            message: error instanceof Error ? error.message : String(error),
-            data: { phase: 'request', lifecycle: 'failed' }
-          });
-        }
-        throw error;
-      } finally {
-        if (span) {
-          endClientSpan(previousSpanId);
-        }
-      }
+      }, { beginTrace: true });
     };
 
     document.addEventListener('click', onClick, true);
@@ -176,7 +128,6 @@ export function AppEventClient() {
     return () => {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('submit', onSubmit, true);
-      window.fetch = originalFetch;
     };
   }, []);
 

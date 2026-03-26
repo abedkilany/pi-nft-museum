@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
   try {
-    await syncExpiredPublicReviewWindows(prisma);
+    await syncExpiredPublicReviewWindows();
     const currentUser = await getCurrentUser();
     if (!currentUser) return NextResponse.json({ error: 'You must be logged in.' }, { status: 401 });
 

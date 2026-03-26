@@ -556,8 +556,6 @@ model AppEvent {
   sessionId       String?
   requestId       String?
   traceId         String?
-  spanId          String?
-  parentSpanId    String?
   correlationId   String?
   entityType      String?
   entityId        String?
@@ -584,8 +582,6 @@ model AppEvent {
   @@index([route])
   @@index([requestId])
   @@index([traceId])
-  @@index([spanId])
-  @@index([parentSpanId])
   @@index([correlationId])
   @@index([entityType, entityId])
 }
@@ -704,22 +700,4 @@ enum ErrorSource {
   MIDDLEWARE
   CRON
   UNKNOWN
-}
-
-
-model Event {
-  id        String   @id @default(cuid())
-  type      String
-  userId    String?
-  sessionId String
-  path      String?
-  method    String?
-  status    Int?
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([sessionId])
-  @@index([type])
-  @@index([createdAt])
 }

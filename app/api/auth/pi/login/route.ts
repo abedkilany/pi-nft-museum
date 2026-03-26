@@ -13,7 +13,6 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-import { getServerTraceMeta, runWithServerRequestTrace, withServerSpan } from '@/lib/server-trace';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
   if (!userAgent) return false;
@@ -35,7 +34,6 @@ function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefine
 }
 
 export async function POST(request: Request) {
-  return runWithServerRequestTrace(request, { route: '/api/auth/pi/login', method: 'POST', feature: 'auth', name: 'auth.pi.login' }, async () => {
   const ctx = getRequestContextFromHeaders(request.headers);
   const baseMeta = {
     feature: 'auth',
@@ -43,8 +41,6 @@ export async function POST(request: Request) {
     method: 'POST',
     requestId: ctx.requestId,
     traceId: ctx.traceId,
-    spanId: ctx.spanId,
-    parentSpanId: ctx.parentSpanId,
     correlationId: ctx.correlationId,
     sessionId: ctx.sessionId,
     ipAddress: ctx.ipAddress,
@@ -87,7 +83,7 @@ export async function POST(request: Request) {
     ]);
     if (rateLimitError) return rateLimitError;
 
-    const body = await withServerSpan({ name: 'auth.pi.login.parse_body', feature: 'auth' }, async () => request.json());
+    const body = await request.json();
     logger.info('PI_LOGIN_ROUTE_BODY_PARSED', {
       ...baseMeta,
       hasAccessToken: Boolean(body?.accessToken),
@@ -108,7 +104,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Pi access token is required.' }, { status: 400 });
     }
 
-    const piUser = await withServerSpan({ name: 'auth.pi.login.fetch_pi_user', feature: 'auth' }, async () => fetchPiUser(accessToken));
+    const piUser = await fetchPiUser(accessToken);
     logger.info('PI_LOGIN_ROUTE_PI_USER_FETCHED', {
       ...baseMeta,
       piUid: piUser?.uid || null,
@@ -125,18 +121,18 @@ export async function POST(request: Request) {
     let bootstrapRoleKey: string | null = null;
     let roleSource: 'bootstrap-env' | 'database' = 'database';
 
-    let user = await withServerSpan({ name: 'auth.pi.login.lookup_user_by_uid', feature: 'auth', entityType: 'user' }, async () => prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { piUid: piUser.uid },
       include: { role: true },
-    }));
+    });
 
     if (!user && piUser.username) {
-      user = await withServerSpan({ name: 'auth.pi.login.lookup_user_by_username', feature: 'auth', entityType: 'user' }, async () => prisma.user.findFirst({
+      user = await prisma.user.findFirst({
         where: {
           OR: [{ piUsername: piUser.username }, { username: piUser.username }],
         },
         include: { role: true },
-      }));
+      });
     }
 
     if (!user) {
@@ -147,9 +143,9 @@ export async function POST(request: Request) {
         piUid: piUser.uid,
       });
 
-      const bootstrapRole = await withServerSpan({ name: 'auth.pi.login.resolve_bootstrap_role', feature: 'auth', entityType: 'role' }, async () => prisma.role.findUnique({
+      const bootstrapRole = await prisma.role.findUnique({
         where: { key: bootstrapRoleKey },
-      }));
+      });
 
       if (!bootstrapRole) {
         return NextResponse.json(
@@ -159,7 +155,7 @@ export async function POST(request: Request) {
       }
 
       const username = await ensureUniqueUsername(usernameSource);
-      user = await withServerSpan({ name: 'auth.pi.login.bootstrap_user', feature: 'auth', entityType: 'user' }, async () => prisma.user.create({
+      user = await prisma.user.create({
         data: {
           username,
           fullName: piUser.username || username,
@@ -175,7 +171,7 @@ export async function POST(request: Request) {
           lastLoginAt: new Date(),
         },
         include: { role: true },
-      }));
+      });
 
       roleSource = 'bootstrap-env';
 
@@ -189,7 +185,7 @@ export async function POST(request: Request) {
     } else {
       const username = await ensureUniqueUsername(piUser.username || user.username, user.id);
 
-      user = await withServerSpan({ name: 'auth.pi.login.update_existing_user', feature: 'auth', entityType: 'user' }, async () => prisma.user.update({
+      user = await prisma.user.update({
         where: { id: user.id },
         data: {
           username,
@@ -204,7 +200,7 @@ export async function POST(request: Request) {
           lastLoginAt: new Date(),
         },
         include: { role: true },
-      }));
+      });
     }
 
     if (!user.role) {
@@ -270,25 +266,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await withServerSpan({ name: 'auth.pi.login.issue_session_token', feature: 'auth' }, async () => issueAppSessionToken({
+    const session = await issueAppSessionToken({
       userId: user.id,
       role: user.role.key,
       piUid: user.piUid,
       piUsername: user.piUsername,
       sessionVersion: user.sessionVersion,
       roleVersion: user.roleVersion,
-    }));
+    });
 
     const refreshToken = buildRefreshTokenValue();
 
-    await withServerSpan({ name: 'auth.pi.login.create_session_registry', feature: 'auth', entityType: 'session' }, async () => createSessionRegistryEntry({
+    await createSessionRegistryEntry({
       userId: user.id,
       jti: session.jti,
       refreshToken,
       expiresAt: new Date(session.expiresAt),
       refreshExpiresAt: new Date(session.refreshExpiresAt),
       headers: request.headers,
-    }));
+    });
 
     logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', {
       ...baseMeta,
@@ -367,7 +363,6 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     logger.error('PI_LOGIN_ROUTE_FAILED', {
-      ...getServerTraceMeta(),
       ...baseMeta,
       message: error instanceof Error ? error.message : 'Unknown server error',
       stack: error instanceof Error ? error.stack : null,
@@ -378,5 +373,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-  });
 }

@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  await syncExpiredPublicReviewWindows(prisma);
+  await syncExpiredPublicReviewWindows();
   await purgeExpiredArchivedArtworks();
 
   const settings = await getSiteSettingsMap();

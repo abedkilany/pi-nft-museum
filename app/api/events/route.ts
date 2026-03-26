@@ -38,8 +38,6 @@ export async function POST(request: Request) {
       sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : ctx.sessionId,
       requestId: ctx.requestId,
       traceId: typeof payload.traceId === 'string' ? payload.traceId : ctx.traceId,
-      spanId: typeof payload.spanId === 'string' ? payload.spanId : ctx.spanId,
-      parentSpanId: typeof payload.parentSpanId === 'string' ? payload.parentSpanId : ctx.parentSpanId,
       correlationId: typeof payload.correlationId === 'string' ? payload.correlationId : ctx.correlationId,
       entityType: typeof payload.entityType === 'string' ? payload.entityType : null,
       entityId: typeof payload.entityId === 'string' || typeof payload.entityId === 'number' ? payload.entityId : null,
