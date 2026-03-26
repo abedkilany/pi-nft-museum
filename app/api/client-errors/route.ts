@@ -1,82 +1,111 @@
 import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { trackAppEvent } from '@/lib/app-events';
 import { getCurrentUser } from '@/lib/current-user';
 import { mapSeverityFromStatus, recordErrorLog } from '@/lib/error-tracker';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+import { asFiniteNumber, asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
+  const payloadSizeError = enforceMaxContentLength(request, 96 * 1024);
+  if (payloadSizeError) return payloadSizeError;
+
   try {
+    const currentUser = await getCurrentUser();
+
+    const rateLimitError = applyRateLimit(request, [currentUser?.userId ?? 'anon'], 'client-errors', [
+      { limit: 20, windowMs: 60 * 1000 },
+      { limit: 100, windowMs: 10 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
+
     const body = await request.json().catch(() => null);
-    if (!body || typeof body !== 'object') {
+    const payload = asObject(body);
+    if (!payload) {
       return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
     }
 
-    const currentUser = await getCurrentUser();
     const ctx = getRequestContextFromHeaders(request.headers);
+    const source = asLimitedString(payload.source, 32) === 'REACT' ? 'REACT' : 'CLIENT';
+    const title = asLimitedString(payload.title, 180) || asLimitedString(payload.errorName, 180) || 'Client error';
+    const message = asLimitedString(payload.message, 4000) || title;
+    const route = asLimitedString(payload.route, 512);
+    const method = asLimitedString(payload.method, 16);
+    const url = asLimitedString(payload.url, 2000);
+    const traceId = asLimitedString(payload.traceId, 180);
+    const errorName = asLimitedString(payload.errorName, 180) || title;
+    const code = asLimitedString(payload.code, 120);
+    const stack = asLimitedString(payload.stack, 12000);
+    const componentStack = asLimitedString(payload.componentStack, 12000);
+    const readableSummary = asLimitedString(payload.readableSummary, 2000);
+    const digest = asLimitedString(payload.digest, 180);
+    const httpStatus = asFiniteNumber(payload.httpStatus);
+    const tags = asLimitedRecord(payload.tags, { maxEntries: 16, maxDepth: 2, maxStringLength: 120 });
+    const extra = asLimitedRecord(payload.extra, { maxEntries: 20, maxDepth: 3, maxStringLength: 400 });
+    const sanitizedPayload = asLimitedRecord(payload, { maxEntries: 40, maxDepth: 3, maxStringLength: 500 }) || {};
 
-    const eventId = Sentry.captureException(new Error(String(body.message || body.title || 'Client error')), {
+    const eventId = Sentry.captureException(new Error(message), {
       tags: {
-        source: String(body.source || 'CLIENT').toLowerCase(),
-        route: String(body.route || body.url || 'unknown')
+        source: source.toLowerCase(),
+        route: String(route || url || 'unknown')
       },
-      extra: body as Record<string, unknown>,
+      extra: sanitizedPayload,
       user: currentUser ? { id: String(currentUser.userId), username: currentUser.username, email: currentUser.email } : undefined
     });
 
     await trackAppEvent({
       category: 'ERROR',
-      type: body.source === 'REACT' ? 'REACT_ERROR' : 'CLIENT_ERROR',
-      name: String(body.title || body.errorName || 'CLIENT_ERROR'),
+      type: source === 'REACT' ? 'REACT_ERROR' : 'CLIENT_ERROR',
+      name: title,
       status: 'FAILED',
-      severity: mapSeverityFromStatus(typeof body.httpStatus === 'number' ? body.httpStatus : null),
+      severity: mapSeverityFromStatus(httpStatus),
       isHealthy: false,
-      source: body.source === 'REACT' ? 'REACT' : 'CLIENT',
-      route: typeof body.route === 'string' ? body.route : null,
-      method: typeof body.method === 'string' ? body.method : null,
-      url: typeof body.url === 'string' ? body.url : null,
+      source,
+      route,
+      method,
+      url,
       userId: currentUser?.userId ?? null,
       requestId: ctx.requestId,
-      traceId: typeof body.traceId === 'string' ? body.traceId : ctx.traceId,
-      correlationId: typeof body.traceId === 'string' ? body.traceId : ctx.correlationId,
-      errorName: typeof body.errorName === 'string' ? body.errorName : String(body.title || 'ClientError'),
-      errorCode: typeof body.code === 'string' ? body.code : null,
-      errorStack: typeof body.stack === 'string' ? body.stack : null,
-      httpStatus: typeof body.httpStatus === 'number' ? body.httpStatus : null,
-      message: String(body.message || 'Unknown client error'),
-      readableSummary: typeof body.readableSummary === 'string' ? body.readableSummary : null,
-      tags: { sentryEventId: eventId, source: String(body.source || 'CLIENT') },
-      data: body as Record<string, unknown>
+      traceId: traceId || ctx.traceId,
+      correlationId: traceId || ctx.correlationId,
+      errorName,
+      errorCode: code,
+      errorStack: stack,
+      httpStatus,
+      message,
+      readableSummary,
+      tags: { sentryEventId: eventId, source },
+      data: sanitizedPayload,
     });
 
     await recordErrorLog({
-      title: String(body.title || 'Client error'),
-      message: String(body.message || 'Unknown client error'),
-      readableSummary: typeof body.readableSummary === 'string' ? body.readableSummary : null,
-      severity: mapSeverityFromStatus(typeof body.httpStatus === 'number' ? body.httpStatus : null),
-      source: body.source === 'REACT' ? 'REACT' : 'CLIENT',
+      title,
+      message,
+      readableSummary,
+      severity: mapSeverityFromStatus(httpStatus),
+      source,
       runtime: 'browser',
-      route: typeof body.route === 'string' ? body.route : null,
-      method: typeof body.method === 'string' ? body.method : null,
-      url: typeof body.url === 'string' ? body.url : null,
-      digest: typeof body.digest === 'string' ? body.digest : null,
-      errorName: typeof body.errorName === 'string' ? body.errorName : null,
-      stack: typeof body.stack === 'string' ? body.stack : null,
-      componentStack: typeof body.componentStack === 'string' ? body.componentStack : null,
-      code: typeof body.code === 'string' ? body.code : null,
-      httpStatus: typeof body.httpStatus === 'number' ? body.httpStatus : null,
+      route,
+      method,
+      url,
+      digest,
+      errorName,
+      stack,
+      componentStack,
+      code,
+      httpStatus,
       userAgent: request.headers.get('user-agent'),
       ipAddress: ctx.ipAddress,
       requestId: ctx.requestId,
       sentryEventId: eventId,
       userId: currentUser?.userId ?? null,
-      tags: typeof body.tags === 'object' && body.tags ? body.tags as Record<string, unknown> : null,
-      extra: typeof body.extra === 'object' && body.extra ? body.extra as Record<string, unknown> : null,
-      payload: body as Record<string, unknown>
+      tags,
+      extra,
+      payload: sanitizedPayload,
     });
 
     return NextResponse.json({ ok: true });

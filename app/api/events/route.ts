@@ -1,60 +1,67 @@
 import { NextResponse } from 'next/server';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { trackAppEvent } from '@/lib/app-events';
 import { getCurrentUser } from '@/lib/current-user';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-
-function asObject(value: unknown) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
+import { asFiniteNumber, asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
+  const payloadSizeError = enforceMaxContentLength(request, 64 * 1024);
+  if (payloadSizeError) return payloadSizeError;
+
   try {
+    const currentUser = await getCurrentUser();
+
+    const rateLimitError = applyRateLimit(request, [currentUser?.userId ?? 'anon'], 'app-events', [
+      { limit: 40, windowMs: 60 * 1000 },
+      { limit: 200, windowMs: 10 * 60 * 1000 },
+    ]);
+    if (rateLimitError) return rateLimitError;
+
     const body = await request.json().catch(() => null);
     const payload = asObject(body);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
     }
 
-    const currentUser = await getCurrentUser();
     const ctx = getRequestContextFromHeaders(request.headers);
 
     await trackAppEvent({
-      eventKey: typeof payload.eventKey === 'string' ? payload.eventKey : null,
-      category: typeof payload.category === 'string' ? payload.category : 'USER_ACTION',
-      type: typeof payload.type === 'string' ? payload.type : 'CLIENT_EVENT',
-      name: typeof payload.name === 'string' ? payload.name : 'CLIENT_EVENT',
-      status: typeof payload.status === 'string' ? payload.status : 'SUCCESS',
-      severity: typeof payload.severity === 'string' ? payload.severity : null,
+      eventKey: asLimitedString(payload.eventKey, 180),
+      category: asLimitedString(payload.category, 80) || 'USER_ACTION',
+      type: asLimitedString(payload.type, 80) || 'CLIENT_EVENT',
+      name: asLimitedString(payload.name, 180) || 'CLIENT_EVENT',
+      status: asLimitedString(payload.status, 40) || 'SUCCESS',
+      severity: asLimitedString(payload.severity, 32),
       isHealthy: typeof payload.isHealthy === 'boolean' ? payload.isHealthy : true,
-      message: typeof payload.message === 'string' ? payload.message : null,
-      readableSummary: typeof payload.readableSummary === 'string' ? payload.readableSummary : null,
-      source: typeof payload.source === 'string' ? payload.source : 'CLIENT',
-      feature: typeof payload.feature === 'string' ? payload.feature : null,
-      route: typeof payload.route === 'string' ? payload.route : null,
-      method: typeof payload.method === 'string' ? payload.method : null,
-      url: typeof payload.url === 'string' ? payload.url : null,
-      component: typeof payload.component === 'string' ? payload.component : null,
+      message: asLimitedString(payload.message, 2000),
+      readableSummary: asLimitedString(payload.readableSummary, 1200),
+      source: asLimitedString(payload.source, 32) || 'CLIENT',
+      feature: asLimitedString(payload.feature, 80),
+      route: asLimitedString(payload.route, 512),
+      method: asLimitedString(payload.method, 16),
+      url: asLimitedString(payload.url, 2000),
+      component: asLimitedString(payload.component, 120),
       userId: currentUser?.userId ?? null,
-      sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : ctx.sessionId,
+      sessionId: asLimitedString(payload.sessionId, 180) || ctx.sessionId,
       requestId: ctx.requestId,
-      traceId: typeof payload.traceId === 'string' ? payload.traceId : ctx.traceId,
-      correlationId: typeof payload.correlationId === 'string' ? payload.correlationId : ctx.correlationId,
-      entityType: typeof payload.entityType === 'string' ? payload.entityType : null,
+      traceId: asLimitedString(payload.traceId, 180) || ctx.traceId,
+      correlationId: asLimitedString(payload.correlationId, 180) || ctx.correlationId,
+      entityType: asLimitedString(payload.entityType, 80),
       entityId: typeof payload.entityId === 'string' || typeof payload.entityId === 'number' ? payload.entityId : null,
-      parentType: typeof payload.parentType === 'string' ? payload.parentType : null,
+      parentType: asLimitedString(payload.parentType, 80),
       parentId: typeof payload.parentId === 'string' || typeof payload.parentId === 'number' ? payload.parentId : null,
-      httpStatus: typeof payload.httpStatus === 'number' ? payload.httpStatus : null,
-      durationMs: typeof payload.durationMs === 'number' ? payload.durationMs : null,
-      errorName: typeof payload.errorName === 'string' ? payload.errorName : null,
-      errorCode: typeof payload.errorCode === 'string' ? payload.errorCode : null,
-      errorStack: typeof payload.errorStack === 'string' ? payload.errorStack : null,
-      fingerprint: typeof payload.fingerprint === 'string' ? payload.fingerprint : null,
-      tags: asObject(payload.tags),
-      data: asObject(payload.data)
+      httpStatus: asFiniteNumber(payload.httpStatus),
+      durationMs: asFiniteNumber(payload.durationMs),
+      errorName: asLimitedString(payload.errorName, 180),
+      errorCode: asLimitedString(payload.errorCode, 120),
+      errorStack: asLimitedString(payload.errorStack, 12000),
+      fingerprint: asLimitedString(payload.fingerprint, 180),
+      tags: asLimitedRecord(payload.tags, { maxEntries: 16, maxDepth: 2, maxStringLength: 120 }),
+      data: asLimitedRecord(payload.data, { maxEntries: 24, maxDepth: 3, maxStringLength: 400 }),
     });
 
     return NextResponse.json({ ok: true });

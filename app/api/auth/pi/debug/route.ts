@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { requireDebugRoute } from '@/lib/api-guards';
+import { asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -13,14 +14,25 @@ export async function POST(request: Request) {
     return debugResponse;
   }
 
+  const payloadSizeError = enforceMaxContentLength(request, 16 * 1024);
+  if (payloadSizeError) return payloadSizeError;
+
+  const rateLimitError = applyRateLimit(request, ['pi-debug'], 'auth-pi-debug', [
+    { limit: 10, windowMs: 60 * 1000 },
+    { limit: 30, windowMs: 10 * 60 * 1000 },
+  ]);
+  if (rateLimitError) return rateLimitError;
+
   try {
     const body = await request.json().catch(() => ({}));
-    const event = typeof body?.event === 'string' ? body.event : 'PI_CLIENT_DEBUG';
-    const level = body?.level === 'warn' ? 'warn' : 'info';
+    const payload = asObject(body) || {};
+    const event = asLimitedString(payload.event, 120) || 'PI_CLIENT_DEBUG';
+    const level = payload.level === 'warn' ? 'warn' : 'info';
     const ctx = getRequestContextFromHeaders(request.headers);
+    const payloadMeta = asLimitedRecord(payload.meta, { maxEntries: 16, maxDepth: 2, maxStringLength: 200 }) || {};
 
     const meta = {
-      ...((body?.meta && typeof body.meta === 'object' && !Array.isArray(body.meta)) ? body.meta : {}),
+      ...payloadMeta,
       route: request.headers.get('referer') || null,
       origin: request.headers.get('origin'),
       host: request.headers.get('host'),
@@ -29,8 +41,8 @@ export async function POST(request: Request) {
       clientDebug: true,
       feature: 'auth',
       requestId: ctx.requestId,
-      traceId: ctx.traceId || (typeof body?.meta?.traceId === 'string' ? body.meta.traceId : null),
-      correlationId: ctx.correlationId || (typeof body?.meta?.traceId === 'string' ? body.meta.traceId : null),
+      traceId: ctx.traceId || (typeof payloadMeta.traceId === 'string' ? payloadMeta.traceId : null),
+      correlationId: ctx.correlationId || (typeof payloadMeta.traceId === 'string' ? payloadMeta.traceId : null),
       sessionId: ctx.sessionId || null,
       ipAddress: ctx.ipAddress || null,
     };
