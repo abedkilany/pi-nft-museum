@@ -1,0 +1,11 @@
+model Event {
+  id        String   @id @default(cuid())
+  type      String
+  sessionId String
+  path      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([type])
+}
