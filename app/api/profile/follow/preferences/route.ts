@@ -2,28 +2,33 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { assertSameOrigin } from '@/lib/security';
+import { getNumberField, getOptionalBooleanField, readJsonObject } from '@/lib/request-validation';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
   const currentUser = await getCurrentUser();
-  if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  const body = await request.json();
-  const profileUserId = Number(body.profileUserId);
-  if (!profileUserId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
+  if (!currentUser) return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+
+  const bodyResult = await readJsonObject(request);
+  if (!bodyResult.ok) return bodyResult.response;
+
+  const profileUserIdResult = getNumberField(bodyResult.data, 'profileUserId', { required: true, integer: true, min: 1 });
+  if (!profileUserIdResult.ok) return profileUserIdResult.response;
+  const profileUserId = profileUserIdResult.data;
 
   const follow = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: currentUser.userId, followingId: profileUserId } } });
-  if (!follow) return NextResponse.json({ error: 'Follow this user first.' }, { status: 400 });
+  if (!follow) return NextResponse.json({ ok: false, error: 'Follow this user first.' }, { status: 400 });
 
   const updated = await prisma.follow.update({
     where: { followerId_followingId: { followerId: currentUser.userId, followingId: profileUserId } },
     data: {
-      notificationsEnabled: Boolean(body.notificationsEnabled),
-      notifyAllActivity: Boolean(body.notifyAllActivity),
-      notifyNewArtworks: Boolean(body.notifyNewArtworks),
-      notifyPremiumArtworks: Boolean(body.notifyPremiumArtworks),
-      notifyComments: Boolean(body.notifyComments),
-      muted: Boolean(body.muted),
+      notificationsEnabled: getOptionalBooleanField(bodyResult.data, 'notificationsEnabled', follow.notificationsEnabled),
+      notifyAllActivity: getOptionalBooleanField(bodyResult.data, 'notifyAllActivity', follow.notifyAllActivity),
+      notifyNewArtworks: getOptionalBooleanField(bodyResult.data, 'notifyNewArtworks', follow.notifyNewArtworks),
+      notifyPremiumArtworks: getOptionalBooleanField(bodyResult.data, 'notifyPremiumArtworks', follow.notifyPremiumArtworks),
+      notifyComments: getOptionalBooleanField(bodyResult.data, 'notifyComments', follow.notifyComments),
+      muted: getOptionalBooleanField(bodyResult.data, 'muted', follow.muted),
     },
   });
 

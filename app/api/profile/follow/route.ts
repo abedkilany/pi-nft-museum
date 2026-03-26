@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { createNotification } from '@/lib/notifications';
 import { assertSameOrigin } from '@/lib/security';
+import { getNumberField, readJsonObject, validationError } from '@/lib/request-validation';
 
 async function buildState(currentUserId: number, profileUserId: number) {
   const [follow, followersCount, followingCount] = await Promise.all([
@@ -28,19 +29,31 @@ async function buildState(currentUserId: number, profileUserId: number) {
   };
 }
 
+async function readProfileUserId(request: Request) {
+  const bodyResult = await readJsonObject(request);
+  if (!bodyResult.ok) return bodyResult;
+  const profileUserIdResult = getNumberField(bodyResult.data, 'profileUserId', { required: true, integer: true, min: 1 });
+  if (!profileUserIdResult.ok) return profileUserIdResult;
+  return { ok: true as const, data: profileUserIdResult.data };
+}
+
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
-  if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  const { profileUserId } = await request.json();
-  const targetId = Number(profileUserId);
-  if (!targetId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
-  if (targetId === currentUser.userId) return NextResponse.json({ error: 'You cannot follow yourself.' }, { status: 400 });
+  if (!currentUser) return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+
+  const targetIdResult = await readProfileUserId(request);
+  if (!targetIdResult.ok) return targetIdResult.response;
+  const targetId = targetIdResult.data;
+
+  if (targetId === currentUser.userId) {
+    return validationError('You cannot follow yourself.', { profileUserId: 'Cannot follow yourself' });
+  }
 
   const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, username: true } });
-  if (!target) return NextResponse.json({ error: 'Profile not found.' }, { status: 404 });
+  if (!target) return NextResponse.json({ ok: false, error: 'Profile not found.' }, { status: 404 });
 
   await prisma.follow.upsert({
     where: { followerId_followingId: { followerId: currentUser.userId, followingId: targetId } },
@@ -70,10 +83,11 @@ export async function DELETE(request: Request) {
   if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
-  if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  const { profileUserId } = await request.json();
-  const targetId = Number(profileUserId);
-  if (!targetId) return NextResponse.json({ error: 'Invalid profile.' }, { status: 400 });
+  if (!currentUser) return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+
+  const targetIdResult = await readProfileUserId(request);
+  if (!targetIdResult.ok) return targetIdResult.response;
+  const targetId = targetIdResult.data;
 
   await prisma.follow.deleteMany({ where: { followerId: currentUser.userId, followingId: targetId } });
 

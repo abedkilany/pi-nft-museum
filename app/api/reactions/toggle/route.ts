@@ -7,7 +7,7 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveReactions } from '@/lib/artwork-status';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
-import { toSafeInt, toTrimmedString } from '@/lib/validators';
+import { getEnumField, getNumberField, readJsonObject } from '@/lib/request-validation';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (csrfError) return csrfError;
 
     const currentUser = await getCurrentUser();
-    if (!currentUser) return NextResponse.json({ error: 'You must be logged in to react.' }, { status: 401 });
+    if (!currentUser) return NextResponse.json({ ok: false, error: 'You must be logged in to react.' }, { status: 401 });
 
     const rateLimitError = applyRateLimit(request, [currentUser.userId], 'artwork-reaction', [
       { limit: 20, windowMs: 60 * 1000 },
@@ -24,18 +24,24 @@ export async function POST(request: Request) {
     ]);
     if (rateLimitError) return rateLimitError;
 
-    const body = await request.json();
-    const artworkId = toSafeInt(body.artworkId);
-    const type = toTrimmedString(body.type).toUpperCase();
-    if (!artworkId || !['LIKE', 'DISLIKE'].includes(type)) return NextResponse.json({ error: 'Invalid artwork ID or reaction type.' }, { status: 400 });
+    const bodyResult = await readJsonObject(request);
+    if (!bodyResult.ok) return bodyResult.response;
+
+    const artworkIdResult = getNumberField(bodyResult.data, 'artworkId', { required: true, integer: true, min: 1 });
+    if (!artworkIdResult.ok) return artworkIdResult.response;
+    const typeResult = getEnumField(bodyResult.data, 'type', ['LIKE', 'DISLIKE'] as const, { required: true, normalize: 'upper' });
+    if (!typeResult.ok) return typeResult.response;
+
+    const artworkId = artworkIdResult.data;
+    const type = typeResult.data;
 
     const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
-    if (!artwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });
-    if (!canReceiveReactions(artwork.status)) return NextResponse.json({ error: 'Only minted gallery artworks can receive public reactions.' }, { status: 400 });
+    if (!artwork) return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
+    if (!canReceiveReactions(artwork.status)) return NextResponse.json({ ok: false, error: 'Only minted gallery artworks can receive public reactions.' }, { status: 400 });
 
     const settings = await getSiteSettingsMap();
     const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
-    if (artwork.status === 'PREMIUM' && type === 'DISLIKE' && !premiumAllowDislike) return NextResponse.json({ error: 'Dislike is disabled for premium artworks.' }, { status: 400 });
+    if (artwork.status === 'PREMIUM' && type === 'DISLIKE' && !premiumAllowDislike) return NextResponse.json({ ok: false, error: 'Dislike is disabled for premium artworks.' }, { status: 400 });
 
     const existingReaction = await prisma.artworkReaction.findUnique({ where: { artworkId_userId: { artworkId, userId: currentUser.userId } } });
     let currentReaction: 'LIKE' | 'DISLIKE' | null = null;
@@ -54,8 +60,8 @@ export async function POST(request: Request) {
       where: { artworkId },
       _count: { type: true },
     });
-    const likesCount = grouped.find((row: any) => row.type === 'LIKE')?._count.type ?? 0;
-    const dislikesCount = grouped.find((row: any) => row.type === 'DISLIKE')?._count.type ?? 0;
+    const likesCount = grouped.find((row) => row.type === 'LIKE')?._count.type ?? 0;
+    const dislikesCount = grouped.find((row) => row.type === 'DISLIKE')?._count.type ?? 0;
 
     const updated = await prisma.artwork.update({ where: { id: artworkId }, data: { likesCount, dislikesCount } });
 
@@ -87,6 +93,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, currentReaction, likesCount, dislikesCount, premiumScore, nextStatus });
   } catch (error) {
     logger.error('Failed to toggle artwork reaction', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

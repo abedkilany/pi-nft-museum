@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { getNumberField, readJsonObject } from '@/lib/request-validation';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -11,45 +12,28 @@ export async function POST(request: Request) {
     const currentUser = await getCurrentUser();
 
     if (!currentUser) {
-      return NextResponse.json(
-        { error: 'You must be logged in.' },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: 'You must be logged in.' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const artworkId = Number(body.artworkId);
+    const bodyResult = await readJsonObject(request);
+    if (!bodyResult.ok) return bodyResult.response;
 
-    if (!artworkId) {
-      return NextResponse.json(
-        { error: 'Invalid artwork ID.' },
-        { status: 400 }
-      );
-    }
+    const artworkIdResult = getNumberField(bodyResult.data, 'artworkId', { required: true, integer: true, min: 1 });
+    if (!artworkIdResult.ok) return artworkIdResult.response;
+    const artworkId = artworkIdResult.data;
 
-    const artwork = await prisma.artwork.findUnique({
-      where: { id: artworkId }
-    });
+    const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
 
     if (!artwork) {
-      return NextResponse.json(
-        { error: 'Artwork not found.' },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
     }
 
     if (artwork.artistUserId !== currentUser.userId) {
-      return NextResponse.json(
-        { error: 'You are not allowed to update this artwork.' },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, error: 'You are not allowed to update this artwork.' }, { status: 403 });
     }
 
     if (artwork.status !== 'REJECTED') {
-      return NextResponse.json(
-        { error: 'Only rejected artworks can be resubmitted.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: 'Only rejected artworks can be resubmitted.' }, { status: 400 });
     }
 
     const updatedArtwork = await prisma.artwork.update({
@@ -57,27 +41,19 @@ export async function POST(request: Request) {
       data: {
         status: 'PENDING',
         reviewNote: null,
-        reviewedAt: null
-      }
+        reviewedAt: null,
+      },
     });
 
     logger.info('Artwork resubmitted for review', {
       artworkId: updatedArtwork.id,
-      userId: currentUser.userId
+      userId: currentUser.userId,
     });
 
-    return NextResponse.json({
-      ok: true,
-      artwork: updatedArtwork
-    });
+    return NextResponse.json({ ok: true, artwork: updatedArtwork });
   } catch (error) {
     logger.error('Failed to resubmit artwork', error);
 
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Unknown server error'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

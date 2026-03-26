@@ -4,13 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { getNumberField, readJsonObject, validationError } from '@/lib/request-validation';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
   const currentUser = await getCurrentUser();
-  if (!currentUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
 
   const rateLimitError = applyRateLimit(request, [currentUser.userId], 'follow-toggle', [
     { limit: 20, windowMs: 60 * 1000 },
@@ -18,15 +19,20 @@ export async function POST(request: Request) {
   ]);
   if (rateLimitError) return rateLimitError;
 
-  const { targetUserId } = await request.json();
-  const followingId = Number(targetUserId);
-  if (!followingId || followingId === currentUser.userId) {
-    return NextResponse.json({ error: 'Invalid user.' }, { status: 400 });
+  const bodyResult = await readJsonObject(request);
+  if (!bodyResult.ok) return bodyResult.response;
+
+  const targetUserIdResult = getNumberField(bodyResult.data, 'targetUserId', { required: true, integer: true, min: 1 });
+  if (!targetUserIdResult.ok) return targetUserIdResult.response;
+
+  const followingId = targetUserIdResult.data;
+  if (followingId === currentUser.userId) {
+    return validationError('Invalid user.', { targetUserId: 'You cannot follow yourself' });
   }
 
   const targetUser = await prisma.user.findUnique({ where: { id: followingId }, select: { id: true, username: true } });
   if (!targetUser) {
-    return NextResponse.json({ error: 'Target user not found.' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: 'Target user not found.' }, { status: 404 });
   }
 
   const existing = await prisma.follow.findUnique({
