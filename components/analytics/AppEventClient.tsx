@@ -182,7 +182,7 @@ function patchClientFetch() {
   const originalFetch = window.fetch.bind(window);
   globalWindow.__appEventOriginalFetch = originalFetch;
 
-  window.fetch = async ((input: RequestInfo | URL, init?: RequestInit) => {
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const urlValue = input instanceof Request ? input.url : String(input);
     if (shouldSkipInstrumentation(urlValue)) {
       return originalFetch(input, init);
