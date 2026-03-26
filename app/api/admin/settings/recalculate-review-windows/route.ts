@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { buildPublicReviewDates } from '@/lib/artwork-windows';
+import { buildPublicReviewDates } from '@/lib/artwork-windows.server';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { requireAdminApi } from '@/lib/admin';

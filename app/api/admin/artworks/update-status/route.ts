@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { buildPublicReviewDates } from '@/lib/artwork-windows';
+import { buildPublicReviewDates } from '@/lib/artwork-windows.server';
 import { requireAdminApi } from '@/lib/admin';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';

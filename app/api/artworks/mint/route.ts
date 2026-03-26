@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
-import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
+import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows.server';
 import { assertSameOrigin } from '@/lib/security';
 
 export async function POST(request: Request) {

@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
 import { getSiteSettingsMap, getNumberSetting } from '@/lib/site-settings';
 import { getArchiveMessage, purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
-import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
+import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows.server';
 
 export async function GET() {
   const currentUser = await getCurrentUser();
