@@ -6,7 +6,6 @@ import { saveUploadedImage } from '@/lib/uploads';
 import { getSiteSettingsMap, getStringSetting } from '@/lib/site-settings';
 import { clampNumber, validateArtworkInput } from '@/lib/validators';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 function slugify(text: string) {
   return text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -97,6 +96,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, artwork: updatedArtwork });
   } catch (error) {
     logger.error('Failed to update artwork', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

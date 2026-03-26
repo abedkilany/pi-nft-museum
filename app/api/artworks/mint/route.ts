@@ -4,7 +4,6 @@ import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { canMintNow, syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -30,6 +29,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, artwork: updatedArtwork });
   } catch (error) {
     logger.error('Failed to mint artwork', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

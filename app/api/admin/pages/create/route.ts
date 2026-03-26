@@ -4,7 +4,6 @@ import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { safeError } from '@/lib/safe-response';
 
 type Payload = {
   title?: string;
@@ -78,6 +77,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Page created successfully.' });
   } catch (error) {
     logger.error('Failed to create page', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

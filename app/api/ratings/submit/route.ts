@@ -7,7 +7,6 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveRatings } from '@/lib/artwork-status';
 import { toSafeInt } from '@/lib/validators';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -43,6 +42,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, averageRating, ratingsCount, premiumScore: recalculated?.premiumScore || 0 });
   } catch (error) {
     logger.error('Failed to submit artwork rating', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

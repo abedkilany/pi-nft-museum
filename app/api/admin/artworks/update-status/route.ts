@@ -5,7 +5,6 @@ import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { requireAdminApi } from '@/lib/admin';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -51,6 +50,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, artwork });
   } catch (error) {
     logger.error('Failed to update artwork status', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

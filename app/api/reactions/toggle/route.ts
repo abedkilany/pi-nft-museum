@@ -9,7 +9,6 @@ import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { toSafeInt, toTrimmedString } from '@/lib/validators';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   try {
@@ -88,6 +87,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, currentReaction, likesCount, dislikesCount, premiumScore, nextStatus });
   } catch (error) {
     logger.error('Failed to toggle artwork reaction', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

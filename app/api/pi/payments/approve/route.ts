@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { callPiPaymentApi, ensurePaymentRecord, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
 import { assertSameOrigin } from '@/lib/security';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -70,6 +69,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, payment: approved });
   } catch (error) {
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

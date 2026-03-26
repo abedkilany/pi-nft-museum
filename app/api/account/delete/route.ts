@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -41,6 +40,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Account deleted.' });
   } catch (error) {
     logger.error('Account deletion failed', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

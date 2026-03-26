@@ -13,7 +13,6 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-import { safeError } from '@/lib/safe-response';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
   if (!userAgent) return false;
@@ -314,31 +313,22 @@ export async function POST(request: Request) {
       },
     });
 
-    const prefersClientFallback = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'));
-    const includeClientFallback = true;
-    const transport = includeClientFallback ? 'token-session-with-cookie-backup' : 'cookie-session';
+    const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
+      ? 'pi-browser-bearer-fallback'
+      : 'cookie-session';
 
     const response = NextResponse.json({
       ok: true,
       message: 'Connected with Pi.',
-      authMode: includeClientFallback
-        ? 'token-first-session-with-cookie-backup'
-        : 'cookie-session-with-refresh-rotation',
+      authMode: 'cookie-session-with-refresh-rotation',
       session: {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: session.refreshExpiresAt,
+        token: session.token,
+        refreshToken,
         transport,
       },
-      fallback: includeClientFallback
-        ? {
-            enabled: true,
-            sessionToken: session.token,
-            refreshToken,
-            transport: 'session-storage-bearer-fallback',
-            reason: prefersClientFallback ? 'preferred-for-cookie-restricted-client' : 'token-first-client-session',
-          }
-        : { enabled: false },
       user: {
         id: user.id,
         username: user.username,
@@ -367,7 +357,7 @@ export async function POST(request: Request) {
     });
 
     response.headers.set('Cache-Control', 'no-store');
-    response.headers.set('X-Auth-Session-Mode', includeClientFallback ? 'token-first-session-with-cookie-backup' : 'cookie-session-with-refresh-rotation');
+    response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
     response.headers.set('X-Auth-Transport', transport);
 
     return response;
@@ -378,6 +368,9 @@ export async function POST(request: Request) {
       stack: error instanceof Error ? error.stack : null,
     });
 
-    return safeError(error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown server error' },
+      { status: 500 },
+    );
   }
 }

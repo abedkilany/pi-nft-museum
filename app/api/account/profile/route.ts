@@ -10,7 +10,6 @@ import {
 } from '@/lib/validators';
 import { saveUploadedImage } from '@/lib/uploads';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 function toBoolean(value: FormDataEntryValue | null) {
   return String(value || '') === 'true';
@@ -101,6 +100,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Profile updated successfully.' });
   } catch (error) {
     logger.error('Profile update failed', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

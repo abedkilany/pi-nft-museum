@@ -2,25 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/pi';
-import {
-  clearPiAuthToken,
-  getClientAuthDiagnosticState,
-  getPiAuthHeaders,
-  getStoredAuthMode,
-  getStoredPiRefreshToken,
-  getStoredPiSessionToken,
-  piApiFetch,
-  refreshPiBrowserSession,
-  setStoredAuthMode,
-  storePiBrowserAuth,
-} from '@/lib/pi-auth-client';
-import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
-import {
-  beginClientTrace,
-  buildObservabilityHeaders,
-  consumeOrCreateTraceId,
-  getClientSessionId,
-} from '@/lib/observability-client';
+import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
 type AuthUser = {
@@ -65,18 +48,14 @@ async function pushClientAuthDebug(
         },
         resolvedTraceId
       ),
-      body: JSON.stringify({
-        event,
-        level,
-        meta: { ...(meta || {}), traceId: resolvedTraceId },
-      }),
+      body: JSON.stringify({ event, level, meta: { ...(meta || {}), traceId: resolvedTraceId } }),
       cache: 'no-store',
     });
   } catch {}
 }
 
 type FetchCurrentUserResult =
-  | { ok: true; user: AuthUser; source?: string | null }
+  | { ok: true; user: AuthUser }
   | { ok: false; reason: 'unauthorized' | 'network' | 'server' };
 
 async function pushPostAuthEvent(
@@ -125,11 +104,10 @@ async function pushPostAuthEvent(
 async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUserResult> {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
   const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
   await pushClientAuthDebug('PI_AUTH_ME_REQUEST_START', {}, 'info', resolvedTraceId);
   await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_START', resolvedTraceId, {
     status: 'STARTED',
-    data: { endpoint: '/api/auth/me' },
+    data: { endpoint: '/api/auth/me' }
   });
 
   const response = await piApiFetch('/api/auth/me', {
@@ -144,7 +122,7 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
       status: 'FAILED',
       message: 'Failed to reach /api/auth/me',
       errorCode: 'AUTH_ME_NETWORK_FAILURE',
-      data: { endpoint: '/api/auth/me' },
+      data: { endpoint: '/api/auth/me' }
     });
     return { ok: false, reason: 'network' };
   }
@@ -158,7 +136,6 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
       'info',
       resolvedTraceId
     );
-
     await pushPostAuthEvent('POST_AUTH_FETCH_CURRENT_USER_SUCCESS', resolvedTraceId, {
       data: {
         endpoint: '/api/auth/me',
@@ -166,14 +143,9 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
         durationMs: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt),
         userId: payload.user.id,
         role: payload.user.role,
-      },
+      }
     });
-
-    return {
-      ok: true,
-      user: payload.user as AuthUser,
-      source: typeof payload?.source === 'string' ? payload.source : null,
-    };
+    return { ok: true, user: payload.user as AuthUser };
   }
 
   await pushClientAuthDebug(
@@ -197,7 +169,7 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
       authenticated: payload?.authenticated ?? null,
       reason: payload?.reason ?? null,
       durationMs: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt),
-    },
+    }
   });
 
   if (response.status === 401) {
@@ -206,6 +178,7 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
 
   return { ok: false, reason: 'server' };
 }
+
 
 async function fetchSessionDebug(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
@@ -221,14 +194,9 @@ async function fetchSessionDebug(traceId?: string | null) {
   }
 
   const payload = await response.json().catch(() => null);
-
   return {
     ok: response.ok,
-    reason: response.ok
-      ? ('ok' as const)
-      : response.status === 404
-        ? ('not_available' as const)
-        : ('non_success' as const),
+    reason: response.ok ? 'ok' as const : response.status === 404 ? 'not_available' as const : 'non_success' as const,
     payload,
     status: response.status,
   };
@@ -237,7 +205,6 @@ async function fetchSessionDebug(traceId?: string | null) {
 async function resolveUserAfterLogin(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
   const delays = [0, 350, 900];
-  let forcedFallback = false;
 
   for (let index = 0; index < delays.length; index += 1) {
     const delayMs = delays[index];
@@ -245,63 +212,18 @@ async function resolveUserAfterLogin(traceId?: string | null) {
       await new Promise((resolve) => window.setTimeout(resolve, delayMs));
     }
 
-    let meResult = await fetchCurrentUser(resolvedTraceId);
-
-    if (!meResult.ok && meResult.reason === 'unauthorized' && !forcedFallback && Boolean(getStoredPiSessionToken())) {
-      const currentMode = getStoredAuthMode();
-      if (currentMode !== 'fallback') {
-        forcedFallback = true;
-        setStoredAuthMode('fallback');
-        await pushClientAuthDebug(
-          'PI_AUTH_SWITCHED_TO_FALLBACK_AFTER_ME_401',
-          {
-            attempt: index + 1,
-            previousMode: currentMode,
-            state: getClientAuthDiagnosticState(),
-          },
-          'info',
-          resolvedTraceId
-        );
-        meResult = await fetchCurrentUser(resolvedTraceId);
-      }
-    }
-
+    const meResult = await fetchCurrentUser(resolvedTraceId);
     if (meResult.ok) {
-      if (meResult.source === 'bearer') {
-        setStoredAuthMode('fallback');
-      }
-      if (index > 0 || forcedFallback) {
-        await pushClientAuthDebug(
-          'PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY',
-          {
-            attempt: index + 1,
-            delayMs,
-            source: meResult.source ?? null,
-            authMode: getStoredAuthMode(),
-          },
-          'info',
-          resolvedTraceId
-        );
+      if (index > 0) {
+        await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RECOVERED_AFTER_RETRY', { attempt: index + 1, delayMs }, 'info', resolvedTraceId);
       }
       return { ok: true as const, user: meResult.user };
     }
 
-    await pushClientAuthDebug(
-      'PI_AUTH_SESSION_RESTORE_RETRY_RESULT',
-      {
-        attempt: index + 1,
-        delayMs,
-        reason: meResult.reason,
-        authMode: getStoredAuthMode(),
-        forcedFallback,
-      },
-      meResult.reason === 'unauthorized' ? 'info' : 'warn',
-      resolvedTraceId
-    );
+    await pushClientAuthDebug('PI_AUTH_SESSION_RESTORE_RETRY_RESULT', { attempt: index + 1, delayMs, reason: meResult.reason }, meResult.reason === 'unauthorized' ? 'info' : 'warn', resolvedTraceId);
   }
 
   const sessionDebug = await fetchSessionDebug(resolvedTraceId);
-
   await pushClientAuthDebug(
     'PI_AUTH_SESSION_RESTORE_FAILED_AFTER_LOGIN',
     {
@@ -313,9 +235,8 @@ async function resolveUserAfterLogin(traceId?: string | null) {
     resolvedTraceId
   );
 
-  const message =
-    sessionDebug.payload?.error ||
-    (sessionDebug.reason === 'not_available'
+  const message = sessionDebug.payload?.error
+    || (sessionDebug.reason === 'not_available'
       ? 'Pi login succeeded, but the session-debug route is not available in this deployment.'
       : 'Pi login succeeded on the server, but the cookie session could not be restored on the client.');
 
@@ -327,7 +248,6 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   await pushClientAuthDebug('PI_AUTH_SDK_START', {}, 'info', resolvedTraceId);
 
   const auth = await authenticateWithPi(['username', 'payments']);
-
   await pushClientAuthDebug(
     'PI_AUTH_SDK_SUCCESS',
     {
@@ -343,10 +263,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error('Pi login did not return an access token.');
   }
 
-  const prefersBearerFallback = shouldPreferPiBrowserBearerFallback();
-
-  await pushClientAuthDebug('PI_AUTH_SERVER_LOGIN_START', { prefersBearerFallback }, 'info', resolvedTraceId);
-
+  await pushClientAuthDebug('PI_AUTH_SERVER_LOGIN_START', {}, 'info', resolvedTraceId);
   const loginResponse = await fetch('/api/auth/pi/login', {
     method: 'POST',
     headers: buildObservabilityHeaders(
@@ -354,8 +271,6 @@ async function authenticateAndResolveUser(traceId?: string | null) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'X-App-Request': 'pi-web',
-        'X-Auth-Fallback-Allowed': '1',
-        'X-Auth-Fallback-Preferred': '1',
       },
       resolvedTraceId
     ),
@@ -373,9 +288,6 @@ async function authenticateAndResolveUser(traceId?: string | null) {
       hasSessionCookie: Boolean(loginPayload?.session?.expiresAt),
       error: loginPayload?.error ?? null,
       code: loginPayload?.code ?? null,
-      fallbackEnabled: Boolean(loginPayload?.fallback?.enabled),
-      hasFallbackSessionToken: Boolean(loginPayload?.fallback?.sessionToken),
-      hasFallbackRefreshToken: Boolean(loginPayload?.fallback?.refreshToken),
     },
     loginResponse?.ok ? 'info' : 'warn',
     resolvedTraceId
@@ -385,71 +297,48 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     throw new Error(loginPayload?.error || 'Server login failed.');
   }
 
-  const initialAuthMode = loginPayload?.fallback?.enabled ? 'fallback' : 'cookie';
+  const prefersBearerFallback = shouldUseBearerFallbackClient();
+  const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
+  const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
 
-  storePiBrowserAuth({
-    mode: initialAuthMode,
-    sessionToken: loginPayload?.fallback?.sessionToken || null,
-    refreshToken: loginPayload?.fallback?.refreshToken || null,
-  });
+  if (prefersBearerFallback) {
+    if (!fallbackSessionToken || !fallbackRefreshToken) {
+      await pushClientAuthDebug(
+        'PI_AUTH_BEARER_FALLBACK_MISSING_TOKENS',
+        {
+          hasFallbackSessionToken: Boolean(fallbackSessionToken),
+          hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
+        },
+        'warn',
+        resolvedTraceId
+      );
+      throw new Error('Pi Browser on iOS needs fallback auth tokens, but the login response did not include them.');
+    }
 
-  await pushClientAuthDebug(
-    'PI_AUTH_SESSION_STORAGE_SNAPSHOT_AFTER_LOGIN',
-    {
-      state: getClientAuthDiagnosticState(),
-    },
-    'info',
-    resolvedTraceId
-  );
-
-  await pushClientAuthDebug(
-    'PI_AUTH_SESSION_TOKEN_STORED',
-    {
-      prefersBearerFallback,
-      initialAuthMode,
-      hasFallbackSessionToken: Boolean(loginPayload?.fallback?.sessionToken),
-      hasFallbackRefreshToken: Boolean(loginPayload?.fallback?.refreshToken),
-      transport: loginPayload?.fallback?.enabled ? 'hybrid-session' : 'cookie-session',
-    },
-    'info',
-    resolvedTraceId
-  );
-
-  if (initialAuthMode === 'fallback' && loginPayload?.user) {
-    const fallbackUser = loginPayload.user as AuthUser;
-
+    storePiBrowserAuth({
+      sessionToken: fallbackSessionToken,
+      refreshToken: fallbackRefreshToken,
+      mode: 'pi-browser-bearer-fallback',
+    });
     await pushClientAuthDebug(
-      'PI_AUTH_TOKEN_FIRST_LOGIN_COMPLETED',
+      'PI_AUTH_BEARER_FALLBACK_ENABLED',
       {
-        userId: fallbackUser.id,
-        role: fallbackUser.role,
-        authMode: initialAuthMode,
-        state: getClientAuthDiagnosticState(),
+        hasRefreshToken: true,
+        transport: loginPayload?.session?.transport ?? null,
       },
       'info',
       resolvedTraceId
     );
-
-    void (async () => {
-      const refreshed = await refreshPiBrowserSession();
-
-      await pushClientAuthDebug(
-        'PI_AUTH_TOKEN_FIRST_POST_LOGIN_REFRESH_RESULT',
-        {
-          refreshed,
-          state: getClientAuthDiagnosticState(),
-        },
-        refreshed ? 'info' : 'warn',
-        resolvedTraceId
-      );
-
-      if (refreshed) {
-        await resolveUserAfterLogin(resolvedTraceId);
-      }
-    })();
-
-    return fallbackUser;
+  } else {
+    storePiBrowserAuth({ mode: 'cookie-session' });
   }
+
+  await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
+    prefersBearerFallback,
+    hasFallbackSessionToken: Boolean(fallbackSessionToken),
+    hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
+    transport: loginPayload?.session?.transport ?? null,
+  }, 'info', resolvedTraceId);
 
   const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);
   if (resolvedUser.ok) {
@@ -465,252 +354,126 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
   const requestRef = useRef<Promise<AuthUser | null> | null>(null);
 
-  const applyAuthenticatedState = useCallback((authenticatedUser: AuthUser) => {
-    setUser(authenticatedUser);
-    setStatus('authenticated');
-    setError('');
-  }, []);
+  const runAuthFlow = useCallback(async (forcePiAuth = false, traceId?: string | null) => {
+    if (requestRef.current) return requestRef.current;
 
-  const applyGuestState = useCallback((nextError = '') => {
-    setUser(null);
-    setStatus('guest');
-    setError(nextError);
-  }, []);
+    requestRef.current = (async () => {
+      const resolvedTraceId = consumeOrCreateTraceId(traceId);
+      try {
+        setError('');
+        await pushClientAuthDebug('PI_AUTH_FLOW_START', { forcePiAuth }, 'info', resolvedTraceId);
 
-  const runAuthFlow = useCallback(
-    async (forcePiAuth = false, traceId?: string | null) => {
-      if (requestRef.current) return requestRef.current;
-
-      requestRef.current = (async () => {
-        const resolvedTraceId = consumeOrCreateTraceId(traceId);
-
-        try {
-          setError('');
-          await pushClientAuthDebug('PI_AUTH_FLOW_START', { forcePiAuth }, 'info', resolvedTraceId);
-
-          if (!forcePiAuth) {
-            const prefersBearerFallback = shouldPreferPiBrowserBearerFallback();
-            const hasSessionToken = Boolean(getStoredPiSessionToken());
-            const hasRefreshToken = Boolean(getStoredPiRefreshToken());
-            const currentMode = getStoredAuthMode();
-
-            if (!hasSessionToken && !hasRefreshToken && currentMode === 'cookie') {
-              await pushClientAuthDebug(
-                'PI_AUTH_FLOW_SKIP_RESTORE_WITHOUT_LOCAL_SESSION',
-                { prefersBearerFallback },
-                'info',
-                resolvedTraceId
-              );
-              applyGuestState('');
-              return null;
-            }
-
-            if (!hasSessionToken && hasRefreshToken && currentMode !== 'cookie') {
-              const bootstrapped = await refreshPiBrowserSession();
-              await pushClientAuthDebug(
-                'PI_AUTH_FLOW_BOOTSTRAP_FROM_REFRESH',
-                { bootstrapped, state: getClientAuthDiagnosticState() },
-                bootstrapped ? 'info' : 'warn',
-                resolvedTraceId
-              );
-            }
-
-            let restored = await fetchCurrentUser(resolvedTraceId);
-
-            if (
-              !restored.ok &&
-              restored.reason === 'unauthorized' &&
-              getStoredAuthMode() !== 'cookie' &&
-              Boolean(getStoredPiSessionToken())
-            ) {
-              const previousMode = getStoredAuthMode();
-              setStoredAuthMode('fallback');
-              await pushClientAuthDebug(
-                'PI_AUTH_FLOW_PROMOTED_TO_FALLBACK',
-                { previousMode, state: getClientAuthDiagnosticState() },
-                'info',
-                resolvedTraceId
-              );
-              restored = await fetchCurrentUser(resolvedTraceId);
-            }
-
-            if (restored.ok) {
-              await pushClientAuthDebug(
-                'PI_AUTH_FLOW_RESTORED_FROM_COOKIE_SESSION',
-                {
-                  userId: restored.user.id,
-                  role: restored.user.role,
-                  source: restored.source ?? null,
-                  authMode: getStoredAuthMode(),
-                },
-                'info',
-                resolvedTraceId
-              );
-
-              if (restored.source === 'bearer') {
-                setStoredAuthMode('fallback');
-              }
-
-              applyAuthenticatedState(restored.user);
-              return restored.user;
-            }
-
-            if (restored.reason === 'unauthorized') {
-              await pushClientAuthDebug(
-                'PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED',
-                {
-                  authMode: getStoredAuthMode(),
-                  hasSessionToken: Boolean(getStoredPiSessionToken()),
-                  state: getClientAuthDiagnosticState(),
-                },
-                'info',
-                resolvedTraceId
-              );
-
-              if (getStoredAuthMode() !== 'cookie' && Boolean(getStoredPiSessionToken())) {
-                const previousMode = getStoredAuthMode();
-                setStoredAuthMode('fallback');
-
-                await pushClientAuthDebug(
-                  'PI_AUTH_FLOW_RETRY_WITH_FALLBACK_AFTER_UNAUTHORIZED',
-                  { previousMode, state: getClientAuthDiagnosticState() },
-                  'info',
-                  resolvedTraceId
-                );
-
-                const retryWithFallback = await fetchCurrentUser(resolvedTraceId);
-                if (retryWithFallback.ok) {
-                  applyAuthenticatedState(retryWithFallback.user);
-                  return retryWithFallback.user;
-                }
-              }
-
-              if (getStoredAuthMode() === 'cookie' && !shouldPreferPiBrowserBearerFallback()) {
-                clearPiAuthToken('runAuthFlow_cookie_mode_unauthorized');
-              }
-
-              applyGuestState('');
-              return null;
-            }
-
+        if (!forcePiAuth) {
+          const restored = await fetchCurrentUser(resolvedTraceId);
+          if (restored.ok) {
             await pushClientAuthDebug(
-              'PI_AUTH_FLOW_COOKIE_SESSION_UNAVAILABLE',
-              { reason: restored.reason, authMode: getStoredAuthMode() },
+              'PI_AUTH_FLOW_RESTORED_FROM_COOKIE_SESSION',
+              { userId: restored.user.id, role: restored.user.role },
               'info',
               resolvedTraceId
             );
+            setUser(restored.user);
+            setStatus('authenticated');
+            return restored.user;
+          }
 
-            applyGuestState('');
+          if (restored.reason === 'unauthorized') {
+            await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAUTHORIZED', {}, 'info', resolvedTraceId);
+            clearPiAuthToken();
+            setUser(null);
+            setStatus('guest');
             return null;
           }
 
-          setStatus('loading');
-
-          const authenticatedUser = await authenticateAndResolveUser(resolvedTraceId);
-
-          applyAuthenticatedState(authenticatedUser);
-
-          await pushClientAuthDebug(
-            'PI_AUTH_FLOW_AUTHENTICATED',
-            { userId: authenticatedUser.id, role: authenticatedUser.role },
-            'info',
-            resolvedTraceId
-          );
-
-          await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_START', resolvedTraceId, {
-            status: 'STARTED',
-            data: { userId: authenticatedUser.id, role: authenticatedUser.role },
-          });
-
-          await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_SUCCESS', resolvedTraceId, {
-            data: {
-              userId: authenticatedUser.id,
-              role: authenticatedUser.role,
-              finalStatus: 'authenticated',
-            },
-          });
-
-          await pushPostAuthEvent('POST_AUTH_CLIENT_READY', resolvedTraceId, {
-            data: { userId: authenticatedUser.id, role: authenticatedUser.role },
-          });
-
-          return authenticatedUser;
-        } catch (authError) {
-          const message = authError instanceof Error ? authError.message : 'Authentication failed';
-
-          await pushClientAuthDebug(
-            'PI_AUTH_FLOW_ERROR',
-            { message },
-            'warn',
-            resolvedTraceId
-          );
-
-          await pushPostAuthEvent('POST_AUTH_CLIENT_FAILED', resolvedTraceId, {
-            status: 'FAILED',
-            message,
-            errorName: authError instanceof Error ? authError.name : 'AuthenticationError',
-            errorCode: 'POST_AUTH_CLIENT_FAILURE',
-          });
-
-          clearPiAuthToken('runAuthFlow_catch');
-          applyGuestState(message);
+          await pushClientAuthDebug('PI_AUTH_FLOW_COOKIE_SESSION_UNAVAILABLE', { reason: restored.reason }, 'info', resolvedTraceId);
+          setUser(null);
+          setStatus('guest');
           return null;
-        } finally {
-          requestRef.current = null;
         }
-      })();
 
-      return requestRef.current;
-    },
-    [applyAuthenticatedState, applyGuestState]
-  );
-
-  const refreshUser = useCallback(
-    async (traceId?: string | null) => {
-      setStatus('loading');
-      const resolvedUser = await runAuthFlow(false, traceId);
-      if (!resolvedUser) {
-        setStatus('guest');
-      }
-      return resolvedUser;
-    },
-    [runAuthFlow]
-  );
-
-  const ensureAuthenticated = useCallback(
-    async (traceId?: string | null) => {
-      if (user) {
+        setStatus('loading');
+        const authenticatedUser = await authenticateAndResolveUser(resolvedTraceId);
+        await pushClientAuthDebug(
+          'PI_AUTH_FLOW_AUTHENTICATED',
+          { userId: authenticatedUser.id, role: authenticatedUser.role },
+          'info',
+          resolvedTraceId
+        );
+        await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_START', resolvedTraceId, {
+          status: 'STARTED',
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role }
+        });
+        setUser(authenticatedUser);
         setStatus('authenticated');
-        return user;
-      }
-
-      setStatus('loading');
-      const resolvedUser = await runAuthFlow(true, traceId);
-      if (!resolvedUser) {
+        await pushPostAuthEvent('POST_AUTH_STATE_UPDATE_SUCCESS', resolvedTraceId, {
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role, finalStatus: 'authenticated' }
+        });
+        await pushPostAuthEvent('POST_AUTH_CLIENT_READY', resolvedTraceId, {
+          data: { userId: authenticatedUser.id, role: authenticatedUser.role }
+        });
+        return authenticatedUser;
+      } catch (authError) {
+        await pushClientAuthDebug(
+          'PI_AUTH_FLOW_ERROR',
+          { message: authError instanceof Error ? authError.message : 'Authentication failed' },
+          'warn',
+          resolvedTraceId
+        );
+        await pushPostAuthEvent('POST_AUTH_CLIENT_FAILED', resolvedTraceId, {
+          status: 'FAILED',
+          message: authError instanceof Error ? authError.message : 'Authentication failed',
+          errorName: authError instanceof Error ? authError.name : 'AuthenticationError',
+          errorCode: 'POST_AUTH_CLIENT_FAILURE'
+        });
+        clearPiAuthToken();
+        setUser(null);
         setStatus('guest');
+        setError(authError instanceof Error ? authError.message : 'Authentication failed.');
+        return null;
+      } finally {
+        requestRef.current = null;
       }
-      return resolvedUser;
-    },
-    [runAuthFlow, user]
-  );
+    })();
+
+    return requestRef.current;
+  }, []);
+
+  const refreshUser = useCallback(async (traceId?: string | null) => {
+    setStatus('loading');
+    const resolvedUser = await runAuthFlow(false, traceId);
+    if (!resolvedUser) {
+      setStatus('guest');
+    }
+    return resolvedUser;
+  }, [runAuthFlow]);
+
+  const ensureAuthenticated = useCallback(async (traceId?: string | null) => {
+    if (user) {
+      setStatus('authenticated');
+      return user;
+    }
+
+    setStatus('loading');
+    const resolvedUser = await runAuthFlow(true, traceId);
+    if (!resolvedUser) {
+      setStatus('guest');
+    }
+    return resolvedUser;
+  }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
     const traceId = beginClientTrace();
-
     await pushClientAuthDebug('PI_AUTH_LOGOUT_START', {}, 'info', traceId);
-
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId), {
-        forceBearer: getStoredAuthMode() !== 'cookie',
-        includeRefreshHeader: true,
-      }),
+      headers: getPiAuthHeaders(buildObservabilityHeaders({ Accept: 'application/json' }, traceId)),
       credentials: 'include',
     }).catch(() => null);
-
-    clearPiAuthToken('logout');
-    applyGuestState('');
-  }, [applyGuestState]);
+    clearPiAuthToken();
+    setUser(null);
+    setStatus('guest');
+    setError('');
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -718,30 +481,22 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const resolvedUser = await runAuthFlow(false, null);
       if (!active) return;
-
-      if (resolvedUser) {
-        applyAuthenticatedState(resolvedUser);
-      } else {
-        setStatus('guest');
-      }
+      setStatus(resolvedUser ? 'authenticated' : 'guest');
     })();
 
     return () => {
       active = false;
     };
-  }, [applyAuthenticatedState, runAuthFlow]);
+  }, [runAuthFlow]);
 
-  const value = useMemo<PiAuthContextValue>(
-    () => ({
-      user,
-      status,
-      error,
-      ensureAuthenticated,
-      refreshUser,
-      logout,
-    }),
-    [ensureAuthenticated, error, logout, refreshUser, status, user]
-  );
+  const value = useMemo<PiAuthContextValue>(() => ({
+    user,
+    status,
+    error,
+    ensureAuthenticated,
+    refreshUser,
+    logout,
+  }), [ensureAuthenticated, error, logout, refreshUser, status, user]);
 
   return <PiAuthContext.Provider value={value}>{children}</PiAuthContext.Provider>;
 }

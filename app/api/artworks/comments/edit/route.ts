@@ -6,7 +6,6 @@ import { logger } from '@/lib/logger';
 import { COMMENT_STANCE_OPTIONS, getCommentStanceWeightKey, recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -53,6 +52,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Comment updated.' });
   } catch (error) {
     logger.error('Failed to edit artwork comment', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

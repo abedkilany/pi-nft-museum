@@ -5,7 +5,6 @@ import { getCurrentUser } from '@/lib/current-user';
 import { logger } from '@/lib/logger';
 import { getArchiveMessage } from '@/lib/artwork-archive';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -37,6 +36,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: await getArchiveMessage() });
   } catch (error) {
     logger.error('Artwork archive/deletion failed', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

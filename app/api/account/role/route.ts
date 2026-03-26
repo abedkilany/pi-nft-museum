@@ -5,7 +5,6 @@ import { logger } from '@/lib/logger';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { isStaffRole } from '@/lib/permissions';
-import { safeError } from '@/lib/safe-response';
 
 const ALLOWED_ROLES = new Set(['visitor', 'artist_or_trader']);
 
@@ -111,6 +110,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, role: updatedUser.role.key });
   } catch (error) {
     logger.error('Failed to update account role', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

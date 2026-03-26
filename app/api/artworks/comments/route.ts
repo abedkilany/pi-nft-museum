@@ -7,7 +7,6 @@ import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { getBooleanSetting, getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   try {
@@ -123,6 +122,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Comment added.', commentId: created.id, premiumScore: recalculated?.premiumScore || 0 });
   } catch (error) {
     logger.error('Failed to create artwork comment', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }

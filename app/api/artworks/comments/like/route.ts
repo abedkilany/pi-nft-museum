@@ -6,7 +6,6 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { createCommunityActivity } from '@/lib/community';
 import { createNotification } from '@/lib/notifications';
 import { assertSameOrigin } from '@/lib/security';
-import { safeError } from '@/lib/safe-response';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -55,6 +54,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: 'Comment liked.' });
   } catch (error) {
     logger.error('Failed to toggle artwork comment like', error);
-    return safeError(error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
 }
