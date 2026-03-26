@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
     headers: request.headers,
   });
 
+  const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent')) ? 'pi-browser-bearer-fallback' : 'cookie-session';
+  const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
+
   const response = NextResponse.json({
     ok: true,
     authMode: 'cookie-session-with-refresh-rotation',
@@ -117,11 +120,12 @@ export async function POST(request: NextRequest) {
       expiresInSeconds: session.expiresInSeconds,
       expiresAt: session.expiresAt,
       refreshExpiresAt: session.refreshExpiresAt,
-      token: session.token,
-      refreshToken: nextRefreshToken,
-      transport: shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent')) ? 'pi-browser-bearer-fallback' : 'cookie-session',
+      ...(includeBearerFallbackTokens ? { token: session.token, refreshToken: nextRefreshToken } : {}),
+      transport,
     },
   });
   setSessionCookies(response, { sessionToken: session.token, refreshToken: nextRefreshToken }, request);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('X-Auth-Transport', transport);
   return response;
 }

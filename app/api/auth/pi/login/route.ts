@@ -316,6 +316,7 @@ export async function POST(request: Request) {
     const transport = shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
       ? 'pi-browser-bearer-fallback'
       : 'cookie-session';
+    const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
 
     const response = NextResponse.json({
       ok: true,
@@ -325,8 +326,7 @@ export async function POST(request: Request) {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: session.refreshExpiresAt,
-        token: session.token,
-        refreshToken,
+        ...(includeBearerFallbackTokens ? { token: session.token, refreshToken } : {}),
         transport,
       },
       user: {
@@ -348,6 +348,7 @@ export async function POST(request: Request) {
       secure: cookiePolicy.secure,
       sameSite: cookiePolicy.sameSite,
       path: cookiePolicy.path,
+      refreshPath: cookiePolicy.refreshCookie.path,
       sessionMaxAge: cookiePolicy.sessionMaxAge,
       refreshMaxAge: cookiePolicy.refreshMaxAge,
       setCookieHeaderCount:

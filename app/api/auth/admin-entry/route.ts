@@ -42,5 +42,6 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({ ok: true, url: '/admin' });
   setAdminBridgeCookie(response, grant, request);
+  response.headers.set('Cache-Control', 'no-store');
   return response;
 }

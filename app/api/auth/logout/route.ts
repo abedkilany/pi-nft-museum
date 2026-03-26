@@ -25,5 +25,6 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ success: true, authMode: 'cookie-session-with-refresh-rotation' });
   clearSessionCookies(response, request);
   clearAdminBridgeCookie(response, request);
+  response.headers.set('Cache-Control', 'no-store');
   return response;
 }
