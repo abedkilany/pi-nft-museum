@@ -1,3 +1,4 @@
+import { type ArtworkStatus, type PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
@@ -5,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { type AdminArtworkAction, type AdminCommentAction, type AdminReportStatus } from '@/types/admin';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const reportType = String(formData.get('reportType') || 'artwork');
   const reportId = Number(formData.get('reportId'));
-  const status = String(formData.get('status') || 'PENDING');
+  const status = String(formData.get('status') || 'PENDING') as AdminReportStatus;
   const adminNote = String(formData.get('adminNote') || '').trim();
 
   if (!reportId) {
@@ -24,13 +26,13 @@ export async function POST(request: Request) {
 
   if (reportType === 'comment') {
     const commentId = Number(formData.get('commentId'));
-    const commentAction = String(formData.get('commentAction') || 'keep');
+    const commentAction = String(formData.get('commentAction') || 'keep') as AdminCommentAction;
     const commentAuthorId = Number(formData.get('commentAuthorId'));
     const notifyAuthor = String(formData.get('notifyAuthor') || 'false') === 'true';
 
     const comment = await prisma.artworkComment.findUnique({ where: { id: commentId } });
     if (comment) {
-      await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
         await tx.commentReport.update({
           where: { id: reportId },
           data: { status, adminNote: adminNote || null, reviewedById: admin.user.userId },
@@ -71,9 +73,9 @@ export async function POST(request: Request) {
   }
 
   const artworkId = Number(formData.get('artworkId'));
-  const artworkAction = String(formData.get('artworkAction') || 'keep');
+  const artworkAction = String(formData.get('artworkAction') || 'keep') as AdminArtworkAction;
 
-  await prisma.$transaction(async (tx: any) => {
+  await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
     await tx.artworkReport.update({
       where: { id: reportId },
       data: {
@@ -104,10 +106,11 @@ export async function POST(request: Request) {
             },
           });
         } else if (artworkAction === 'restore_previous') {
+          const restoredStatus = ((artwork.statusBeforeModeration as ArtworkStatus | null) ?? artwork.status ?? 'PENDING') as ArtworkStatus;
           await tx.artwork.update({
             where: { id: artworkId },
             data: {
-              status: (artwork.statusBeforeModeration || artwork.status || 'PENDING') as any,
+              status: restoredStatus,
               statusBeforeModeration: null,
             },
           });

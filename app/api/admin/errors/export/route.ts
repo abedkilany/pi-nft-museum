@@ -1,8 +1,13 @@
-import { Prisma } from '@prisma/client';
+import { type ErrorSeverity, type ErrorSource, type ErrorStatus, Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
 import { toCsvValue } from '@/lib/error-tracker';
+import { ADMIN_ERROR_SEVERITIES, ADMIN_ERROR_SOURCES, ADMIN_ERROR_STATUSES } from '@/types/admin';
+
+const ALLOWED_ERROR_STATUSES = new Set<ErrorStatus>(ADMIN_ERROR_STATUSES);
+const ALLOWED_ERROR_SEVERITIES = new Set<ErrorSeverity>(ADMIN_ERROR_SEVERITIES);
+const ALLOWED_ERROR_SOURCES = new Set<ErrorSource>(ADMIN_ERROR_SOURCES);
 
 function buildWhere(searchParams: URLSearchParams): Prisma.ErrorLogWhereInput {
   const where: Prisma.ErrorLogWhereInput = {};
@@ -16,16 +21,16 @@ function buildWhere(searchParams: URLSearchParams): Prisma.ErrorLogWhereInput {
     where.id = Number(id);
   }
 
-  if (status && ['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED'].includes(status)) {
-    where.status = status as any;
+  if (status && ALLOWED_ERROR_STATUSES.has(status as ErrorStatus)) {
+    where.status = status as ErrorStatus;
   }
 
-  if (severity && ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(severity)) {
-    where.severity = severity as any;
+  if (severity && ALLOWED_ERROR_SEVERITIES.has(severity as ErrorSeverity)) {
+    where.severity = severity as ErrorSeverity;
   }
 
-  if (source && ['API', 'SERVER', 'CLIENT', 'REACT', 'MIDDLEWARE', 'CRON', 'UNKNOWN'].includes(source)) {
-    where.source = source as any;
+  if (source && ALLOWED_ERROR_SOURCES.has(source as ErrorSource)) {
+    where.source = source as ErrorSource;
   }
 
   if (q) {

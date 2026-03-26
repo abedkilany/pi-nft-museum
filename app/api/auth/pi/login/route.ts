@@ -13,6 +13,7 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
+import type { AuthResponse, PiLoginRequestBody, UserRole } from '@/types/auth';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
   if (!userAgent) return false;
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     ]);
     if (rateLimitError) return rateLimitError;
 
-    const body = await request.json();
+    const body = (await request.json()) as PiLoginRequestBody;
     logger.info('PI_LOGIN_ROUTE_BODY_PARSED', {
       ...baseMeta,
       hasAccessToken: Boolean(body?.accessToken),
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     const usernameSource = piUser.username || `pi-user-${piUser.uid.slice(0, 8)}`;
     const syntheticEmail = buildSyntheticEmail(piUser.uid);
 
-    let bootstrapRoleKey: string | null = null;
+    let bootstrapRoleKey: UserRole | null = null;
     let roleSource: 'bootstrap-env' | 'database' = 'database';
 
     let user = await prisma.user.findUnique({
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
-      bootstrapRoleKey = resolvePiBootstrapRoleKey(piUser);
+      bootstrapRoleKey = resolvePiBootstrapRoleKey(piUser) as UserRole;
       logger.info('PI_LOGIN_ROUTE_BOOTSTRAP_ROLE_RESOLVED', {
         ...baseMeta,
         bootstrapRoleKey,
@@ -314,13 +315,13 @@ export async function POST(request: Request) {
     });
 
     const requestedAuthMode = request.headers.get('x-auth-mode');
-    const clientRequestedFallback = requestedAuthMode === 'pi-browser-bearer-fallback' || requestedAuthMode === 'fallback' || body?.requiresFallbackAuth === true;
+    const clientRequestedFallback = requestedAuthMode === 'pi-browser-bearer-fallback' || requestedAuthMode === 'fallback' || body.requiresFallbackAuth === true;
     const transport = clientRequestedFallback || shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
       ? 'pi-browser-bearer-fallback'
       : 'cookie-session';
     const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
 
-    const response = NextResponse.json({
+    const responsePayload: AuthResponse = {
       ok: true,
       message: 'Connected with Pi.',
       authMode: 'cookie-session-with-refresh-rotation',
@@ -337,7 +338,9 @@ export async function POST(request: Request) {
         role: user.role.key,
         piUsername: user.piUsername,
       },
-    });
+    };
+
+    const response = NextResponse.json<AuthResponse>(responsePayload);
 
     setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
 

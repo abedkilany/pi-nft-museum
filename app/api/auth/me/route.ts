@@ -4,6 +4,7 @@ import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 import { getAuthorizationSnapshot } from '@/lib/permissions';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE } from '@/lib/auth-cookies';
+import type { AuthMeResponse } from '@/types/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      return NextResponse.json(
+      return NextResponse.json<AuthMeResponse>(
         { ok: false, authenticated: false, reason },
         { status: 401 }
       );
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
       hasRefreshSessionCookie: cookieNamesSeen.includes(REFRESH_SESSION_COOKIE),
     });
 
-    return NextResponse.json({
+    return NextResponse.json<AuthMeResponse>({
       ok: true,
       authenticated: true,
       user: {
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : null,
     });
 
-    return NextResponse.json(
+    return NextResponse.json<AuthMeResponse>(
       { ok: false, authenticated: false, reason: 'SERVER_ERROR' },
       { status: 500 }
     );

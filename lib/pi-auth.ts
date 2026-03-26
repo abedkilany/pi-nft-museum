@@ -65,7 +65,7 @@ export async function ensureUniqueUsername(baseValue: string, excludeUserId?: nu
 function parseCsvEnv(value?: string | null) {
   return String(value || '')
     .split(',')
-    .map((item: any) => item.trim())
+    .map((item: string) => item.trim())
     .filter(Boolean);
 }
 

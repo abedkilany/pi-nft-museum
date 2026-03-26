@@ -1,3 +1,4 @@
+import { type ArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -5,6 +6,13 @@ import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { requireAdminApi } from '@/lib/admin';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
+import { type AdminArtworkModerationStatus, type AdminArtworkStatusBody, ADMIN_ARTWORK_MODERATION_STATUSES } from '@/types/admin';
+
+const ALLOWED_STATUSES = new Set<AdminArtworkModerationStatus>(ADMIN_ARTWORK_MODERATION_STATUSES);
+
+function toArtworkStatus(status: AdminArtworkModerationStatus): ArtworkStatus {
+  return status === 'APPROVED' ? 'PUBLIC_REVIEW' : status;
+}
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -13,12 +21,11 @@ export async function POST(request: Request) {
   if ('error' in admin) return admin.error;
 
   try {
-    const body = await request.json();
+    const body = (await request.json()) as AdminArtworkStatusBody;
     const artworkId = Number(body.artworkId);
-    const status = String(body.status || '').trim();
+    const status = String(body.status || '').trim() as AdminArtworkModerationStatus;
     const reviewNote = String(body.reviewNote || '').trim();
-    const allowedStatuses = ['APPROVED', 'REJECTED', 'HIDDEN', 'PENDING'];
-    if (!artworkId || !allowedStatuses.includes(status)) return NextResponse.json({ error: 'Invalid artwork ID or status.' }, { status: 400 });
+    if (!artworkId || !ALLOWED_STATUSES.has(status)) return NextResponse.json({ error: 'Invalid artwork ID or status.' }, { status: 400 });
     if (status === 'REJECTED' && !reviewNote) return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
 
     const currentArtwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
@@ -28,7 +35,7 @@ export async function POST(request: Request) {
     const artwork = await prisma.artwork.update({
       where: { id: artworkId },
       data: {
-        status: status === 'APPROVED' ? 'PUBLIC_REVIEW' : (status as any),
+        status: toArtworkStatus(status),
         reviewNote: reviewNote || null,
         reviewedAt: new Date(),
         publicReviewStartedAt: publicReviewDates?.publicReviewStartedAt || null,

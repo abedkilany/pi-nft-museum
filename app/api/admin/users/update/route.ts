@@ -1,4 +1,4 @@
-
+import { type UserStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSuperadminApi } from '@/lib/admin';
@@ -6,8 +6,9 @@ import { logger } from '@/lib/logger';
 import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { validateEmail, validateUsername } from '@/lib/validators';
+import { ADMIN_USER_STATUSES } from '@/types/admin';
 
-const ALLOWED_STATUSES = new Set(['ACTIVE', 'SUSPENDED', 'PENDING', 'BANNED']);
+const ALLOWED_STATUSES = new Set<UserStatus>(ADMIN_USER_STATUSES);
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   const phoneNumber = String(formData.get('phoneNumber') || '').trim();
   const country = String(formData.get('country') || '').trim();
   const roleId = Number(formData.get('roleId'));
-  const status = String(formData.get('status') || 'ACTIVE').trim().toUpperCase();
+  const status = String(formData.get('status') || 'ACTIVE').trim().toUpperCase() as UserStatus;
   const headline = String(formData.get('headline') || '').trim();
   const bio = String(formData.get('bio') || '').trim();
   const profileImage = String(formData.get('profileImage') || '').trim();
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
   };
 
   const roleChanged = targetUser.roleId !== roleId;
-  const statusChanged = targetUser.status !== (status as any);
+  const statusChanged = targetUser.status !== status;
 
   await prisma.user.update({
     where: { id: userId },
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
       phoneNumber: phoneNumber || null,
       country: country || null,
       roleId,
-      status: status as any,
+      status,
       roleVersion: roleChanged ? { increment: 1 } : undefined,
       sessionVersion: roleChanged || statusChanged ? { increment: 1 } : undefined,
       headline: headline || null,

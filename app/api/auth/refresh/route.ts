@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { applyRateLimit, assertSameOrigin } from '@/lib/security';
-import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, describeCookiePolicy, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
+import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
 import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
+import type { AuthResponse } from '@/types/auth';
 import { issueAppSessionToken } from '@/lib/app-session';
 import { buildRefreshTokenValue, getActiveSessionByRefreshToken, rotateRefreshSession } from '@/lib/session-registry';
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       cookieNamesSeen,
       refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
     });
-    const response = NextResponse.json({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
+    const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;
   }
@@ -79,14 +80,14 @@ export async function POST(request: NextRequest) {
       sessionId: ctx.sessionId,
       ipAddress: ctx.ipAddress,
     });
-    const response = NextResponse.json({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
+    const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
     clearSessionCookies(response, request);
     return response;
   }
 
   const user = await prisma.user.findUnique({ where: { id: sessionEntry.userId }, include: { role: true } });
   if (!user || user.status === 'BANNED' || user.status === 'SUSPENDED') {
-    const response = NextResponse.json({ ok: false, error: 'Account is not allowed to refresh this session.' }, { status: 403 });
+    const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Account is not allowed to refresh this session.' }, { status: 403 });
     clearSessionCookies(response, request);
     return response;
   }
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     : 'cookie-session';
   const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
 
-  const response = NextResponse.json({
+  const responsePayload: AuthResponse = {
     ok: true,
     authMode: 'cookie-session-with-refresh-rotation',
     session: {
@@ -126,7 +127,9 @@ export async function POST(request: NextRequest) {
       ...(includeBearerFallbackTokens ? { token: session.token, refreshToken: nextRefreshToken } : {}),
       transport,
     },
-  });
+  };
+
+  const response = NextResponse.json<AuthResponse>(responsePayload);
   setSessionCookies(response, { sessionToken: session.token, refreshToken: nextRefreshToken }, request);
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('X-Auth-Transport', transport);
