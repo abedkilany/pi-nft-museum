@@ -16,23 +16,13 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
     setLoading(true);
 
     try {
-      const baseHeaders = getPiAuthHeaders({
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-App-Request': 'pi-web',
-      });
-
-      await fetch('/api/auth/page-session', {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify({ includeAdminBridge: true }),
-        cache: 'no-store',
-        credentials: 'include',
-      }).catch(() => null);
-
       const response = await fetch('/api/auth/admin-entry', {
         method: 'POST',
-        headers: baseHeaders,
+        headers: getPiAuthHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-App-Request': 'pi-web',
+        }),
         cache: 'no-store',
         credentials: 'include',
       });

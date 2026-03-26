@@ -105,18 +105,10 @@ function shouldPersistEvent(input: AppEventInput) {
   const isProduction = process.env.NODE_ENV === 'production';
   if (!isProduction) return true;
 
-  const status = String(input.status || '').toUpperCase();
-  const severity = String(input.severity || '').toUpperCase();
-  const category = String(input.category || '').toUpperCase();
   const name = String(input.name || input.eventKey || '').toUpperCase();
-  const feature = String(input.feature || '').toLowerCase();
 
-  if (status === 'FAILED' || status === 'WARNING') return true;
-  if (severity === 'HIGH' || severity === 'CRITICAL') return true;
-  if (category === 'ERROR' || category === 'AUDIT') return true;
-  if (feature === 'admin' || feature === 'security' || feature === 'payments') return true;
   if (NOISY_EVENT_NAMES.has(name)) return false;
-  return false;
+  return true;
 }
 
 export function normalizeRoutePath(route: string | null | undefined, url?: string | null | undefined) {
