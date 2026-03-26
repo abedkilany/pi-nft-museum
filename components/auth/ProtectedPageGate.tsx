@@ -1,85 +1,193 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 type ProtectedPageGateProps = {
-  children?: ReactNode;
+  children: React.ReactNode;
   requireAuth?: boolean;
-  requireRoles?: string[];
-  requirePermissions?: string[];
+  requiredPermissions?: string[];
+  fallbackPath?: string;
   loadingText?: string;
-  guestText?: string;
   unauthorizedText?: string;
-  fallbackPath?: string | null;
-  autoAuthenticate?: boolean;
 };
 
-export function ProtectedPageGate({
+function normalizeAuthStatus(auth: any): 'loading' | 'authenticated' | 'unauthenticated' {
+  if (
+    auth?.authStatus === 'loading' ||
+    auth?.status === 'loading' ||
+    auth?.isLoading === true ||
+    auth?.loading === true ||
+    auth?.initializing === true ||
+    auth?.isInitializing === true ||
+    auth?.isRestoringSession === true
+  ) {
+    return 'loading';
+  }
+
+  if (
+    auth?.authStatus === 'authenticated' ||
+    auth?.status === 'authenticated' ||
+    auth?.isAuthenticated === true ||
+    !!auth?.user
+  ) {
+    return 'authenticated';
+  }
+
+  return 'unauthenticated';
+}
+
+function hasAllPermissions(auth: any, requiredPermissions: string[]): boolean {
+  if (!requiredPermissions.length) return true;
+
+  if (typeof auth?.hasPermission === 'function') {
+    return requiredPermissions.every((permission) => auth.hasPermission(permission));
+  }
+
+  const userPermissions = Array.isArray(auth?.user?.permissions) ? auth.user.permissions : [];
+  return requiredPermissions.every((permission) => userPermissions.includes(permission));
+}
+
+export default function ProtectedPageGate({
   children,
   requireAuth = true,
-  requireRoles,
-  requirePermissions,
-  loadingText = 'Checking your session…',
-  guestText = 'Please connect with Pi to continue.',
-  unauthorizedText = 'You do not have permission to open this page.',
-  fallbackPath = '/account',
-  autoAuthenticate = true,
+  requiredPermissions = [],
+  fallbackPath = '/login',
+  loadingText = 'جاري التحقق من الجلسة...',
+  unauthorizedText = 'ليس لديك صلاحية للوصول إلى هذه الصفحة.',
 }: ProtectedPageGateProps) {
+  const auth = usePiAuth() as any;
   const router = useRouter();
-  const { user, status, error, refreshUser } = usePiAuth();
-  const [restoreAttempted, setRestoreAttempted] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const attemptedRef = useRef(false);
+  const pathname = usePathname();
 
-  const hasRequiredRole = useMemo(() => {
-    if (!requireRoles?.length) return true;
-    return Boolean(user?.role && requireRoles.includes(user.role));
-  }, [requireRoles, user?.role]);
+  const [hasAttemptedSilentRestore, setHasAttemptedSilentRestore] = useState(false);
+  const [hasSettledAtLeastOnce, setHasSettledAtLeastOnce] = useState(false);
+  const redirectTriggeredRef = useRef(false);
 
-  const hasRequiredPermissions = useMemo(() => {
-    if (!requirePermissions?.length) return true;
-    const currentPermissions = new Set(user?.permissions || []);
-    return requirePermissions.every((permission) => currentPermissions.has(permission));
-  }, [requirePermissions, user?.permissions]);
+  const authStatus = useMemo(() => normalizeAuthStatus(auth), [auth]);
+  const isAuthenticated = authStatus === 'authenticated';
+  const isLoading = authStatus === 'loading';
 
-  const isAuthenticated = status === 'authenticated';
-  const isAuthorized = isAuthenticated && hasRequiredRole && hasRequiredPermissions;
+  const canAccess = useMemo(() => {
+    if (!requireAuth) return true;
+    if (!isAuthenticated) return false;
+    return hasAllPermissions(auth, requiredPermissions);
+  }, [requireAuth, isAuthenticated, auth, requiredPermissions]);
 
   useEffect(() => {
-    if (status === 'guest' && requireAuth && autoAuthenticate && !attemptedRef.current) {
-      attemptedRef.current = true;
-      setRestoring(true);
-      void refreshUser()
-        .catch(() => null)
-        .finally(() => {
-          setRestoreAttempted(true);
-          setRestoring(false);
-        });
+    if (!isLoading) {
+      setHasSettledAtLeastOnce(true);
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (hasAttemptedSilentRestore) return;
+    if (authStatus !== 'loading') return;
+
+    const tryRestore = async () => {
+      try {
+        if (typeof auth?.restoreSessionSilently === 'function') {
+          await auth.restoreSessionSilently();
+          return;
+        }
+
+        if (typeof auth?.restoreSession === 'function') {
+          await auth.restoreSession();
+          return;
+        }
+
+        if (typeof auth?.refreshSession === 'function') {
+          await auth.refreshSession();
+          return;
+        }
+
+        if (typeof auth?.refreshAuth === 'function') {
+          await auth.refreshAuth();
+          return;
+        }
+
+        if (typeof auth?.bootstrapAuth === 'function') {
+          await auth.bootstrapAuth();
+          return;
+        }
+
+        if (typeof auth?.initializeAuth === 'function') {
+          await auth.initializeAuth();
+          return;
+        }
+
+        if (typeof auth?.checkAuth === 'function') {
+          await auth.checkAuth();
+          return;
+        }
+      } catch {
+        // نتعمد تجاهل الخطأ هنا حتى لا نكسر تجربة الصفحة.
+      } finally {
+        setHasAttemptedSilentRestore(true);
+      }
+    };
+
+    void tryRestore();
+  }, [auth, authStatus, hasAttemptedSilentRestore]);
+
+  useEffect(() => {
+    if (redirectTriggeredRef.current) return;
+    if (!requireAuth) return;
+
+    // لا تعمل redirect أثناء loading أو قبل أن تستقر حالة المصادقة مرة واحدة على الأقل
+    if (isLoading || !hasSettledAtLeastOnce) return;
+
+    // إذا لم يكن المستخدم مسجلًا بعد اكتمال التحقق
+    if (!isAuthenticated) {
+      redirectTriggeredRef.current = true;
+      const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
+      router.replace(`${fallbackPath}${next}`);
       return;
     }
 
-    if (status === 'authenticated') {
-      attemptedRef.current = false;
-      setRestoreAttempted(false);
+    // إذا كان مسجلًا لكن لا يملك الصلاحية المطلوبة
+    if (!canAccess) {
+      redirectTriggeredRef.current = true;
+      router.replace('/');
     }
+  }, [
+    requireAuth,
+    isLoading,
+    hasSettledAtLeastOnce,
+    isAuthenticated,
+    canAccess,
+    fallbackPath,
+    pathname,
+    router,
+  ]);
 
-    if (status === 'authenticated' && !isAuthorized && fallbackPath) {
-      router.replace(fallbackPath);
-    }
-  }, [autoAuthenticate, fallbackPath, isAuthorized, refreshUser, requireAuth, router, status]);
-
-  if (status === 'loading' || restoring || (status === 'guest' && requireAuth && autoAuthenticate && !restoreAttempted)) {
-    return <div className="page-stack"><section className="card surface-section"><p>{loadingText}</p></section></div>;
+  // حالة الانتظار: لا نحكم مبكرًا على المستخدم أنه guest
+  if (requireAuth && (!hasSettledAtLeastOnce || isLoading)) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center px-4 text-center">
+        <div className="space-y-3">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <p className="text-sm opacity-80">{loadingText}</p>
+        </div>
+      </div>
+    );
   }
 
+  // بعد اكتمال التحقق: غير مسجل
   if (requireAuth && !isAuthenticated) {
-    return <div className="page-stack"><section className="card surface-section"><p>{error || guestText}</p></section></div>;
+    return null;
   }
 
-  if (!isAuthorized) {
-    return <div className="page-stack"><section className="card surface-section"><p>{unauthorizedText}</p></section></div>;
+  // بعد اكتمال التحقق: مسجل لكن بلا صلاحية
+  if (!canAccess) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center px-4 text-center">
+        <div className="space-y-3">
+          <p className="text-sm opacity-80">{unauthorizedText}</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
