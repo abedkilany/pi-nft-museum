@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
-import { createAuditLog } from '@/lib/audit';
+import { readJsonObject, getNumberField } from '@/lib/request-validation';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -12,11 +12,12 @@ export async function POST(request: Request) {
   if ('error' in admin) return admin.error;
 
   try {
-    const body = await request.json();
-    const pageId = Number(body.pageId || 0);
-    if (!pageId) {
-      return NextResponse.json({ error: 'Page id is required.' }, { status: 400 });
-    }
+    const parsedBody = await readJsonObject(request);
+    if (!parsedBody.ok) return parsedBody.response;
+
+    const pageIdResult = getNumberField(parsedBody.data, 'pageId', { required: true, integer: true, min: 1 });
+    if (!pageIdResult.ok) return pageIdResult.response;
+    const pageId = pageIdResult.data;
 
     await prisma.page.delete({ where: { id: pageId } });
     logger.info('Page deleted', { userId: admin.user.userId, pageId });

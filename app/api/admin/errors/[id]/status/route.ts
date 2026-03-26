@@ -1,4 +1,4 @@
-import { Prisma, type ErrorStatus } from '@prisma/client';
+import { type Prisma, type ErrorStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin';
 import { prisma } from '@/lib/prisma';
@@ -6,8 +6,9 @@ import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 import { ADMIN_ERROR_STATUSES } from '@/types/admin';
+import { readEnumFromFormData, readOptionalStringFromFormData } from '@/lib/request-validation';
 
-const allowed = new Set<ErrorStatus>(ADMIN_ERROR_STATUSES);
+const allowed = ADMIN_ERROR_STATUSES;
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const csrfError = assertSameOrigin(request);
@@ -22,12 +23,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const formData = await request.formData();
-  const status = String(formData.get('status') ?? '').toUpperCase() as ErrorStatus;
-  const note = String(formData.get('note') ?? '').trim();
+  const statusResult = readEnumFromFormData(formData, 'status', allowed, { required: true, normalize: 'upper' });
+  if (!statusResult.ok) return statusResult.response;
+  const noteResult = readOptionalStringFromFormData(formData, 'note', { maxLength: 2000 });
+  if (!noteResult.ok) return noteResult.response;
 
-  if (!allowed.has(status)) {
-    return NextResponse.json({ error: 'Invalid status.' }, { status: 400 });
-  }
+  const status = statusResult.data as ErrorStatus;
+  const note = noteResult.data.trim();
 
   const current = await prisma.errorLog.findUnique({ where: { id } });
   if (!current) {
@@ -41,20 +43,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
     status,
     resolvedAt,
     ignoredAt,
+    ...(note
+      ? {
+          extraJson: {
+            ...(current.extraJson && typeof current.extraJson === 'object' && !Array.isArray(current.extraJson)
+              ? (current.extraJson as Prisma.InputJsonObject)
+              : {}),
+            adminNote: note,
+            adminNoteBy: admin.user.userId,
+            adminNoteAt: new Date().toISOString(),
+          } as Prisma.InputJsonValue,
+        }
+      : {}),
   };
-
-  if (note) {
-    updateData.extraJson = {
-      ...(current.extraJson &&
-      typeof current.extraJson === 'object' &&
-      !Array.isArray(current.extraJson)
-        ? (current.extraJson as Prisma.JsonObject)
-        : {}),
-      adminNote: note,
-      adminNoteBy: admin.user.userId,
-      adminNoteAt: new Date().toISOString(),
-    };
-  }
 
   await prisma.errorLog.update({
     where: { id },

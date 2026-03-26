@@ -5,9 +5,8 @@ import { requireAdminApi } from '@/lib/admin';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { type AdminPageSectionInput, type AdminPageUpdateBody, ADMIN_PAGE_STATUSES } from '@/types/admin';
-
-const ALLOWED_PAGE_STATUSES = new Set<PageStatus>(ADMIN_PAGE_STATUSES);
+import { getEnumField, getNumberField, getOptionalBooleanField, getStringField, isRecord, readJsonObject, validationError } from '@/lib/request-validation';
+import { type AdminPageSectionInput, ADMIN_PAGE_STATUSES } from '@/types/admin';
 
 function normalizeSlug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -33,14 +32,38 @@ export async function POST(request: Request) {
   if ('error' in admin) return admin.error;
 
   try {
-    const body = (await request.json()) as AdminPageUpdateBody;
-    const pageId = Number(body.pageId || 0);
-    const title = String(body.title || '').trim();
-    const slug = normalizeSlug(String(body.slug || '').trim());
-    const status = ALLOWED_PAGE_STATUSES.has((body.status || 'DRAFT') as PageStatus) ? (body.status || 'DRAFT') as PageStatus : 'DRAFT';
-    if (!pageId || !title || !slug) {
-      return NextResponse.json({ error: 'Page, title, and slug are required.' }, { status: 400 });
+    const parsedBody = await readJsonObject(request);
+    if (!parsedBody.ok) return parsedBody.response;
+
+    const pageIdResult = getNumberField(parsedBody.data, 'pageId', { required: true, integer: true, min: 1 });
+    if (!pageIdResult.ok) return pageIdResult.response;
+    const titleResult = getStringField(parsedBody.data, 'title', { required: true, maxLength: 200 });
+    if (!titleResult.ok) return titleResult.response;
+    const slugResult = getStringField(parsedBody.data, 'slug', { required: true, maxLength: 200 });
+    if (!slugResult.ok) return slugResult.response;
+    const statusResult = getEnumField(parsedBody.data, 'status', ADMIN_PAGE_STATUSES, {
+      required: false,
+      defaultValue: 'DRAFT',
+      normalize: 'upper',
+    });
+    if (!statusResult.ok) return statusResult.response;
+
+    const pageId = pageIdResult.data;
+    const title = titleResult.data;
+    const slug = normalizeSlug(slugResult.data);
+    const status = statusResult.data as PageStatus;
+    const menuLabel = typeof parsedBody.data.menuLabel === 'string' ? parsedBody.data.menuLabel.trim() : '';
+    const seoTitle = typeof parsedBody.data.seoTitle === 'string' ? parsedBody.data.seoTitle.trim() : '';
+    const seoDescription = typeof parsedBody.data.seoDescription === 'string' ? parsedBody.data.seoDescription.trim() : '';
+    const showInMenu = getOptionalBooleanField(parsedBody.data, 'showInMenu', false);
+
+    const rawSections = parsedBody.data.sections;
+    if (rawSections != null && !Array.isArray(rawSections)) {
+      return validationError('"sections" must be an array.', { sections: 'Must be an array' });
     }
+    const sections = Array.isArray(rawSections)
+      ? rawSections.filter(isRecord) as AdminPageSectionInput[]
+      : [];
 
     const currentPage = await prisma.page.findUnique({ where: { id: pageId }, include: { sections: true } });
     if (!currentPage) {
@@ -53,15 +76,14 @@ export async function POST(request: Request) {
         title,
         slug,
         status,
-        menuLabel: String(body.menuLabel || '').trim() || null,
-        showInMenu: Boolean(body.showInMenu),
-        seoTitle: String(body.seoTitle || '').trim() || null,
-        seoDescription: String(body.seoDescription || '').trim() || null
+        menuLabel: menuLabel || null,
+        showInMenu,
+        seoTitle: seoTitle || null,
+        seoDescription: seoDescription || null
       }
     });
 
     await prisma.pageSection.deleteMany({ where: { pageId } });
-    const sections = Array.isArray(body.sections) ? body.sections : [];
     if (sections.length > 0) {
       await prisma.pageSection.createMany({
         data: sections.map((section, index) => normalizeSection(section, pageId, index))

@@ -6,9 +6,10 @@ import { buildPublicReviewDates } from '@/lib/artwork-windows';
 import { requireAdminApi } from '@/lib/admin';
 import { assertSameOrigin } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
-import { type AdminArtworkModerationStatus, type AdminArtworkStatusBody, ADMIN_ARTWORK_MODERATION_STATUSES } from '@/types/admin';
+import { getEnumField, getNumberField, getStringField, readJsonObject } from '@/lib/request-validation';
+import { type AdminArtworkModerationStatus, ADMIN_ARTWORK_MODERATION_STATUSES } from '@/types/admin';
 
-const ALLOWED_STATUSES = new Set<AdminArtworkModerationStatus>(ADMIN_ARTWORK_MODERATION_STATUSES);
+const ALLOWED_STATUSES = ADMIN_ARTWORK_MODERATION_STATUSES;
 
 function toArtworkStatus(status: AdminArtworkModerationStatus): ArtworkStatus {
   return status === 'APPROVED' ? 'PUBLIC_REVIEW' : status;
@@ -21,12 +22,23 @@ export async function POST(request: Request) {
   if ('error' in admin) return admin.error;
 
   try {
-    const body = (await request.json()) as AdminArtworkStatusBody;
-    const artworkId = Number(body.artworkId);
-    const status = String(body.status || '').trim() as AdminArtworkModerationStatus;
-    const reviewNote = String(body.reviewNote || '').trim();
-    if (!artworkId || !ALLOWED_STATUSES.has(status)) return NextResponse.json({ error: 'Invalid artwork ID or status.' }, { status: 400 });
-    if (status === 'REJECTED' && !reviewNote) return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
+    const parsedBody = await readJsonObject(request);
+    if (!parsedBody.ok) return parsedBody.response;
+
+    const artworkIdResult = getNumberField(parsedBody.data, 'artworkId', { required: true, integer: true, min: 1 });
+    if (!artworkIdResult.ok) return artworkIdResult.response;
+    const statusResult = getEnumField(parsedBody.data, 'status', ALLOWED_STATUSES, { required: true, normalize: 'none' });
+    if (!statusResult.ok) return statusResult.response;
+    const reviewNoteResult = getStringField(parsedBody.data, 'reviewNote', { required: false, allowEmpty: true, maxLength: 2000 });
+    if (!reviewNoteResult.ok) return reviewNoteResult.response;
+
+    const artworkId = artworkIdResult.data;
+    const status = statusResult.data;
+    const reviewNote = reviewNoteResult.data;
+
+    if (status === 'REJECTED' && !reviewNote) {
+      return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
+    }
 
     const currentArtwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
     if (!currentArtwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });

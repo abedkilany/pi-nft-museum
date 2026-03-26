@@ -13,7 +13,8 @@ import { issueAppSessionToken } from '@/lib/app-session';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-import type { AuthResponse, PiLoginRequestBody, UserRole } from '@/types/auth';
+import { getOptionalBooleanField, getStringField, readJsonObject } from '@/lib/request-validation';
+import type { AuthResponse, UserRole } from '@/types/auth';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
   if (!userAgent) return false;
@@ -84,13 +85,19 @@ export async function POST(request: Request) {
     ]);
     if (rateLimitError) return rateLimitError;
 
-    const body = (await request.json()) as PiLoginRequestBody;
+    const parsedBody = await readJsonObject(request);
+    if (!parsedBody.ok) return parsedBody.response;
+
+    const accessTokenResult = getStringField(parsedBody.data, 'accessToken', { required: true, maxLength: 4096 });
+    if (!accessTokenResult.ok) return accessTokenResult.response;
+    const accessToken = accessTokenResult.data;
+    const requiresFallbackAuth = getOptionalBooleanField(parsedBody.data, 'requiresFallbackAuth', false);
+
     logger.info('PI_LOGIN_ROUTE_BODY_PARSED', {
       ...baseMeta,
-      hasAccessToken: Boolean(body?.accessToken),
+      hasAccessToken: Boolean(accessToken),
+      requiresFallbackAuth,
     });
-
-    const accessToken = String(body.accessToken || '').trim();
 
     logger.info('Pi login request received', {
       ...baseMeta,
@@ -100,10 +107,6 @@ export async function POST(request: Request) {
       forwardedHost: request.headers.get('x-forwarded-host'),
       authMode: 'short-lived-app-session',
     });
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Pi access token is required.' }, { status: 400 });
-    }
 
     const piUser = await fetchPiUser(accessToken);
     logger.info('PI_LOGIN_ROUTE_PI_USER_FETCHED', {
@@ -258,11 +261,17 @@ export async function POST(request: Request) {
           traceId: ctx.traceId,
           correlationId: ctx.correlationId,
           sessionId: ctx.sessionId,
+          ipAddress: ctx.ipAddress,
         },
       });
 
-      return NextResponse.json(
-        { error: 'Your account is not allowed to sign in right now.' },
+      return NextResponse.json<AuthResponse>(
+        {
+          error:
+            user.status === 'BANNED'
+              ? 'Your account has been banned. Please contact support.'
+              : 'Your account is suspended. Please contact support.',
+        },
         { status: 403 },
       );
     }
@@ -270,30 +279,83 @@ export async function POST(request: Request) {
     const session = await issueAppSessionToken({
       userId: user.id,
       role: user.role.key,
+      roleVersion: user.roleVersion,
+      sessionVersion: user.sessionVersion,
       piUid: user.piUid,
       piUsername: user.piUsername,
-      sessionVersion: user.sessionVersion,
-      roleVersion: user.roleVersion,
     });
 
     const refreshToken = buildRefreshTokenValue();
+    const now = new Date();
+    const refreshExpiresAt = new Date(now.getTime() + session.refreshExpiresInSeconds * 1000);
 
     await createSessionRegistryEntry({
       userId: user.id,
       jti: session.jti,
       refreshToken,
       expiresAt: new Date(session.expiresAt),
-      refreshExpiresAt: new Date(session.refreshExpiresAt),
+      refreshExpiresAt,
       headers: request.headers,
     });
 
-    logger.info('PI_LOGIN_ROUTE_SESSION_ISSUED', {
+    const userAgent = request.headers.get('user-agent');
+    const prefersFallbackByUa = shouldPreferPiBrowserBearerFallback(userAgent);
+    const prefersFallbackByHeader = request.headers.get('x-auth-mode') === 'fallback';
+    const includeFallbackTokens = requiresFallbackAuth || prefersFallbackByHeader || prefersFallbackByUa;
+
+    const responseBody: AuthResponse = {
+      ok: true,
+      message: 'Authenticated with Pi successfully.',
+      authMode: 'cookie-session-with-refresh-rotation',
+      session: {
+        expiresInSeconds: session.expiresInSeconds,
+        expiresAt: session.expiresAt,
+        refreshExpiresAt: refreshExpiresAt.toISOString(),
+        ...(includeFallbackTokens
+          ? {
+              token: session.token,
+              refreshToken,
+              transport: 'pi-browser-bearer-fallback' as const,
+            }
+          : {
+              transport: 'cookie-session' as const,
+            }),
+      },
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email || undefined,
+        role: user.role.key,
+        piUid: user.piUid,
+        piUsername: user.piUsername,
+      },
+    };
+
+    const response = NextResponse.json(responseBody, {
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Auth-Cookie-Policy': JSON.stringify(describeCookiePolicy(request)),
+      },
+    });
+
+    setSessionCookies(
+      response,
+      {
+        sessionToken: session.token,
+        refreshToken,
+      },
+      request,
+    );
+
+    logger.info('PI_LOGIN_ROUTE_SUCCESS', {
       ...baseMeta,
       userId: user.id,
       role: user.role.key,
-      sessionVersion: user.sessionVersion,
-      roleVersion: user.roleVersion,
-      jti: session.jti,
+      status: user.status,
+      prefersFallbackByUa,
+      prefersFallbackByHeader,
+      requiresFallbackAuth,
+      includeFallbackTokens,
     });
 
     await createAuditLog({
@@ -302,79 +364,21 @@ export async function POST(request: Request) {
       targetType: 'USER',
       targetId: user.id,
       newValues: {
-        role: user.role.key,
-        piUid: user.piUid,
-        authMode: 'short-lived-app-session',
+        provider: 'pi',
         feature: 'auth',
         route: '/api/auth/pi/login',
         requestId: ctx.requestId,
         traceId: ctx.traceId,
         correlationId: ctx.correlationId,
         sessionId: ctx.sessionId,
+        ipAddress: ctx.ipAddress,
       },
     });
-
-    const requestedAuthMode = request.headers.get('x-auth-mode');
-    const clientRequestedFallback = requestedAuthMode === 'pi-browser-bearer-fallback' || requestedAuthMode === 'fallback' || body.requiresFallbackAuth === true;
-    const transport = clientRequestedFallback || shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
-      ? 'pi-browser-bearer-fallback'
-      : 'cookie-session';
-    const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
-
-    const responsePayload: AuthResponse = {
-      ok: true,
-      message: 'Connected with Pi.',
-      authMode: 'cookie-session-with-refresh-rotation',
-      session: {
-        expiresInSeconds: session.expiresInSeconds,
-        expiresAt: session.expiresAt,
-        refreshExpiresAt: session.refreshExpiresAt,
-        ...(includeBearerFallbackTokens ? { token: session.token, refreshToken } : {}),
-        transport,
-      },
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role.key,
-        piUsername: user.piUsername,
-      },
-    };
-
-    const response = NextResponse.json<AuthResponse>(responsePayload);
-
-    setSessionCookies(response, { sessionToken: session.token, refreshToken }, request);
-
-    const cookiePolicy = describeCookiePolicy(request);
-    logger.info('PI_LOGIN_ROUTE_COOKIES_SET', {
-      ...baseMeta,
-      userId: user.id,
-      role: user.role.key,
-      cookieNames: ['pi_app_session', 'pi_refresh_session'],
-      secure: cookiePolicy.secure,
-      sameSite: cookiePolicy.sameSite,
-      path: cookiePolicy.path,
-      refreshPath: cookiePolicy.refreshCookie.path,
-      sessionMaxAge: cookiePolicy.sessionMaxAge,
-      refreshMaxAge: cookiePolicy.refreshMaxAge,
-      setCookieHeaderCount:
-        typeof response.headers.getSetCookie === 'function'
-          ? response.headers.getSetCookie().length
-          : null,
-    });
-
-    response.headers.set('Cache-Control', 'no-store');
-    response.headers.set('X-Auth-Session-Mode', 'cookie-session-with-refresh-rotation');
-    response.headers.set('X-Auth-Transport', transport);
 
     return response;
   } catch (error) {
-    logger.error('PI_LOGIN_ROUTE_FAILED', {
-      ...baseMeta,
-      message: error instanceof Error ? error.message : 'Unknown server error',
-      stack: error instanceof Error ? error.stack : null,
-    });
-
-    return NextResponse.json(
+    logger.error('Pi login failed', error);
+    return NextResponse.json<AuthResponse>(
       { error: error instanceof Error ? error.message : 'Unknown server error' },
       { status: 500 },
     );

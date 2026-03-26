@@ -4,6 +4,7 @@ import { requireAdminApi } from '@/lib/admin';
 import { normalizeMenuItems } from '@/lib/menu';
 import { logger } from '@/lib/logger';
 import { assertSameOrigin } from '@/lib/security';
+import { readJsonObject, validationError } from '@/lib/request-validation';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -11,8 +12,15 @@ export async function POST(request: Request) {
   const admin = await requireAdminApi();
   if ('error' in admin) return admin.error;
 
-  const body = await request.json();
-  const items = normalizeMenuItems(body.items || []);
+  const parsedBody = await readJsonObject(request);
+  if (!parsedBody.ok) return parsedBody.response;
+
+  const rawItems = parsedBody.data.items;
+  if (rawItems != null && !Array.isArray(rawItems)) {
+    return validationError('"items" must be an array.', { items: 'Must be an array' });
+  }
+
+  const items = normalizeMenuItems(Array.isArray(rawItems) ? rawItems : []);
 
   await prisma.siteSetting.upsert({
     where: { settingKey: 'menu_json' },

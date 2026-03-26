@@ -7,8 +7,15 @@ import { assertSameOrigin, applyRateLimit } from '@/lib/security';
 import { createAuditLog } from '@/lib/audit';
 import { validateEmail, validateUsername } from '@/lib/validators';
 import { ADMIN_USER_STATUSES } from '@/types/admin';
+import {
+  readCheckboxFromFormData,
+  readEnumFromFormData,
+  readNumberFromFormData,
+  readOptionalStringFromFormData,
+  readRequiredStringFromFormData,
+} from '@/lib/request-validation';
 
-const ALLOWED_STATUSES = new Set<UserStatus>(ADMIN_USER_STATUSES);
+const ALLOWED_STATUSES = ADMIN_USER_STATUSES;
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -24,28 +31,56 @@ export async function POST(request: Request) {
   if (rateLimitError) return rateLimitError;
 
   const formData = await request.formData();
-  const userId = Number(formData.get('userId'));
-  const username = String(formData.get('username') || '').trim();
-  const fullName = String(formData.get('fullName') || '').trim();
-  const email = String(formData.get('email') || '').trim().toLowerCase();
-  const phoneNumber = String(formData.get('phoneNumber') || '').trim();
-  const country = String(formData.get('country') || '').trim();
-  const roleId = Number(formData.get('roleId'));
-  const status = String(formData.get('status') || 'ACTIVE').trim().toUpperCase() as UserStatus;
-  const headline = String(formData.get('headline') || '').trim();
-  const bio = String(formData.get('bio') || '').trim();
-  const profileImage = String(formData.get('profileImage') || '').trim();
-  const coverImage = String(formData.get('coverImage') || '').trim();
-  const showEmailPublic = formData.get('showEmailPublic') === 'on';
-  const showPhonePublic = formData.get('showPhonePublic') === 'on';
-  const showCountryPublic = formData.get('showCountryPublic') === 'on';
-  const canEditCommentsAfterDeadline = formData.get('canEditCommentsAfterDeadline') === 'on';
 
-  if (!userId || !username || !email || !roleId) {
-    return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
-  }
+  const userIdResult = readNumberFromFormData(formData, 'userId', { required: true, integer: true, min: 1 });
+  if (!userIdResult.ok) return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
+  const roleIdResult = readNumberFromFormData(formData, 'roleId', { required: true, integer: true, min: 1 });
+  if (!roleIdResult.ok) return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
+  const usernameResult = readRequiredStringFromFormData(formData, 'username', { maxLength: 50 });
+  if (!usernameResult.ok) return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
+  const emailResult = readRequiredStringFromFormData(formData, 'email', { maxLength: 320 });
+  if (!emailResult.ok) return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
+  const statusResult = readEnumFromFormData(formData, 'status', ALLOWED_STATUSES, {
+    required: false,
+    defaultValue: 'ACTIVE',
+    normalize: 'upper',
+  });
+  if (!statusResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
 
-  if (!validateUsername(username) || !validateEmail(email) || !ALLOWED_STATUSES.has(status)) {
+  const userId = userIdResult.data;
+  const roleId = roleIdResult.data;
+  const username = usernameResult.data;
+  const email = emailResult.data.toLowerCase();
+  const status = statusResult.data as UserStatus;
+
+  const fullNameResult = readOptionalStringFromFormData(formData, 'fullName', { maxLength: 120 });
+  if (!fullNameResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const phoneNumberResult = readOptionalStringFromFormData(formData, 'phoneNumber', { maxLength: 40 });
+  if (!phoneNumberResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const countryResult = readOptionalStringFromFormData(formData, 'country', { maxLength: 80 });
+  if (!countryResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const headlineResult = readOptionalStringFromFormData(formData, 'headline', { maxLength: 180 });
+  if (!headlineResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const bioResult = readOptionalStringFromFormData(formData, 'bio', { maxLength: 5000 });
+  if (!bioResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const profileImageResult = readOptionalStringFromFormData(formData, 'profileImage', { maxLength: 2000 });
+  if (!profileImageResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+  const coverImageResult = readOptionalStringFromFormData(formData, 'coverImage', { maxLength: 2000 });
+  if (!coverImageResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
+
+  const fullName = fullNameResult.data;
+  const phoneNumber = phoneNumberResult.data;
+  const country = countryResult.data;
+  const headline = headlineResult.data;
+  const bio = bioResult.data;
+  const profileImage = profileImageResult.data;
+  const coverImage = coverImageResult.data;
+  const showEmailPublic = readCheckboxFromFormData(formData, 'showEmailPublic');
+  const showPhonePublic = readCheckboxFromFormData(formData, 'showPhonePublic');
+  const showCountryPublic = readCheckboxFromFormData(formData, 'showCountryPublic');
+  const canEditCommentsAfterDeadline = readCheckboxFromFormData(formData, 'canEditCommentsAfterDeadline');
+
+  if (!validateUsername(username) || !validateEmail(email)) {
     return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));
   }
 
