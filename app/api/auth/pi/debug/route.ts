@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
+import { assertSameOrigin } from '@/lib/security';
 import { logger } from '@/lib/logger';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { requireDebugRoute } from '@/lib/api-guards';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
   const debugResponse = requireDebugRoute();
   if (debugResponse) {
     return debugResponse;

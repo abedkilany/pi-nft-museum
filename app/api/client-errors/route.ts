@@ -1,11 +1,15 @@
 import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
+import { assertSameOrigin } from '@/lib/security';
 import { trackAppEvent } from '@/lib/app-events';
 import { getCurrentUser } from '@/lib/current-user';
 import { mapSeverityFromStatus, recordErrorLog } from '@/lib/error-tracker';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 
 export async function POST(request: Request) {
+  const csrfError = assertSameOrigin(request);
+  if (csrfError) return csrfError;
+
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {

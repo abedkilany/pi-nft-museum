@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { withAdminGrant } from '@/lib/admin-url';
 
 type AdminLinkGroup = {
   title: string;
@@ -69,7 +68,7 @@ export function AdminSidebar() {
                   return (
                     <Link
                       key={link.href}
-                      href={withAdminGrant(link.href)}
+                      href={link.href}
                       className="button secondary"
                       aria-current={isActive ? 'page' : undefined}
                       style={{

@@ -4,7 +4,7 @@
 - App session moved to **HttpOnly cookies**.
 - Added **refresh token rotation** endpoint: `/api/auth/refresh`.
 - Added **session registry** via `UserSession` Prisma model.
-- Admin bridge moved from `admin_grant` query string to **HttpOnly cookie**.
+- Admin bridge uses a dedicated **HttpOnly cookie** only.
 - Added basic centralized **policy layer** in `lib/policy.ts`.
 - Kept bearer-token compatibility where possible, but browser flow now uses cookies by default.
 
@@ -30,6 +30,4 @@
 - `components/auth/PiAuthProvider.tsx`
 - `components/auth/AdminPageLink.tsx`
 - `components/PiConnectButton.tsx`
-- `lib/admin-url.ts`
-- `components/admin/AdminGrantPropagator.tsx`
 - `prisma/schema.prisma`
