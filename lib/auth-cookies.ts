@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { isIosUserAgent, isPiBrowserUserAgent } from '@/lib/pi-browser-auth';
 
 export const APP_SESSION_COOKIE = 'pi_app_session';
 export const REFRESH_SESSION_COOKIE = 'pi_refresh_session';
@@ -10,7 +9,7 @@ const SESSION_MAX_AGE_SECONDS = 10 * 60;
 const REFRESH_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const ADMIN_BRIDGE_MAX_AGE_SECONDS = 5 * 60;
 const REFRESH_COOKIE_PATH = '/api/auth';
-const ADMIN_BRIDGE_COOKIE_PATH = '/admin';
+const ADMIN_BRIDGE_COOKIE_PATH = '/';
 
 type CookieSameSite = 'none' | 'lax';
 
@@ -25,26 +24,14 @@ function isSecureCookie(request?: Request | NextRequest | null) {
   }
 }
 
-function shouldAllowCrossSiteSessionCookies(request?: Request | NextRequest | null) {
-  const userAgent = request?.headers?.get('user-agent') || '';
-  if (!isSecureCookie(request)) return false;
-  if (!isPiBrowserUserAgent(userAgent)) return false;
-  if (isIosUserAgent(userAgent)) return false;
-  return true;
-}
-
-function resolveSessionSameSite(request?: Request | NextRequest | null): CookieSameSite {
-  return shouldAllowCrossSiteSessionCookies(request) ? 'none' : 'lax';
-}
-
-function resolveAdminBridgeSameSite(_request?: Request | NextRequest | null): CookieSameSite {
-  return 'lax';
+function resolveSameSite(secure: boolean): CookieSameSite {
+  return secure ? 'none' : 'lax';
 }
 
 export function describeCookiePolicy(request?: Request | NextRequest | null) {
   const secure = isSecureCookie(request);
-  const sessionSameSite = resolveSessionSameSite(request);
-  const adminBridgeSameSite = resolveAdminBridgeSameSite(request);
+  const sessionSameSite = resolveSameSite(secure);
+  const adminBridgeSameSite = resolveSameSite(secure);
 
   return {
     secure,
