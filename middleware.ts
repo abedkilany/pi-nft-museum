@@ -1,23 +1,27 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
-export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/api/admin')) {
-    const adminGrant = request.nextUrl.searchParams.get('admin_grant');
-    if (adminGrant) {
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-admin-grant', adminGrant);
-      return NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      });
-    }
-  }
+export async function middleware(req: NextRequest) {
+  const start = Date.now()
 
-  return NextResponse.next();
+  const res = NextResponse.next()
+
+  const duration = Date.now() - start
+
+  try {
+    await prisma.event.create({
+      data: {
+        type: 'request',
+        sessionId: 'server',
+        path: req.nextUrl.pathname,
+        metadata: {
+          method: req.method,
+          duration
+        }
+      }
+    })
+  } catch {}
+
+  return res
 }
-
-export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
-};
