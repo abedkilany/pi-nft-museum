@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatTimeAgo } from '@/lib/community';
+import { formatTimeAgo } from '@/lib/community-client';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { CommentBox } from '@/components/community/CommentBox';
 import { getDisplayImageUrl } from '@/lib/image-url';

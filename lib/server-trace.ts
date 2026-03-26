@@ -1,3 +1,4 @@
+import 'server-only';
 import { AsyncLocalStorage } from 'async_hooks';
 import { trackAppEvent } from '@/lib/app-events';
 import { generateRequestId, generateSpanId, getRequestContextFromHeaders } from '@/lib/request-context';
