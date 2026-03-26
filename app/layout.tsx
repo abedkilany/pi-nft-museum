@@ -6,6 +6,7 @@ import { PiAuthProvider } from '@/components/auth/PiAuthProvider';
 import { ErrorMonitorClient } from '@/components/error/ErrorMonitorClient';
 import { AppEventClient } from '@/components/analytics/AppEventClient';
 import { Suspense } from 'react';
+import TrackingInit from '@/components/TrackingInit';
 
 export const metadata: Metadata = {
   title: 'Pi NFT Museum',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PiScript />
         <PiAuthProvider>
+          <TrackingInit />
           <ErrorMonitorClient />
           <Suspense fallback={null}>
             <AppEventClient />

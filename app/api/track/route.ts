@@ -1,31 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export const runtime = "nodejs"
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    const {
-      type,
-      data,
-      sessionId,
-      path,
-      ts
-    } = body
-
     await prisma.event.create({
       data: {
-        type,
-        sessionId,
-        path,
-        metadata: data,
-        createdAt: new Date(ts),
-      },
+        type: body.type ?? "unknown",
+        sessionId: body.sessionId ?? "anon",
+        path: body.path ?? null,
+        metadata: body.data ?? {},
+      }
     })
 
     return NextResponse.json({ ok: true })
-  } catch (e) {
-    console.error("TRACK ERROR:", e)
+  } catch {
     return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
