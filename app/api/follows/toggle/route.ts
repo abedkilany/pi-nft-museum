@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
-import { createCommunityActivity } from '@/lib/community';
-import { createNotification } from '@/lib/notifications';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
-import { getNumberField, readJsonObject, validationError } from '@/lib/request-validation';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
+import { createCommunityActivity } from '@/lib/domains/community';
+import { createNotification } from '@/lib/domains/notifications';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
+import { getNumberField, readJsonObject, validationError } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

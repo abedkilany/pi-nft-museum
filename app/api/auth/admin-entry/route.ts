@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserFromHeaders } from '@/lib/current-user';
+import { getCurrentUserFromHeaders } from '@/lib/domains/auth';
 import { issueAdminBridgeToken } from '@/lib/admin-bridge';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import { setAdminBridgeCookie } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';

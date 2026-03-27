@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 import { clearAdminBridgeCookie, clearSessionCookies, getRefreshCookieFromHeaders } from '@/lib/auth-cookies';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { revokeSessionByRefreshToken } from '@/lib/session-registry';
 
 export async function POST(request: Request) {

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 
 export default async function AdminCategoriesPage() {
   const categories = await prisma.artworkCategory.findMany({

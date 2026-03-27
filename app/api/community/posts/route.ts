@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { scoreCommunityPost } from '@/lib/community';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { scoreCommunityPost } from '@/lib/domains/community';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

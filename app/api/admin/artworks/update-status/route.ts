@@ -1,12 +1,12 @@
 import { type ArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { logger } from '@/lib/domains/system';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
-import { requireAdminApi } from '@/lib/admin';
-import { assertSameOrigin } from '@/lib/security';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { getEnumField, getNumberField, getStringField, readJsonObject } from '@/lib/request-validation';
+import { getEnumField, getNumberField, getStringField, readJsonObject } from '@/lib/services/request';
 import { type AdminArtworkModerationStatus, ADMIN_ARTWORK_MODERATION_STATUSES } from '@/types/admin';
 
 const ALLOWED_STATUSES = ADMIN_ARTWORK_MODERATION_STATUSES;

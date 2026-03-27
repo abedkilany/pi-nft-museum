@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap, getNumberSetting } from '@/lib/site-settings';
 import { getArchiveMessage, purgeExpiredArchivedArtworks } from '@/lib/artwork-archive';
 import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';

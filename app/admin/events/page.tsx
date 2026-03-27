@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { safeAppEventQuery } from '@/lib/app-events';
 
 export const dynamic = 'force-dynamic';

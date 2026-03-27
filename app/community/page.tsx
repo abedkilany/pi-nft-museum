@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
-import { scoreCreator } from '@/lib/community';
+import { scoreCreator } from '@/lib/domains/community';
 import { CommunityClientShell } from '@/components/community/CommunityClientShell';
 
 export const dynamic = 'force-dynamic';

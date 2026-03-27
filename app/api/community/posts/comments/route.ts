@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { createCommunityActivity, createNotification } from '@/lib/community';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { createCommunityActivity, createNotification } from '@/lib/domains/community';
 
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

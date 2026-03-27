@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { logger } from '@/lib/domains/system';
 import {
   buildSyntheticEmail,
   ensureUniqueUsername,
   fetchPiUser,
   resolvePiBootstrapRoleKey,
-} from '@/lib/pi-auth';
-import { applyRateLimit, assertSameOrigin } from '@/lib/security';
+} from '@/lib/domains/pi';
+import { applyRateLimit, assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { issueAppSessionToken } from '@/lib/app-session';
+import { issueAppSessionToken } from '@/lib/domains/auth';
 import { describeCookiePolicy, setSessionCookies } from '@/lib/auth-cookies';
 import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/session-registry';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-import { getOptionalBooleanField, getStringField, readJsonObject } from '@/lib/request-validation';
+import { getOptionalBooleanField, getStringField, readJsonObject } from '@/lib/services/request';
 import type { AuthResponse, UserRole } from '@/types/auth';
 
 function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {

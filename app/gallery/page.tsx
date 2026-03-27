@@ -1,18 +1,39 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
+import { prisma } from '@/lib/domains/system';
 import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
-export default async function GalleryPage() {
-  const artworks = await prisma.artwork.findMany({
+const getGalleryArtworks = unstable_cache(
+  async () => prisma.artwork.findMany({
     where: { status: 'PUBLISHED' },
-    include: {
-      artist: { include: { artistProfile: true } },
-      category: true,
+    select: {
+      id: true,
+      title: true,
+      imageUrl: true,
+      price: true,
+      currency: true,
+      description: true,
+      likesCount: true,
+      dislikesCount: true,
+      artist: {
+        select: {
+          username: true,
+          fullName: true,
+          artistProfile: { select: { displayName: true } }
+        }
+      },
+      category: { select: { name: true } },
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }]
-  });
+  }),
+  ['gallery-artworks'],
+  { revalidate: 30 }
+);
+
+export default async function GalleryPage() {
+  const artworks = await getGalleryArtworks();
 
   return (
     <div className="page-stack">

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { buildPublicReviewDates } from '@/lib/artwork-windows';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { requireAdminApi } from '@/lib/admin';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { PERMISSIONS } from '@/lib/permissions';
 
 export async function POST(request: Request) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/admin';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { getSystemLogFileBuffer } from '@/lib/system-log';
 
 export async function GET() {

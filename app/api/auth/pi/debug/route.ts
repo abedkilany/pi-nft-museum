@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
-import { logger } from '@/lib/logger';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
+import { logger } from '@/lib/domains/system';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { requireDebugRoute } from '@/lib/api-guards';
 import { asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';

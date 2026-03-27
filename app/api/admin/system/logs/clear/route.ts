@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/admin';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { clearSystemLogs } from '@/lib/system-log';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {

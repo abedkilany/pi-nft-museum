@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/domains/system';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, getRefreshCookieFromHeaders, getSessionCookieFromHeaders } from '@/lib/auth-cookies';
-import { verifyAppSessionToken } from '@/lib/app-session';
+import { verifyAppSessionToken } from '@/lib/domains/auth';
 import { getActiveSessionByRefreshToken } from '@/lib/session-registry';
 
 export const dynamic = 'force-dynamic';

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { getFollowCounts } from '@/lib/follows';
-import { getUnreadNotificationCount } from '@/lib/notifications';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { getFollowCounts } from '@/lib/domains/community';
+import { getUnreadNotificationCount } from '@/lib/domains/notifications';
 
 export async function GET() {
   const currentUser = await getCurrentUser();

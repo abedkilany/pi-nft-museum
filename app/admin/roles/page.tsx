@@ -1,11 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import {
   PERMISSIONS,
   PERMISSION_DEFINITIONS,
   PERMISSION_GROUP_LABELS,
   isSystemRole,
 } from '@/lib/permissions';
-import { requireAdminPage } from '@/lib/admin';
+import { requireAdminPage } from '@/lib/domains/admin';
 
 function slugifyRoleKey(input: string) {
   return input

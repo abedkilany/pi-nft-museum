@@ -6,7 +6,7 @@ import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButto
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { formatDateTime, getMintWindowStatus } from '@/lib/artwork-windows';
-import { getArtworkStatusLabel } from '@/lib/artwork-status';
+import { getArtworkStatusLabel } from '@/lib/domains/artworks';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
 import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
 import { piApiFetch } from '@/lib/pi-auth-client';

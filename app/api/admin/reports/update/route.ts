@@ -1,10 +1,10 @@
 import { type ArtworkStatus, type PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { logger } from '@/lib/domains/system';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 import { type AdminArtworkAction, type AdminCommentAction, type AdminReportStatus } from '@/types/admin';
 

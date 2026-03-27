@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { ErrorExportButtons } from '@/components/admin/ErrorExportButtons';
 
 type SearchParams = {

@@ -1,7 +1,7 @@
 import { type ErrorSeverity, type ErrorSource, type ErrorStatus, Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/admin';
-import { prisma } from '@/lib/prisma';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { prisma } from '@/lib/domains/system';
 import { toCsvValue } from '@/lib/error-tracker';
 import { ADMIN_ERROR_SEVERITIES, ADMIN_ERROR_SOURCES, ADMIN_ERROR_STATUSES } from '@/types/admin';
 

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

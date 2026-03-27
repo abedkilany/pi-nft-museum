@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { assertSameOrigin } from '@/lib/security';
-import { getNumberField, getOptionalBooleanField, readJsonObject } from '@/lib/request-validation';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { assertSameOrigin } from '@/lib/services/request';
+import { getNumberField, getOptionalBooleanField, readJsonObject } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

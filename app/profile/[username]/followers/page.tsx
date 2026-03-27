@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
 import { FollowUserCard } from '@/components/community/FollowUserCard';
 
 export default async function FollowersPage({ params }: { params: { username: string } }) {

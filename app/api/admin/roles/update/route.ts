@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
+import { prisma } from '@/lib/domains/system';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { PERMISSIONS, getAllPermissionKeys, type PermissionKey } from '@/lib/permissions';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/domains/system';
 import { can } from '@/lib/policy';
 
 

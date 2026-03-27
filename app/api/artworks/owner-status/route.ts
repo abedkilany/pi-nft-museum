@@ -1,10 +1,10 @@
 import { ArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
-import { getEnumField, getNumberField, readJsonObject } from '@/lib/request-validation';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
+import { getEnumField, getNumberField, readJsonObject } from '@/lib/services/request';
 
 const OWNER_TARGET_STATUSES = ['DRAFT', 'PENDING', 'RESTORE_ARCHIVED'] as const;
 

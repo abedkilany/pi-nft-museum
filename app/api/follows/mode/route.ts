@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
-import { FOLLOW_NOTIFY_MODES } from '@/lib/notifications';
-import { assertSameOrigin } from '@/lib/security';
-import { getEnumField, getNumberField, readJsonObject } from '@/lib/request-validation';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
+import { FOLLOW_NOTIFY_MODES } from '@/lib/domains/notifications';
+import { assertSameOrigin } from '@/lib/services/request';
+import { getEnumField, getNumberField, readJsonObject } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

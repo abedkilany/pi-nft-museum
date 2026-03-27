@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 

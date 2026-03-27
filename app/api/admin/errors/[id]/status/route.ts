@@ -1,12 +1,12 @@
 import { type Prisma, type ErrorStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/admin';
-import { prisma } from '@/lib/prisma';
-import { assertSameOrigin } from '@/lib/security';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { prisma } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/domains/system';
 import { ADMIN_ERROR_STATUSES } from '@/types/admin';
-import { readEnumFromFormData, readOptionalStringFromFormData } from '@/lib/request-validation';
+import { readEnumFromFormData, readOptionalStringFromFormData } from '@/lib/services/request';
 
 const allowed = ADMIN_ERROR_STATUSES;
 

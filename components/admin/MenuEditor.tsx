@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { MenuItem } from '@/lib/menu';
+import type { MenuItem } from '@/lib/services/content';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 export function MenuEditor({ initialItems }: { initialItems: MenuItem[] }) {

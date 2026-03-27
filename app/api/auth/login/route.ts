@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import type { AuthErrorResponse } from '@/types/auth';
 
 export async function POST(request: Request) {

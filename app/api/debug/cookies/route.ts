@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { extractBearerToken } from '@/lib/pi-session';
 import { requireDebugRoute } from '@/lib/api-guards';
-import { applyRateLimit } from '@/lib/security';
+import { applyRateLimit } from '@/lib/services/request';
 
 export async function GET(request: Request) {
   const debugResponse = requireDebugRoute();

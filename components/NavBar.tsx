@@ -1,4 +1,4 @@
-import { getMenuItems } from '@/lib/menu';
+import { getMenuItems } from '@/lib/services/content';
 import { NavBarClient } from '@/components/nav/NavBarClient';
 
 export async function NavBar() {

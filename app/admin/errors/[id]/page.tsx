@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { ErrorExportButtons } from '@/components/admin/ErrorExportButtons';
 import { ErrorStatusForm } from '@/components/admin/ErrorStatusForm';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { authenticateWithPi } from '@/lib/pi';
+import { authenticateWithPi } from '@/lib/domains/pi';
 import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';

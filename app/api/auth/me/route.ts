@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/domains/system';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { resolveAuthenticatedUserFromHeaders } from '@/lib/bearer-auth';
 import { getAuthorizationSnapshot } from '@/lib/permissions';

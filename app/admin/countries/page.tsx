@@ -1,6 +1,6 @@
 
-import { ensureDefaultCountries } from '@/lib/countries';
-import { prisma } from '@/lib/prisma';
+import { ensureDefaultCountries } from '@/lib/services/content';
+import { prisma } from '@/lib/domains/system';
 
 
 export default async function AdminCountriesPage() {

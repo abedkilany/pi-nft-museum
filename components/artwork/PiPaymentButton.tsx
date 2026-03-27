@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { authenticateWithPi, createPiPayment } from '@/lib/pi';
+import { authenticateWithPi, createPiPayment } from '@/lib/domains/pi';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 type Props = {

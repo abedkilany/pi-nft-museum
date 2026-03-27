@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
+import { prisma } from '@/lib/domains/system';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { SITE_SETTING_DEFINITIONS, ensureDefaultSiteSettings } from '@/lib/site-settings';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 
 export async function POST(request: Request) {

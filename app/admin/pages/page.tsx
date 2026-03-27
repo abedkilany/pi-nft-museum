@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { PageBuilder } from '@/components/admin/PageBuilder';
 
 export default async function AdminPagesPage() {

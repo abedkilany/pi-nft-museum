@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/admin';
+import { requireAdminApi } from '@/lib/domains/admin';
 import { PERMISSIONS } from '@/lib/permissions';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 import { cleanupObservabilityEvents } from '@/lib/app-events';
 import { createAuditLog } from '@/lib/audit';
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default async function RejectedArtworksPage() {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { piApiFetch } from '@/lib/pi-auth-client';
-import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/artwork-detail';
+import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/domains/artworks';
 import ArtworkDetailContent from '@/components/artwork/ArtworkDetailContent';
 
 const guestViewer: ArtworkViewerStateDto = {

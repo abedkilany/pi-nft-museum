@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
-import { getAllowedCountries } from '@/lib/countries';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
+import { getAllowedCountries } from '@/lib/services/content';
 import { getPermissionKeysForUserId, PERMISSIONS } from '@/lib/permissions';
 
 export async function GET() {

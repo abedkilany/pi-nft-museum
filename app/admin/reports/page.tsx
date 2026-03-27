@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 
 export default async function AdminReportsPage() {
   const [artworkReports, commentReports] = await Promise.all([

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { getRecentNotifications, getUnreadNotificationCount } from '@/lib/notifications';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { getRecentNotifications, getUnreadNotificationCount } from '@/lib/domains/notifications';
 
 export async function GET(request: Request) {
   const currentUser = await getCurrentUser();

@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
-import { canReceiveReactions } from '@/lib/artwork-status';
-import { createCommunityActivity } from '@/lib/community';
-import { createNotification } from '@/lib/notifications';
-import { getEnumField, getNumberField, readJsonObject } from '@/lib/request-validation';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { canReceiveReactions } from '@/lib/domains/artworks';
+import { createCommunityActivity } from '@/lib/domains/community';
+import { createNotification } from '@/lib/domains/notifications';
+import { getEnumField, getNumberField, readJsonObject } from '@/lib/services/request';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   try {

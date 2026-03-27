@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
 
 interface Context {
   params: Promise<{ id: string }>;

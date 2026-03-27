@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
-import { readJsonObject, getNumberField } from '@/lib/request-validation';
+import { prisma } from '@/lib/domains/system';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
+import { readJsonObject, getNumberField } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

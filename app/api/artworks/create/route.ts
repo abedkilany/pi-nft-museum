@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
 import { saveUploadedImage } from '@/lib/uploads';
 import { getSiteSettingsMap, getStringSetting } from '@/lib/site-settings';
 import { isMemberRole } from '@/lib/roles';
 import { clampNumber, validateArtworkInput } from '@/lib/validators';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 
 function slugify(text: string) {
   return text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');

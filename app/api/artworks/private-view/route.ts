@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
-import { serializeArtworkDetail, buildArtworkViewerState } from '@/lib/artwork-detail';
+import { serializeArtworkDetail, buildArtworkViewerState } from '@/lib/domains/artworks';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 async function loadArtwork(id: number) {

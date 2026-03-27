@@ -1,27 +1,46 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
+import { prisma } from '@/lib/domains/system';
 import { timeToPremium } from '@/lib/timeToPremium';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
+const getPremiumArtworks = unstable_cache(
+  async () => prisma.artwork.findMany({
+    where: { status: 'PREMIUM' },
+    select: {
+      id: true,
+      title: true,
+      imageUrl: true,
+      price: true,
+      premiumScore: true,
+      averageRating: true,
+      publicReviewStartedAt: true,
+      premiumAt: true,
+      likesCount: true,
+      dislikesCount: true,
+      artist: {
+        select: {
+          username: true,
+          fullName: true,
+          artistProfile: { select: { displayName: true } }
+        }
+      },
+      category: { select: { name: true } },
+    },
+    orderBy: { premiumScore: 'desc' }
+  }),
+  ['premium-artworks'],
+  { revalidate: 30 }
+);
+
 export default async function PremiumPage() {
   const settings = await getSiteSettingsMap();
   const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
 
-  const artworks = await prisma.artwork.findMany({
-    where: { status: 'PREMIUM' },
-    include: {
-      artist: {
-        include: {
-          artistProfile: true
-        }
-      },
-      category: true,
-    },
-    orderBy: { premiumScore: 'desc' }
-  });
+  const artworks = await getPremiumArtworks();
 
   return (
     <div className="container" style={{ paddingTop: '40px' }}>

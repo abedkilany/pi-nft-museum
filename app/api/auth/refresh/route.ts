@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { logger } from '@/lib/domains/system';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
-import { applyRateLimit, assertSameOrigin } from '@/lib/security';
+import { applyRateLimit, assertSameOrigin } from '@/lib/services/request';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
 import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 import type { AuthResponse } from '@/types/auth';
-import { issueAppSessionToken } from '@/lib/app-session';
+import { issueAppSessionToken } from '@/lib/domains/auth';
 import { buildRefreshTokenValue, getActiveSessionByRefreshToken, rotateRefreshSession } from '@/lib/session-registry';
 
 export async function POST(request: NextRequest) {

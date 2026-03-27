@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
 import type { CommunityFeedPost } from '@/components/community/PostCard';
-import { formatTimeAgo } from '@/lib/community';
+import { formatTimeAgo } from '@/lib/domains/community';
 
 type ActivityItem = {
   id: string;

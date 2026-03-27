@@ -1,22 +1,43 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
+import { prisma } from '@/lib/domains/system';
 import { AuthAwareRatingStars } from '@/components/auth/AuthAwareRatingStars';
 import { formatDateTime } from '@/lib/artwork-windows';
-import { getReviewStatuses } from '@/lib/artwork-workflow';
+import { getReviewStatuses } from '@/lib/domains/artworks';
 import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
+
+const getReviewArtworks = unstable_cache(
+  async (reviewStatuses: string[]) => prisma.artwork.findMany({
+    where: { status: { in: reviewStatuses as any } },
+    select: {
+      id: true,
+      title: true,
+      imageUrl: true,
+      mintWindowOpensAt: true,
+      mintWindowEndsAt: true,
+      description: true,
+      averageRating: true,
+      ratingsCount: true,
+      artist: {
+        select: {
+          username: true,
+          fullName: true,
+          artistProfile: { select: { displayName: true } }
+        }
+      },
+      category: { select: { name: true } },
+    },
+    orderBy: [{ mintWindowOpensAt: 'asc' }, { createdAt: 'desc' }]
+  }),
+  ['review-artworks'],
+  { revalidate: 20 }
+);
 
 export default async function ReviewPage() {
   const settings = await getSiteSettingsMap();
   const reviewStatuses = getReviewStatuses(settings);
-  const artworks = await prisma.artwork.findMany({
-    where: { status: { in: reviewStatuses as any } },
-    include: {
-      artist: { include: { artistProfile: true } },
-      category: true,
-    },
-    orderBy: [{ mintWindowOpensAt: 'asc' }, { createdAt: 'desc' }]
-  });
+  const artworks = await getReviewArtworks(reviewStatuses);
 
   return (
     <div className="page-stack">

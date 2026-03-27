@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 import { isStaffRole } from '@/lib/permissions';
 

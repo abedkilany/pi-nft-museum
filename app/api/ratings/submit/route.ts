@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
 import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
-import { canReceiveRatings } from '@/lib/artwork-status';
-import { assertSameOrigin } from '@/lib/security';
-import { getNumberField, readJsonObject, validationError } from '@/lib/request-validation';
+import { canReceiveRatings } from '@/lib/domains/artworks';
+import { assertSameOrigin } from '@/lib/services/request';
+import { getNumberField, readJsonObject, validationError } from '@/lib/services/request';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);

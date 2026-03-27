@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/current-user';
-import { prisma } from '@/lib/prisma';
-import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/pi-payments';
-import { assertSameOrigin } from '@/lib/security';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { prisma } from '@/lib/domains/system';
+import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/domains/pi';
+import { assertSameOrigin } from '@/lib/services/request';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 export async function POST(request: Request) {

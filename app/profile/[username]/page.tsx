@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
-import { getFollowCounts } from '@/lib/follows';
-import { scoreCommunityPost } from '@/lib/community';
+import { getFollowCounts } from '@/lib/domains/community';
+import { scoreCommunityPost } from '@/lib/domains/community';
 import PublicProfileTabsClient from '@/components/profile/PublicProfileTabsClient';
 import PublicProfileViewerControls from '@/components/profile/PublicProfileViewerControls';
 import type { CommunityFeedPost } from '@/components/community/PostCard';

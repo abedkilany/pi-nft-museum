@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { getFollowState } from '@/lib/follows';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { getFollowState } from '@/lib/domains/community';
 
 export async function GET(request: NextRequest) {
   const username = request.nextUrl.searchParams.get('username');

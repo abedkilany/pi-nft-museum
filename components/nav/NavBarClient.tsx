@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import type { MenuItem } from '@/lib/menu';
+import type { MenuItem } from '@/lib/services/content';
 
 import { NavUserMenu } from '@/components/nav/NavUserMenu';
 import { NotificationBell } from '@/components/nav/NotificationBell';

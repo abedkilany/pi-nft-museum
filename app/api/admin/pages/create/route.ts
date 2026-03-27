@@ -1,11 +1,11 @@
 import { type PageStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireAdminApi } from '@/lib/admin';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin } from '@/lib/security';
+import { prisma } from '@/lib/domains/system';
+import { requireAdminApi } from '@/lib/domains/admin';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
-import { getEnumField, getOptionalBooleanField, getStringField, isRecord, readJsonObject, validationError } from '@/lib/request-validation';
+import { getEnumField, getOptionalBooleanField, getStringField, isRecord, readJsonObject, validationError } from '@/lib/services/request';
 import { ADMIN_PAGE_STATUSES, type AdminPageSectionInput } from '@/types/admin';
 
 function normalizeSlug(value: string) {

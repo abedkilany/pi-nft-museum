@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
 import { getServerEnvSummary } from '@/lib/env';
 import { safeAppEventQuery } from '@/lib/app-events';
 import { isTokenProtectedInternalRouteAuthorized } from '@/lib/api-guards';

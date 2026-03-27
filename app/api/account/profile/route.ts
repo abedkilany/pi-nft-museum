@@ -1,15 +1,15 @@
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
 import {
   normalizePhoneNumber,
   validateOptionalText,
   validateOptionalUrl,
 } from '@/lib/validators';
 import { saveUploadedImage } from '@/lib/uploads';
-import { assertSameOrigin } from '@/lib/security';
+import { assertSameOrigin } from '@/lib/services/request';
 
 function toBoolean(value: FormDataEntryValue | null) {
   return String(value || '') === 'true';

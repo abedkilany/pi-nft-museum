@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/current-user';
-import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
+import { logger } from '@/lib/domains/system';
 import { saveUploadedFile } from '@/lib/uploads';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 import { isValidPublicUrl, validateEmail } from '@/lib/validators';
 

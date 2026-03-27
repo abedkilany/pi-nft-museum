@@ -3,7 +3,7 @@ import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { ArtworkComments } from '@/components/artwork/ArtworkComments';
 import { ArtworkReportForm } from '@/components/artwork/ArtworkReportForm';
 import { PiPaymentButton } from '@/components/artwork/PiPaymentButton';
-import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/artwork-detail';
+import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/domains/artworks';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default function ArtworkDetailContent({

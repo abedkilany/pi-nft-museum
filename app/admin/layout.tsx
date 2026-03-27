@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminAccessGate } from '@/components/admin/AdminAccessGate';
-import { requireAdminPage } from '@/lib/admin';
+import { requireAdminPage } from '@/lib/domains/admin';
 
 type AdminLayoutProps = {
   children: ReactNode;

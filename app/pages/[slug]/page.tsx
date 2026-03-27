@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getPageContentBySlug } from '@/lib/pages';
+import { getPageContentBySlug } from '@/lib/services/content';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 function renderSection(section: any) {

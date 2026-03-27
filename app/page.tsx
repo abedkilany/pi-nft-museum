@@ -1,8 +1,39 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
+import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap, getArraySetting, getNumberSetting, getStringSetting } from '@/lib/site-settings';
-import { getArtworkStatusLabel } from '@/lib/artwork-status';
+import { getArtworkStatusLabel } from '@/lib/domains/artworks';
 import { getDisplayImageUrl } from '@/lib/image-url';
+
+const getHomePageData = unstable_cache(
+  async (featuredStatuses: string[], featuredLimit: number) => {
+    return Promise.all([
+      prisma.artwork.findMany({
+        where: { status: { in: featuredStatuses as any[] } },
+        take: featuredLimit,
+        select: {
+          id: true,
+          title: true,
+          imageUrl: true,
+          status: true,
+          description: true,
+          artist: {
+            select: {
+              username: true,
+              fullName: true,
+              artistProfile: { select: { displayName: true } }
+            }
+          },
+          category: { select: { id: true, name: true } }
+        },
+        orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }]
+      }),
+      prisma.artwork.groupBy({ by: ['status'], _count: true })
+    ]);
+  },
+  ['home-page-data'],
+  { revalidate: 30 }
+);
 
 export default async function HomePage() {
   const settings = await getSiteSettingsMap();
@@ -12,15 +43,7 @@ export default async function HomePage() {
   const siteTagline = getStringSetting(settings, 'site_tagline', 'A digital museum for NFT artworks on Pi Network');
   const placeholder = getStringSetting(settings, 'placeholder_artwork_image_url', '/placeholder-artwork.svg');
 
-  const [artworks, stats] = await Promise.all([
-    prisma.artwork.findMany({
-      where: { status: { in: featuredStatuses as any[] } },
-      take: featuredLimit,
-      include: { artist: { include: { artistProfile: true } }, category: true },
-      orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }]
-    }),
-    prisma.artwork.groupBy({ by: ['status'], _count: true })
-  ]);
+  const [artworks, stats] = await getHomePageData(featuredStatuses, featuredLimit);
 
   const pending = stats.find((item: any) => item.status === 'PENDING')?._count || 0;
   const published = stats.find((item: any) => item.status === 'PUBLISHED')?._count || 0;

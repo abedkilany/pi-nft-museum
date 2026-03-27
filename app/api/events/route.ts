@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 import { trackAppEvent } from '@/lib/app-events';
-import { getCurrentUser } from '@/lib/current-user';
+import { getCurrentUser } from '@/lib/domains/auth';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { asFiniteNumber, asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';
 

@@ -1,15 +1,47 @@
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/domains/system';
+import { unstable_cache } from 'next/cache';
 import { STAFF_ROLES } from '@/lib/roles';
-import { getAllowedCountries } from '@/lib/countries';
+import { getAllowedCountries } from '@/lib/services/content';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
-export default async function AdminUsersPage() {
-  const [users, roles, countries] = await Promise.all([
-    prisma.user.findMany({ include: { role: true, artworks: true }, orderBy: { createdAt: 'desc' } }),
+const getAdminUsersPageData = unstable_cache(
+  async () => Promise.all([
+    prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        piUsername: true,
+        piUid: true,
+        email: true,
+        phoneNumber: true,
+        country: true,
+        headline: true,
+        roleId: true,
+        status: true,
+        profileImage: true,
+        coverImage: true,
+        showEmailPublic: true,
+        showPhonePublic: true,
+        showCountryPublic: true,
+        canEditCommentsAfterDeadline: true,
+        bio: true,
+        createdAt: true,
+        role: { select: { id: true, key: true, name: true } },
+        _count: { select: { artworks: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
     prisma.role.findMany({ orderBy: { name: 'asc' } }),
     getAllowedCountries()
-  ]);
+  ]),
+  ['admin-users-page-data'],
+  { revalidate: 15 }
+);
+
+export default async function AdminUsersPage() {
+  const [users, roles, countries] = await getAdminUsersPageData();
 
   return (
     <div className="card" style={{ padding: '24px' }}>
@@ -70,7 +102,7 @@ export default async function AdminUsersPage() {
             </div>
             <div className="card-actions">
               <button className="button primary" type="submit">Save user</button>
-              <span className="pill">{user.artworks.length} artworks</span>
+              <span className="pill">{user._count.artworks} artworks</span>
               {STAFF_ROLES.includes(user.role.key as any) ? <span className="pill">Staff account</span> : null}
             </div>
           </form>

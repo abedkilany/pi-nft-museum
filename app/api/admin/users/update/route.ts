@@ -1,9 +1,9 @@
 import { type UserStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireSuperadminApi } from '@/lib/admin';
-import { logger } from '@/lib/logger';
-import { assertSameOrigin, applyRateLimit } from '@/lib/security';
+import { prisma } from '@/lib/domains/system';
+import { requireSuperadminApi } from '@/lib/domains/admin';
+import { logger } from '@/lib/domains/system';
+import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 import { createAuditLog } from '@/lib/audit';
 import { validateEmail, validateUsername } from '@/lib/validators';
 import { ADMIN_USER_STATUSES } from '@/types/admin';
@@ -13,7 +13,7 @@ import {
   readNumberFromFormData,
   readOptionalStringFromFormData,
   readRequiredStringFromFormData,
-} from '@/lib/request-validation';
+} from '@/lib/services/request';
 
 const ALLOWED_STATUSES = ADMIN_USER_STATUSES;
 
