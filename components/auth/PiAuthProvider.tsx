@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/domains/pi';
 import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
-import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
+import { buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
 type AuthUser = {
@@ -463,7 +463,7 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
   }, [runAuthFlow, user]);
 
   const logout = useCallback(async () => {
-    const traceId = beginClientTrace();
+    const traceId = consumeOrCreateTraceId();
     await pushClientAuthDebug('PI_AUTH_LOGOUT_START', {}, 'info', traceId);
     await fetch('/api/auth/logout', {
       method: 'POST',

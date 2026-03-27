@@ -183,7 +183,7 @@ export function AppEventClient() {
       if (!target) return;
       const payload = buildClickPayload(target, route);
       if (!payload) return;
-      sendClientAppEvent(payload, { beginTrace: true, keepalive: true });
+      sendClientAppEvent(payload, { beginTrace: false, keepalive: true });
     };
 
     const onSubmit = (event: SubmitEvent) => {
@@ -191,7 +191,7 @@ export function AppEventClient() {
       if (!form) return;
       const payload = buildFormPayload(form, route);
       if (!payload) return;
-      sendClientAppEvent(payload, { beginTrace: true, keepalive: true });
+      sendClientAppEvent(payload, { beginTrace: false, keepalive: true });
     };
 
     document.addEventListener('click', onClick, true);
