@@ -6,7 +6,11 @@ import { requireDebugRoute } from '@/lib/api-guards';
 import { asLimitedRecord, asLimitedString, asObject, enforceMaxContentLength } from '@/lib/telemetry-guards';
 
 export async function POST(request: Request) {
-  const csrfError = assertSameOrigin(request);
+  
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Not Found', { status: 404 });
+  }
+const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
   const debugResponse = requireDebugRoute();

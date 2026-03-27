@@ -77,6 +77,8 @@ function serializeComments(comments: Array<any>) {
   return roots;
 }
 
+type RawCommunityPost = Parameters<typeof serializePost>[0];
+
 function serializePost(post: any): CommunityFeedPost {
   return {
     id: post.id,
@@ -218,7 +220,9 @@ export default async function PublicProfilePage({ params }: { params: { username
   const ownPosts = ownPostsRaw.map((post) => serializePost(post));
   const likedPosts = likedPostLikesRaw
     .map((entry) => entry.post)
-    .filter((post, index, array) => array.findIndex((candidate) => candidate.id === post.id) === index)
+    .filter((post: RawCommunityPost, index: number, array: RawCommunityPost[]) =>
+      array.findIndex((candidate: RawCommunityPost) => candidate.id === post.id) === index,
+    )
     .map((post) => serializePost(post));
 
   const activityItems = [

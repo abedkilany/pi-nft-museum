@@ -5,7 +5,11 @@ import { requireDebugRoute } from '@/lib/api-guards';
 import { applyRateLimit } from '@/lib/services/request';
 
 export async function GET(request: Request) {
-  const debugResponse = requireDebugRoute();
+  
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Not Found', { status: 404 });
+  }
+const debugResponse = requireDebugRoute();
   if (debugResponse) {
     return debugResponse;
   }

@@ -17,6 +17,7 @@ import {
 
 const ALLOWED_STATUSES = ADMIN_USER_STATUSES;
 
+
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;

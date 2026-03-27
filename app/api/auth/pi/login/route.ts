@@ -1,4 +1,4 @@
-import { ArtworkStatus, UserStatus } from '@/types/enums';
+import { UserStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { logger } from '@/lib/domains/system';
@@ -196,7 +196,7 @@ export async function POST(request: Request) {
           username,
           fullName: user.fullName || piUser.username || username,
           email: user.email || syntheticEmail,
-          status: user.status === ArtworkStatus.PENDING ? UserStatus.ACTIVE : user.status,
+          status: user.status === UserStatus.PENDING ? UserStatus.ACTIVE : user.status,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
           piWalletAddress: piUser.wallet_address || user.piWalletAddress || null,

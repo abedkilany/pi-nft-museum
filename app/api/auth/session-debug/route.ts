@@ -14,7 +14,11 @@ function mask(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const ctx = getRequestContextFromHeaders(request.headers);
+  
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Not Found', { status: 404 });
+  }
+const ctx = getRequestContextFromHeaders(request.headers);
 
   const cookieHeader = request.headers.get('cookie') || '';
   const authorizationHeader = request.headers.get('authorization');
