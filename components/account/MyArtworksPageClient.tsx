@@ -1,5 +1,6 @@
 'use client';
 
+import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
 import { ArtworkStatus } from '@/types/enums';
 
 import Link from 'next/link';
@@ -10,7 +11,6 @@ import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { formatDateTime, getMintWindowStatus } from '@/lib/artwork-windows';
 import { getArtworkStatusLabel } from '@/lib/domains/artworks';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
-import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';

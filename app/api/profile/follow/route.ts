@@ -7,15 +7,15 @@ import { assertSameOrigin } from '@/lib/services/request';
 import { getNumberField, readJsonObject, validationError } from '@/lib/services/request';
 
 async function buildState(currentUserId: number, profileUserId: number) {
-  const [follow, counts] = await Promise.all([
+  const [follow, _counts] = await Promise.all([
     prisma.follow.findUnique({ where: { followerId_followingId: { followerId: currentUserId, followingId: profileUserId } } }),
     getFollowCounts(profileUserId, prisma),
   ]);
 
   return {
     isFollowing: Boolean(follow),
-    followersCount: counts.followers,
-    followingCount: counts.following,
+    followersCount: _counts.followers,
+    followingCount: _counts.following,
     preferences: follow
       ? {
           notificationsEnabled: follow.notificationsEnabled,

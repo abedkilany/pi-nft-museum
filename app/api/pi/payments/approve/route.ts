@@ -1,4 +1,3 @@
-import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { prisma } from '@/lib/domains/system';
@@ -45,7 +44,7 @@ export async function POST(request: Request) {
         amount: Number(approved?.amount || artwork.price),
         memo: String(approved?.memo || `Artwork purchase #${artwork.id}`),
         network: String(approved?.network || 'Pi Testnet'),
-        status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? ArtworkStatus.APPROVED : 'CREATED',
+        status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? 'APPROVED' : 'CREATED',
         rawPayload: approved
       },
       create: {
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
         amount: Number(approved?.amount || artwork.price),
         memo: String(approved?.memo || `Artwork purchase #${artwork.id}`),
         network: String(approved?.network || 'Pi Testnet'),
-        status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? ArtworkStatus.APPROVED : 'CREATED',
+        status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? 'APPROVED' : 'CREATED',
         rawPayload: approved
       }
     });

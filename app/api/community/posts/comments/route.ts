@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { comment: created, counts } = await prisma.$transaction(async (tx) => {
+  const { comment: created, _counts } = await prisma.$transaction(async (tx) => {
     const comment = await tx.communityPostComment.create({
       data: {
         postId,
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     const nextCounts = await syncCommunityPostCounts(postId, tx);
 
-    return { comment, counts: nextCounts };
+    return { comment, _counts: nextCounts };
   });
 
   const linkUrl = '/community';
@@ -125,5 +125,5 @@ export async function POST(request: Request) {
     ...notifications,
   ]);
 
-  return NextResponse.json({ ok: true, commentId: created.id, commentsCount: counts.commentsCount, likesCount: counts.likesCount, message: parentComment ? 'Reply added.' : 'Comment added.' });
+  return NextResponse.json({ ok: true, commentId: created.id, commentsCount: _counts.commentsCount, likesCount: _counts.likesCount, message: parentComment ? 'Reply added.' : 'Comment added.' });
 }

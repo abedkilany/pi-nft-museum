@@ -38,7 +38,7 @@ export default function PublicProfileCommunityTabs({
 }) {
   const [activeTab, setActiveTab] = useState<TabKey>('posts');
 
-  const counts = useMemo(
+  const _counts = useMemo(
     () => ({ posts: posts.length, liked: likedPosts.length, activity: activity.length }),
     [posts.length, likedPosts.length, activity.length],
   );
@@ -64,7 +64,7 @@ export default function PublicProfileCommunityTabs({
               onClick={() => setActiveTab(tab)}
               aria-pressed={active}
             >
-              {TAB_LABELS[tab]} · {counts[tab]}
+              {TAB_LABELS[tab]} · {_counts[tab]}
             </button>
           );
         })}

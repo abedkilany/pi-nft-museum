@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const reportType = String(formData.get('reportType') || 'artwork');
   const reportId = Number(formData.get('reportId'));
-  const status = String(formData.get('status') || ArtworkStatus.PENDING) as AdminReportStatus;
+  const status = String(formData.get('status') || 'PENDING') as AdminReportStatus;
   const adminNote = String(formData.get('adminNote') || '').trim();
 
   if (!reportId) {

@@ -34,7 +34,7 @@ function serializeComments(comments: Array<any>) {
     byId.set(comment.id, {
       ...comment,
       createdAt: comment.createdAt.toISOString(),
-      updatedAt: comment.updatedAt.toISOString(),
+      _updatedAt: comment.updatedAt.toISOString(),
       replies: [],
     });
   }

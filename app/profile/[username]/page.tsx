@@ -84,7 +84,7 @@ function serializePost(post: any): CommunityFeedPost {
     id: post.id,
     body: post.body,
     createdAt: post.createdAt.toISOString(),
-    updatedAt: post.updatedAt.toISOString(),
+    _updatedAt: post._updatedAt.toISOString(),
     likesCount: post.likesCount,
     commentsCount: post.commentsCount,
     viewerLiked: false,
@@ -165,7 +165,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   const twitterUrl = normalizeExternalUrl(user.twitterUrl);
   const instagramUrl = normalizeExternalUrl(user.instagramUrl);
 
-  const [counts, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
+  const [_counts, publicArtworkCount, publicPostCount, likedPostsCount, ownPostsRaw, likedPostLikesRaw, activitiesRaw, commentsAuthoredCount] = await Promise.all([
     getFollowCounts(user.id),
     prisma.artwork.count({ where: { artistUserId: user.id, status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
     prisma.communityPost.count({ where: { authorId: user.id, isPublished: true } }),
@@ -285,13 +285,13 @@ export default async function PublicProfilePage({ params }: { params: { username
         <PublicProfileViewerControls
           username={user.username}
           targetUserId={user.id}
-          counts={counts}
+          _counts={_counts}
         />
       </section>
 
       <section className="stats-grid">
-        <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.followers}</strong><span>Followers</span></Link>
-        <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{counts.following}</strong><span>Following</span></Link>
+        <Link href={`/profile/${user.username}/followers`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{_counts.followers}</strong><span>Followers</span></Link>
+        <Link href={`/profile/${user.username}/following`} className="card stat-card" style={{ textDecoration: 'none', color: 'inherit' }}><strong>{_counts.following}</strong><span>Following</span></Link>
         <div className="card stat-card"><strong>{publicArtworkCount}</strong><span>Public artworks</span></div>
         <div className="card stat-card"><strong>{publicPostCount}</strong><span>Community posts</span></div>
         <div className="card stat-card"><strong>{likedPostsCount}</strong><span>Total liked posts</span></div>

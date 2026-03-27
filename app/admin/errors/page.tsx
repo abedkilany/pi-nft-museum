@@ -49,7 +49,7 @@ function badgeStyle(value: string) {
 
 export default async function AdminErrorsPage({ searchParams }: { searchParams?: SearchParams }) {
   const where = toWhere(searchParams ?? {});
-  const [errors, counts, latest, topRecurring, topCritical] = await Promise.all([
+  const [errors, _counts, latest, topRecurring, topCritical] = await Promise.all([
     prisma.errorLog.findMany({
       where,
       include: { user: { select: { id: true, username: true, email: true } } },
@@ -65,7 +65,7 @@ export default async function AdminErrorsPage({ searchParams }: { searchParams?:
     prisma.errorLog.findMany({ where: { severity: 'CRITICAL', status: { in: ['OPEN', 'INVESTIGATING'] } }, orderBy: { lastSeenAt: 'desc' }, take: 5 }),
   ]);
 
-  const summary = Object.fromEntries(counts.map((row) => [row.status, row._count._all]));
+  const summary = Object.fromEntries(_counts.map((row) => [row.status, row._count._all]));
   const exportQuery = new URLSearchParams();
   if (searchParams?.status) exportQuery.set('status', searchParams.status);
   if (searchParams?.severity) exportQuery.set('severity', searchParams.severity);

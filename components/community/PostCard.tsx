@@ -26,7 +26,7 @@ export type CommunityFeedPost = {
   id: number;
   body: string;
   createdAt: string;
-  updatedAt: string;
+  _updatedAt: string;
   likesCount: number;
   commentsCount: number;
   viewerLiked: boolean;
@@ -217,7 +217,7 @@ export function PostCard({
               {typeof post.feedScore === 'number' ? <span className="pill">Score {post.feedScore}</span> : null}
             </div>
             <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 14 }}>
-              {formatTimeAgo(post.createdAt)}{post.updatedAt !== post.createdAt ? ' · edited' : ''}
+              {formatTimeAgo(post.createdAt)}{post._updatedAt !== post.createdAt ? ' · edited' : ''}
             </p>
           </div>
         </div>

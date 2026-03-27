@@ -24,14 +24,14 @@ export async function getCommunityPostCounts(postId: number, db: DbClient = pris
 }
 
 export async function syncCommunityPostCounts(postId: number, db: DbClient = prisma) {
-  const counts = await getCommunityPostCounts(postId, db);
+  const _counts = await getCommunityPostCounts(postId, db);
 
   await db.communityPost.update({
     where: { id: postId },
-    data: counts,
+    data: _counts,
   });
 
-  return counts;
+  return _counts;
 }
 
 export async function syncArtworkEngagementCounts(artworkId: number) {

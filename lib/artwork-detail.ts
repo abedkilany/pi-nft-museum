@@ -96,7 +96,7 @@ export function serializeArtworkDetail(artwork: any, currentUser: SessionUser | 
   };
 }
 
-export function buildArtworkViewerState(artwork: any, currentUser: SessionUser | null, commentsEnabled: boolean): ArtworkViewerStateDto {
+export function buildArtworkViewerState(artwork: any, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
   const role = currentUser?.role || null;
   const isOwner = Boolean(currentUser && currentUser.userId === artwork.artistUserId);
   const canModerate = role === 'admin' || role === 'superadmin';
@@ -125,7 +125,7 @@ export function buildArtworkViewerState(artwork: any, currentUser: SessionUser |
     role,
     isOwner,
     canReport: Boolean(currentUser),
-    canComment: commentsEnabled && Boolean(currentUser),
+    canComment: _commentsEnabled && Boolean(currentUser),
     canModerate,
     canHide,
     paymentDisabled,

@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
   }
 
-  const commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
+  const _commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
   return NextResponse.json({
     ok: true,
-    viewer: buildArtworkViewerState(artwork, currentUser, commentsEnabled),
+    viewer: buildArtworkViewerState(artwork, currentUser, _commentsEnabled),
   });
 }

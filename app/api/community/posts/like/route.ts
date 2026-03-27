@@ -53,15 +53,15 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
-    const counts = await prisma.$transaction(async (tx) => {
+    const _counts = await prisma.$transaction(async (tx) => {
       await tx.communityPostLike.delete({ where: { id: existing.id } });
       return syncCommunityPostCounts(postId, tx);
     });
 
-    return NextResponse.json({ ok: true, liked: false, likesCount: counts.likesCount, commentsCount: counts.commentsCount, message: 'Like removed.' });
+    return NextResponse.json({ ok: true, liked: false, likesCount: _counts.likesCount, commentsCount: _counts.commentsCount, message: 'Like removed.' });
   }
 
-  const counts = await prisma.$transaction(async (tx) => {
+  const _counts = await prisma.$transaction(async (tx) => {
     await tx.communityPostLike.create({ data: { postId, userId: currentUser.userId } });
     return syncCommunityPostCounts(postId, tx);
   });
@@ -84,5 +84,5 @@ export async function POST(request: Request) {
     }),
   ]);
 
-  return NextResponse.json({ ok: true, liked: true, likesCount: counts.likesCount, commentsCount: counts.commentsCount, message: 'Post liked.' });
+  return NextResponse.json({ ok: true, liked: true, likesCount: _counts.likesCount, commentsCount: _counts.commentsCount, message: 'Post liked.' });
 }
