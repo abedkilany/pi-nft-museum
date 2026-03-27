@@ -5,6 +5,7 @@ import { logger } from '@/lib/domains/system';
 import { getNumberSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveRatings } from '@/lib/domains/artworks';
+import { syncArtworkEngagementCounts } from '@/lib/counter-consistency';
 import { assertSameOrigin } from '@/lib/services/request';
 import { getNumberField, readJsonObject, validationError } from '@/lib/services/request';
 
@@ -38,17 +39,14 @@ export async function POST(request: Request) {
 
     await prisma.rating.upsert({ where: { artworkId_userId: { artworkId, userId: currentUser.userId } }, update: { value }, create: { artworkId, userId: currentUser.userId, value } });
 
-    const [ratingsCount, aggregate] = await Promise.all([
-      prisma.rating.count({ where: { artworkId } }),
-      prisma.rating.aggregate({ where: { artworkId }, _avg: { value: true } }),
-    ]);
-
-    const averageRating = Number(aggregate._avg.value || 0);
-    await prisma.artwork.update({ where: { id: artworkId }, data: { averageRating, ratingsCount } });
+    const engagement = await syncArtworkEngagementCounts(artworkId);
     const recalculated = await recalculateArtworkPremiumState(artworkId);
+    const averageRating = Number(recalculated?.artwork.averageRating ?? engagement.averageRating ?? 0);
+    const ratingsCount = Number(recalculated?.artwork.ratingsCount ?? engagement.ratingsCount ?? 0);
+    const premiumScore = Number(recalculated?.premiumScore ?? engagement.premiumScore ?? 0);
 
-    logger.info('Artwork rated successfully', { artworkId, userId: currentUser.userId, value, averageRating, ratingsCount, premiumScore: recalculated?.premiumScore });
-    return NextResponse.json({ ok: true, averageRating, ratingsCount, premiumScore: recalculated?.premiumScore || 0 });
+    logger.info('Artwork rated successfully', { artworkId, userId: currentUser.userId, value, averageRating, ratingsCount, premiumScore });
+    return NextResponse.json({ ok: true, averageRating, ratingsCount, premiumScore });
   } catch (error) {
     logger.error('Failed to submit artwork rating', error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });

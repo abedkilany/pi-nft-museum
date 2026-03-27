@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/domains/auth';
 import { createCommunityActivity, createNotification } from '@/lib/domains/community';
 
 import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
+import { syncCommunityPostCounts } from '@/lib/counter-consistency';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const created = await prisma.$transaction(async (tx) => {
+  const { comment: created, counts } = await prisma.$transaction(async (tx) => {
     const comment = await tx.communityPostComment.create({
       data: {
         postId,
@@ -73,12 +74,9 @@ export async function POST(request: Request) {
       },
     });
 
-    await tx.communityPost.update({
-      where: { id: postId },
-      data: { commentsCount: { increment: 1 } },
-    });
+    const nextCounts = await syncCommunityPostCounts(postId, tx);
 
-    return comment;
+    return { comment, counts: nextCounts };
   });
 
   const linkUrl = '/community';
@@ -127,5 +125,5 @@ export async function POST(request: Request) {
     ...notifications,
   ]);
 
-  return NextResponse.json({ ok: true, commentId: created.id, message: parentComment ? 'Reply added.' : 'Comment added.' });
+  return NextResponse.json({ ok: true, commentId: created.id, commentsCount: counts.commentsCount, likesCount: counts.likesCount, message: parentComment ? 'Reply added.' : 'Comment added.' });
 }

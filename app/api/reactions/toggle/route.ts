@@ -7,6 +7,7 @@ import { recalculateArtworkPremiumState } from '@/lib/comment-scoring';
 import { canReceiveReactions } from '@/lib/domains/artworks';
 import { createCommunityActivity } from '@/lib/domains/community';
 import { createNotification } from '@/lib/domains/notifications';
+import { syncArtworkEngagementCounts } from '@/lib/counter-consistency';
 import { getEnumField, getNumberField, readJsonObject } from '@/lib/services/request';
 import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
 
@@ -55,19 +56,13 @@ export async function POST(request: Request) {
       currentReaction = type as 'LIKE' | 'DISLIKE';
     }
 
-    const grouped = await prisma.artworkReaction.groupBy({
-      by: ['type'],
-      where: { artworkId },
-      _count: { type: true },
-    });
-    const likesCount = grouped.find((row) => row.type === 'LIKE')?._count.type ?? 0;
-    const dislikesCount = grouped.find((row) => row.type === 'DISLIKE')?._count.type ?? 0;
-
-    const updated = await prisma.artwork.update({ where: { id: artworkId }, data: { likesCount, dislikesCount } });
+    const engagement = await syncArtworkEngagementCounts(artworkId);
 
     const recalculated = await recalculateArtworkPremiumState(artworkId);
-    const nextStatus = recalculated?.artwork.status || updated.status;
-    const premiumScore = recalculated?.premiumScore || Number(updated.premiumScore || 0);
+    const likesCount = Number(recalculated?.artwork.likesCount ?? engagement.likesCount ?? 0);
+    const dislikesCount = Number(recalculated?.artwork.dislikesCount ?? engagement.dislikesCount ?? 0);
+    const nextStatus = recalculated?.artwork.status || engagement.status;
+    const premiumScore = Number(recalculated?.premiumScore ?? engagement.premiumScore ?? 0);
 
     if (currentReaction === 'LIKE' && artwork.artistUserId !== currentUser.userId) {
       await Promise.all([

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getFollowCounts as getCanonicalFollowCounts } from '@/lib/counter-consistency';
 
 export async function getFollowState(currentUserId: number | null, targetUserId: number) {
   if (!currentUserId || currentUserId === targetUserId) {
@@ -36,10 +37,5 @@ export async function getFollowState(currentUserId: number | null, targetUserId:
 }
 
 export async function getFollowCounts(userId: number) {
-  const [followers, following] = await Promise.all([
-    prisma.follow.count({ where: { followingId: userId } }),
-    prisma.follow.count({ where: { followerId: userId } }),
-  ]);
-
-  return { followers, following };
+  return getCanonicalFollowCounts(userId, prisma);
 }

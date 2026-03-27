@@ -12,7 +12,8 @@
     "dev:https": "node server.js",
     "check": "npm run lint && tsc --noEmit && npm run build",
     "check:env": "node scripts/check-env.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "resync:counts": "node scripts/resync-counts.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

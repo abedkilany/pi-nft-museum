@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/domains/auth';
 import { createCommunityActivity, createNotification } from '@/lib/domains/community';
 
 import { assertSameOrigin, applyRateLimit } from '@/lib/services/request';
+import { syncCommunityPostCounts } from '@/lib/counter-consistency';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,18 +53,18 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
-    await prisma.$transaction([
-      prisma.communityPostLike.delete({ where: { id: existing.id } }),
-      prisma.communityPost.update({ where: { id: postId }, data: { likesCount: { decrement: 1 } } }),
-    ]);
+    const counts = await prisma.$transaction(async (tx) => {
+      await tx.communityPostLike.delete({ where: { id: existing.id } });
+      return syncCommunityPostCounts(postId, tx);
+    });
 
-    return NextResponse.json({ ok: true, liked: false, message: 'Like removed.' });
+    return NextResponse.json({ ok: true, liked: false, likesCount: counts.likesCount, commentsCount: counts.commentsCount, message: 'Like removed.' });
   }
 
-  await prisma.$transaction([
-    prisma.communityPostLike.create({ data: { postId, userId: currentUser.userId } }),
-    prisma.communityPost.update({ where: { id: postId }, data: { likesCount: { increment: 1 } } }),
-  ]);
+  const counts = await prisma.$transaction(async (tx) => {
+    await tx.communityPostLike.create({ data: { postId, userId: currentUser.userId } });
+    return syncCommunityPostCounts(postId, tx);
+  });
 
   await Promise.all([
     createCommunityActivity({
@@ -83,5 +84,5 @@ export async function POST(request: Request) {
     }),
   ]);
 
-  return NextResponse.json({ ok: true, liked: true, message: 'Post liked.' });
+  return NextResponse.json({ ok: true, liked: true, likesCount: counts.likesCount, commentsCount: counts.commentsCount, message: 'Post liked.' });
 }

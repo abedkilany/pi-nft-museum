@@ -2,20 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { createNotification } from '@/lib/domains/notifications';
+import { getFollowCounts } from '@/lib/counter-consistency';
 import { assertSameOrigin } from '@/lib/services/request';
 import { getNumberField, readJsonObject, validationError } from '@/lib/services/request';
 
 async function buildState(currentUserId: number, profileUserId: number) {
-  const [follow, followersCount, followingCount] = await Promise.all([
+  const [follow, counts] = await Promise.all([
     prisma.follow.findUnique({ where: { followerId_followingId: { followerId: currentUserId, followingId: profileUserId } } }),
-    prisma.follow.count({ where: { followingId: profileUserId } }),
-    prisma.follow.count({ where: { followerId: profileUserId } }),
+    getFollowCounts(profileUserId, prisma),
   ]);
 
   return {
     isFollowing: Boolean(follow),
-    followersCount,
-    followingCount,
+    followersCount: counts.followers,
+    followingCount: counts.following,
     preferences: follow
       ? {
           notificationsEnabled: follow.notificationsEnabled,
