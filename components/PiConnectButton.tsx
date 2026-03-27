@@ -150,7 +150,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
   }
 
   return (
-    <button type="button" className={className} onClick={handleConnect} disabled={loading}>
+    <button type="button" className={className} onClick={handleConnect} disabled={loading} data-track-event="PI_CONNECT_BUTTON_CLICKED" data-feature="auth" data-track-label="Connect with Pi">
       {loading ? 'Connecting...' : children || 'Connect with Pi'}
     </button>
   );

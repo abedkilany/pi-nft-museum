@@ -35,14 +35,14 @@ export function NavBarClient({ items }: Props) {
   return (
     <header className="topbar">
       <div className="topbar-main">
-        <Link href="/" className="brand">
+        <Link href="/" className="brand" data-track-event="BRAND_HOME_CLICKED" data-feature="navigation" data-track-label="Pi NFT Museum home">
           <span className="brand-icon">🏛️</span>
           <span className="brand-text">Pi NFT Museum</span>
         </Link>
 
         <nav className="navlinks navlinks-desktop">
           {visibleItems.map((item) => (
-            <Link key={`${item.label}-${item.href}`} href={item.href}>
+            <Link key={`${item.label}-${item.href}`} href={item.href} data-feature={item.href.startsWith('/admin') ? 'admin' : 'navigation'} data-track-label={item.label}>
               {item.label}
             </Link>
           ))}

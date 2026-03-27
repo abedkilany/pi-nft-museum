@@ -29,6 +29,9 @@ export function MobileNav({ items }: Props) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
+        data-track-event="MOBILE_MENU_TOGGLED"
+        data-feature="navigation"
+        data-track-label="Mobile navigation menu"
       >
         <span>Menu</span>
         <span className="mobile-nav-icon" aria-hidden="true">
@@ -44,6 +47,8 @@ export function MobileNav({ items }: Props) {
               href={item.href}
               className="mobile-nav-link"
               onClick={() => setOpen(false)}
+              data-feature={item.href.startsWith('/admin') ? 'admin' : 'navigation'}
+              data-track-label={item.label}
             >
               {item.label}
             </Link>

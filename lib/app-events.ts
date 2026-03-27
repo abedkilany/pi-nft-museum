@@ -52,17 +52,59 @@ const redactedKeys = new Set([
 ]);
 
 const NOISY_EVENT_NAMES = new Set([
-  'PAGE_VIEWED',
-  'BUTTON_CLICKED',
-  'LINK_CLICKED',
   'IMAGE_CLICKED',
-  'FORM_SUBMITTED',
   'AUTH_ME_START',
   'AUTH_ME_CONFIRMED',
+]);
+
+const IMPORTANT_EVENT_NAMES = new Set([
+  'PAGE_VIEWED',
+  'NAVIGATION_COMPLETED',
+  'BUTTON_CLICKED',
+  'LINK_CLICKED',
+  'FORM_SUBMITTED',
+  'PI_CONNECT_BUTTON_CLICKED',
   'PI_CONNECT_BUTTON_AUTH_ATTEMPT',
   'PI_CONNECT_BUTTON_AUTH_RESOLVED',
+  'PI_CONNECT_BUTTON_AUTH_FAILED_NO_USER',
   'POST_AUTH_REDIRECT_START',
+  'NOTIFICATION_PANEL_TOGGLED',
+  'LOGOUT_CLICKED',
 ]);
+
+const IMPORTANT_FEATURES = new Set([
+  'auth',
+  'navigation',
+  'uploads',
+  'artwork',
+  'comments',
+  'community',
+  'notifications',
+  'profile',
+  'account',
+  'review',
+  'admin',
+  'security',
+  'payments'
+]);
+
+function isImportantRoute(route: string | null | undefined) {
+  if (!route) return false;
+  return [
+    '/',
+    '/gallery',
+    '/artwork',
+    '/artist',
+    '/account',
+    '/admin',
+    '/upload',
+    '/community',
+    '/profile',
+    '/review',
+    '/notifications',
+    '/premium'
+  ].some((prefix) => route === prefix || route.startsWith(prefix + '/') );
+}
 
 export function sanitizeEventValue(value: unknown): unknown {
   if (value instanceof Error) {
@@ -109,12 +151,16 @@ function shouldPersistEvent(input: AppEventInput) {
   const severity = String(input.severity || '').toUpperCase();
   const category = String(input.category || '').toUpperCase();
   const name = String(input.name || input.eventKey || '').toUpperCase();
-  const feature = String(input.feature || '').toLowerCase();
+  const normalizedRoute = normalizeRoutePath(input.route, input.url);
+  const feature = String(input.feature || '').toLowerCase() || String(inferFeature(input) || '').toLowerCase();
+  const isImportantUserAction = category === 'USER_ACTION' && (IMPORTANT_EVENT_NAMES.has(name) || IMPORTANT_FEATURES.has(feature) || isImportantRoute(normalizedRoute));
+  const isImportantNavigation = category === 'NAVIGATION' && (IMPORTANT_EVENT_NAMES.has(name) || isImportantRoute(normalizedRoute));
 
   if (status === 'FAILED' || status === 'WARNING') return true;
   if (severity === 'HIGH' || severity === 'CRITICAL') return true;
   if (category === 'ERROR' || category === 'AUDIT') return true;
   if (feature === 'admin' || feature === 'security' || feature === 'payments') return true;
+  if (isImportantUserAction || isImportantNavigation) return true;
   if (NOISY_EVENT_NAMES.has(name)) return false;
   return false;
 }
@@ -155,10 +201,21 @@ function inferFeature(input: AppEventInput) {
   if (sourceText.includes('ADMIN')) return 'admin';
   if (sourceText.includes('COMMENT')) return 'comments';
   if (sourceText.includes('ARTWORK')) return 'artwork';
+  if (sourceText.includes('NOTIFICATION')) return 'notifications';
+  if (sourceText.includes('PROFILE')) return 'profile';
+  if (sourceText.includes('COMMUNITY')) return 'community';
+  if (sourceText.includes('REVIEW')) return 'review';
+  if (sourceText.includes('FOLLOW') || sourceText.includes('REACTION') || sourceText.includes('LIKE')) return 'community';
   if (sourceText.includes('SECURITY')) return 'security';
   const normalizedRoute = normalizeRoutePath(input.route, input.url);
   if (normalizedRoute?.startsWith('/admin')) return 'admin';
   if (normalizedRoute?.startsWith('/account')) return 'account';
+  if (normalizedRoute?.startsWith('/upload')) return 'uploads';
+  if (normalizedRoute?.startsWith('/artwork')) return 'artwork';
+  if (normalizedRoute?.startsWith('/community')) return 'community';
+  if (normalizedRoute?.startsWith('/profile')) return 'profile';
+  if (normalizedRoute?.startsWith('/review')) return 'review';
+  if (normalizedRoute?.startsWith('/notifications')) return 'notifications';
   if (normalizedRoute === '/' || normalizedRoute?.startsWith('/gallery')) return 'navigation';
   return 'general';
 }

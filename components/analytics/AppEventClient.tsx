@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
-import { beginClientTrace, buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
+import { useEffect, useMemo, useRef } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { beginClientTrace, sendClientAppEvent } from '@/lib/observability-client';
 
 type EventPayload = Record<string, unknown> & {
   category: string;
@@ -11,37 +12,34 @@ type EventPayload = Record<string, unknown> & {
 };
 
 const isProduction = process.env.NODE_ENV === 'production';
+const IMPORTANT_BUTTON_WORDS = [
+  'connect', 'login', 'log in', 'logout', 'sign out', 'upload', 'submit', 'save', 'delete',
+  'remove', 'edit', 'update', 'mint', 'pay', 'approve', 'report', 'follow', 'unfollow',
+  'comment', 'reply', 'like', 'dislike', 'notifications', 'admin', 'review', 'publish'
+];
+const IMPORTANT_ROUTE_PREFIXES = ['/', '/gallery', '/artwork', '/artist', '/account', '/admin', '/upload', '/community', '/profile', '/review', '/notifications', '/premium'];
 
-function sendEvent(payload: EventPayload, options?: { beginTrace?: boolean }) {
-  const sessionId = getClientSessionId();
-  const traceId = options?.beginTrace
-    ? beginClientTrace(typeof payload.traceId === 'string' ? payload.traceId : null)
-    : consumeOrCreateTraceId(typeof payload.traceId === 'string' ? payload.traceId : null);
+function normalizeText(value: string | null | undefined) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
 
-  const body = JSON.stringify({
-    status: 'SUCCESS',
-    source: 'CLIENT',
-    ...payload,
-    sessionId,
-    traceId,
-    correlationId: traceId,
-    url: window.location.href,
-    route: window.location.pathname,
-  });
+function isImportantRoute(route: string | null | undefined) {
+  if (!route) return false;
+  return IMPORTANT_ROUTE_PREFIXES.some((prefix) => route === prefix || route.startsWith(`${prefix}/`));
+}
 
-  if (navigator.sendBeacon) {
-    const blob = new Blob([body], { type: 'application/json' });
-    navigator.sendBeacon('/api/events', blob);
-    return;
-  }
-
-  void fetch('/api/events', {
-    method: 'POST',
-    headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
-    body,
-    keepalive: true,
-    cache: 'no-store'
-  }).catch(() => null);
+function inferFeatureFromRoute(route: string | null | undefined) {
+  if (!route) return 'general';
+  if (route.startsWith('/admin')) return 'admin';
+  if (route.startsWith('/account')) return 'account';
+  if (route.startsWith('/upload')) return 'uploads';
+  if (route.startsWith('/artwork')) return 'artwork';
+  if (route.startsWith('/community')) return 'community';
+  if (route.startsWith('/profile')) return 'profile';
+  if (route.startsWith('/review')) return 'review';
+  if (route.startsWith('/notifications')) return 'notifications';
+  if (route === '/' || route.startsWith('/gallery')) return 'navigation';
+  return 'general';
 }
 
 function getElementLabel(element: HTMLElement) {
@@ -57,32 +55,53 @@ function getElementLabel(element: HTMLElement) {
   );
 }
 
-function buildClickPayload(target: HTMLElement): EventPayload | null {
+function hasImportantText(value: string | null | undefined) {
+  const text = normalizeText(value);
+  return IMPORTANT_BUTTON_WORDS.some((word) => text.includes(word));
+}
+
+function inferFeature(target: HTMLElement, route: string) {
+  return target.getAttribute('data-feature') || inferFeatureFromRoute(route);
+}
+
+function shouldTrackClick(clickable: HTMLElement, route: string) {
+  if (clickable.hasAttribute('data-track-event')) return true;
+  const feature = inferFeature(clickable, route);
+  if (feature !== 'general') return true;
+
+  const href = clickable instanceof HTMLAnchorElement ? clickable.getAttribute('href') : clickable.getAttribute('href');
+  const label = getElementLabel(clickable);
+  if (href && (href.startsWith('/admin') || href.startsWith('/account') || href.startsWith('/upload') || href.startsWith('/artwork') || href.startsWith('/community') || href.startsWith('/profile') || href.startsWith('/review') || href.startsWith('/notifications'))) {
+    return true;
+  }
+
+  return hasImportantText(label) || isImportantRoute(route);
+}
+
+function buildClickPayload(target: HTMLElement, route: string): EventPayload | null {
   const clickable = target.closest('button, a, img, [role="button"], [data-track-event]') as HTMLElement | null;
   if (!clickable) return null;
+  if (isProduction && !shouldTrackClick(clickable, route)) return null;
 
   const explicit = clickable.getAttribute('data-track-event');
   const href = clickable instanceof HTMLAnchorElement ? clickable.href : clickable.getAttribute('href');
   const src = clickable instanceof HTMLImageElement ? clickable.currentSrc || clickable.src : clickable.getAttribute('src');
   const entityType = clickable.getAttribute('data-entity-type');
   const entityId = clickable.getAttribute('data-entity-id');
-  const feature = clickable.getAttribute('data-feature');
-
-  if (isProduction && !explicit && !entityType && !entityId && !feature) {
-    return null;
-  }
+  const feature = inferFeature(clickable, route);
+  const label = getElementLabel(clickable);
 
   return {
     category: 'USER_ACTION',
     type: explicit ? 'CUSTOM_CLICK' : clickable.tagName === 'IMG' ? 'IMAGE_CLICK' : 'CLICK',
     name: explicit || (clickable.tagName === 'IMG' ? 'IMAGE_CLICKED' : clickable.tagName === 'A' ? 'LINK_CLICKED' : 'BUTTON_CLICKED'),
-    feature: feature || null,
+    feature,
     entityType,
     entityId,
-    message: getElementLabel(clickable),
+    message: label,
     data: {
       tagName: clickable.tagName,
-      label: getElementLabel(clickable),
+      label,
       href: href || null,
       src: src || null,
       id: clickable.id || null,
@@ -92,35 +111,87 @@ function buildClickPayload(target: HTMLElement): EventPayload | null {
   };
 }
 
+function buildFormPayload(form: HTMLFormElement, route: string): EventPayload | null {
+  const feature = form.getAttribute('data-feature') || inferFeatureFromRoute(route);
+  if (isProduction && feature === 'general' && !isImportantRoute(route)) return null;
+
+  return {
+    category: 'USER_ACTION',
+    type: 'FORM_SUBMIT',
+    name: 'FORM_SUBMITTED',
+    feature,
+    message: form.getAttribute('name') || form.id || route,
+    data: {
+      action: form.action || null,
+      id: form.id || null,
+      method: form.method || null,
+      classes: form.className || null,
+      fieldCount: form.querySelectorAll('input, select, textarea').length
+    }
+  };
+}
+
 export function AppEventClient() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const route = pathname || '/';
+  const fullRoute = useMemo(() => {
+    const query = searchParams?.toString();
+    return query ? `${route}?${query}` : route;
+  }, [route, searchParams]);
+  const previousRouteRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const traceId = beginClientTrace();
+    sendClientAppEvent({
+      category: 'NAVIGATION',
+      type: 'PAGE_VIEW',
+      name: 'PAGE_VIEWED',
+      feature: inferFeatureFromRoute(route),
+      message: `Viewed ${route}`,
+      route,
+      data: {
+        previousRoute: previousRouteRef.current,
+        query: searchParams?.toString() || null,
+        referrer: typeof document !== 'undefined' ? document.referrer || null : null,
+      }
+    }, { beginTrace: false, keepalive: true });
+
+    if (previousRouteRef.current && previousRouteRef.current !== fullRoute) {
+      sendClientAppEvent({
+        category: 'NAVIGATION',
+        type: 'ROUTE_CHANGE',
+        name: 'NAVIGATION_COMPLETED',
+        feature: inferFeatureFromRoute(route),
+        message: `Navigated to ${route}`,
+        route,
+        traceId,
+        data: {
+          from: previousRouteRef.current,
+          to: fullRoute,
+          query: searchParams?.toString() || null,
+        }
+      }, { keepalive: true });
+    }
+
+    previousRouteRef.current = fullRoute;
+  }, [fullRoute, route, searchParams]);
+
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      const payload = buildClickPayload(target);
+      const payload = buildClickPayload(target, route);
       if (!payload) return;
-      sendEvent(payload, { beginTrace: true });
+      sendClientAppEvent(payload, { beginTrace: true, keepalive: true });
     };
 
     const onSubmit = (event: SubmitEvent) => {
       const form = event.target as HTMLFormElement | null;
       if (!form) return;
-      const feature = form.getAttribute('data-feature');
-      if (isProduction && !feature) return;
-
-      sendEvent({
-        category: 'USER_ACTION',
-        type: 'FORM_SUBMIT',
-        name: 'FORM_SUBMITTED',
-        feature: feature || 'form',
-        message: form.getAttribute('name') || form.id || window.location.pathname,
-        data: {
-          action: form.action || null,
-          id: form.id || null,
-          method: form.method || null,
-          classes: form.className || null
-        }
-      }, { beginTrace: true });
+      const payload = buildFormPayload(form, route);
+      if (!payload) return;
+      sendClientAppEvent(payload, { beginTrace: true, keepalive: true });
     };
 
     document.addEventListener('click', onClick, true);
@@ -129,7 +200,7 @@ export function AppEventClient() {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('submit', onSubmit, true);
     };
-  }, []);
+  }, [route]);
 
   return null;
 }

@@ -139,10 +139,10 @@ export function NotificationBell() {
         </div>
 
         <div className="notification-toolbar">
-          <button className="button secondary" type="button" onClick={markAllAsRead}>
+          <button className="button secondary" type="button" onClick={markAllAsRead} data-feature="notifications" data-track-label="Mark all notifications as read">
             Mark all as read
           </button>
-          <button className="button secondary" type="button" onClick={clearRead}>
+          <button className="button secondary" type="button" onClick={clearRead} data-feature="notifications" data-track-label="Clear read notifications">
             Clear read
           </button>
         </div>
@@ -169,11 +169,11 @@ export function NotificationBell() {
 
               <div className="notification-item-actions">
                 {!item.isRead ? (
-                  <button className="button secondary" type="button" onClick={() => markOneAsRead(item.id)}>
+                  <button className="button secondary" type="button" onClick={() => markOneAsRead(item.id)} data-feature="notifications" data-entity-type="notification" data-entity-id={String(item.id)} data-track-label="Mark notification as read">
                     Mark as read
                   </button>
                 ) : null}
-                <button className="button secondary" type="button" onClick={() => deleteOne(item.id)}>
+                <button className="button secondary" type="button" onClick={() => deleteOne(item.id)} data-feature="notifications" data-entity-type="notification" data-entity-id={String(item.id)} data-track-label="Delete notification">
                   Delete
                 </button>
               </div>
@@ -183,7 +183,7 @@ export function NotificationBell() {
       </div>
 
       <div className="notification-footer">
-        <Link href="/notifications" className="button primary" onClick={() => setOpen(false)}>
+        <Link href="/notifications" className="button primary" onClick={() => setOpen(false)} data-feature="notifications" data-track-label="Open notifications page">
           Open notifications
         </Link>
       </div>
@@ -195,6 +195,9 @@ export function NotificationBell() {
       <button
         ref={buttonRef}
         className="button secondary nav-bell-button"
+        data-track-event="NOTIFICATION_PANEL_TOGGLED"
+        data-feature="notifications"
+        data-track-label="Notifications"
         type="button"
         onClick={() => setOpen((value) => !value)}
         style={{ position: 'relative', minWidth: 52 }}

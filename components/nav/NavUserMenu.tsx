@@ -74,6 +74,9 @@ export function NavUserMenu({ user, showAdmin }: Props) {
       <button
         className="button secondary nav-user-trigger"
         type="button"
+        data-track-event="ACCOUNT_MENU_TOGGLED"
+        data-feature="account"
+        data-track-label="My account menu"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -90,13 +93,13 @@ export function NavUserMenu({ user, showAdmin }: Props) {
           </div>
 
           <div className="nav-user-links">
-            <Link href={`/profile/${user.username}`} prefetch={false} className="button secondary nav-user-link">
+            <Link href={`/profile/${user.username}`} prefetch={false} className="button secondary nav-user-link" data-feature="profile" data-track-label="Profile">
               Profile
             </Link>
-            <Link href="/account" className="button secondary nav-user-link">
+            <Link href="/account" className="button secondary nav-user-link" data-feature="account" data-track-label="Account">
               Account
             </Link>
-            <Link href="/account/artworks" prefetch={false} className="button secondary nav-user-link">
+            <Link href="/account/artworks" prefetch={false} className="button secondary nav-user-link" data-feature="artwork" data-track-label="My artworks">
               My artworks
             </Link>
             {showAdmin ? (
@@ -107,6 +110,9 @@ export function NavUserMenu({ user, showAdmin }: Props) {
             <button
               className="button secondary nav-user-link"
               type="button"
+              data-track-event="LOGOUT_CLICKED"
+              data-feature="auth"
+              data-track-label="Logout"
               onClick={handleLogout}
               disabled={isLoggingOut}
             >
