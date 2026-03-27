@@ -10,6 +10,8 @@ export type ErrorLogInput = {
   status?: ErrorStatus;
   source?: ErrorSource;
   runtime?: string | null;
+  category?: string | null;
+  isOperational?: boolean | null;
   route?: string | null;
   method?: string | null;
   url?: string | null;
@@ -23,7 +25,10 @@ export type ErrorLogInput = {
   environment?: string | null;
   userAgent?: string | null;
   ipAddress?: string | null;
+  sessionId?: string | null;
   requestId?: string | null;
+  traceId?: string | null;
+  correlationId?: string | null;
   sentryEventId?: string | null;
   sentryIssueUrl?: string | null;
   tags?: Record<string, unknown> | null;
@@ -133,6 +138,8 @@ export async function recordErrorLog(input: ErrorLogInput) {
     status: input.status ?? 'OPEN',
     source: input.source ?? 'UNKNOWN',
     runtime: compactText(input.runtime, 120),
+    category: compactText(input.category, 120),
+    isOperational: input.isOperational ?? true,
     route: compactText(input.route, 512),
     method: compactText(input.method, 32),
     url: compactText(input.url, 2000),
@@ -146,7 +153,10 @@ export async function recordErrorLog(input: ErrorLogInput) {
     environment: compactText(input.environment ?? process.env.SENTRY_ENVIRONMENT ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV, 80),
     userAgent: compactText(input.userAgent, 4000),
     ipAddress: compactText(input.ipAddress, 180),
+    sessionId: compactText(input.sessionId, 180),
     requestId: compactText(input.requestId, 180),
+    traceId: compactText(input.traceId, 180),
+    correlationId: compactText(input.correlationId, 180),
     sentryEventId: compactText(input.sentryEventId, 180),
     sentryIssueUrl: compactText(input.sentryIssueUrl, 2000),
     tagsJson: asJson(input.tags ?? null),
@@ -180,6 +190,8 @@ export async function recordErrorLog(input: ErrorLogInput) {
       severity: data.severity,
       source: data.source,
       runtime: data.runtime,
+      category: data.category,
+      isOperational: data.isOperational,
       route: data.route,
       method: data.method,
       url: data.url,
@@ -193,7 +205,10 @@ export async function recordErrorLog(input: ErrorLogInput) {
       environment: data.environment,
       userAgent: data.userAgent,
       ipAddress: data.ipAddress,
+      sessionId: data.sessionId,
       requestId: data.requestId,
+      traceId: data.traceId,
+      correlationId: data.correlationId,
       sentryEventId: data.sentryEventId,
       sentryIssueUrl: data.sentryIssueUrl,
       tagsJson: data.tagsJson,
@@ -241,9 +256,14 @@ export function normalizeError(error: unknown) {
   };
 }
 
-export function mapSeverityFromStatus(status?: number | null): ErrorSeverity {
+export function mapSeverityFromStatus(status?: number | null, category?: string | null): ErrorSeverity {
+  const normalizedCategory = String(category || '').toLowerCase();
+  if (normalizedCategory === 'security') return 'HIGH';
+  if (normalizedCategory === 'payments') return 'HIGH';
   if (!status) return 'MEDIUM';
   if (status >= 500) return 'HIGH';
+  if (status === 429) return 'LOW';
+  if (status === 401 || status === 403) return normalizedCategory === 'security' ? 'HIGH' : 'MEDIUM';
   if (status >= 400) return 'MEDIUM';
   return 'LOW';
 }

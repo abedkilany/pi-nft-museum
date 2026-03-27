@@ -88,6 +88,7 @@ model User {
   postComments                 CommunityPostComment[]
   postLikes                    CommunityPostLike[]
   errorLogs                    ErrorLog[]
+  systemLogs                   SystemLog[]
   favorites                    Favorite[]
   following                    Follow[]               @relation("UserFollowing")
   followers                    Follow[]               @relation("UserFollowers")
@@ -109,6 +110,11 @@ model UserSession {
   ipHash           String?
   userAgent        String?
   lastSeenAt       DateTime?
+  lastRoute        String?
+  lastRequestId    String?
+  lastTraceId      String?
+  lastCorrelationId String?
+  lastActivityType String?
   expiresAt        DateTime
   refreshExpiresAt DateTime
   revokedAt        DateTime?
@@ -586,6 +592,45 @@ model AppEvent {
   @@index([entityType, entityId])
 }
 
+model SystemLog {
+  id            Int      @id @default(autoincrement())
+  timestamp     DateTime @default(now())
+  level         String
+  message       String
+  code          String?
+  category      String?
+  severity      String?
+  source        String?
+  feature       String?
+  route         String?
+  method        String?
+  url           String?
+  component     String?
+  userId        Int?
+  sessionId     String?
+  requestId     String?
+  traceId       String?
+  correlationId String?
+  entityType    String?
+  entityId      String?
+  httpStatus    Int?
+  fingerprint   String?
+  dataJson      Json?
+  createdAt     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([level])
+  @@index([category])
+  @@index([severity])
+  @@index([feature])
+  @@index([userId])
+  @@index([requestId])
+  @@index([traceId])
+  @@index([correlationId])
+  @@index([entityType, entityId])
+}
+
 model ErrorLog {
   id              Int           @id @default(autoincrement())
   fingerprint     String        @unique
@@ -596,6 +641,8 @@ model ErrorLog {
   status          ErrorStatus   @default(OPEN)
   source          ErrorSource   @default(UNKNOWN)
   runtime         String?
+  category        String?
+  isOperational   Boolean       @default(true)
   route           String?
   method          String?
   url             String?
@@ -609,7 +656,10 @@ model ErrorLog {
   environment     String?
   userAgent       String?
   ipAddress       String?
+  sessionId       String?
   requestId       String?
+  traceId         String?
+  correlationId   String?
   occurrenceCount Int           @default(1)
   firstSeenAt     DateTime      @default(now())
   lastSeenAt      DateTime      @default(now())
@@ -630,6 +680,11 @@ model ErrorLog {
   @@index([source])
   @@index([lastSeenAt])
   @@index([userId])
+  @@index([requestId])
+  @@index([traceId])
+  @@index([correlationId])
+  @@index([sessionId])
+  @@index([category])
 }
 
 model AuditLog {

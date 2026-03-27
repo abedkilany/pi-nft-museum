@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/nextjs';
 import { classifyEventSeverity, trackAppEvent, sanitizeEventValue, normalizeRoutePath } from '@/lib/app-events';
-import { appendSystemLog } from '@/lib/system-log';
+import { appendSystemLog, type SystemLogEntry, type SystemLogLevel } from '@/lib/system-log';
 import { mapSeverityFromStatus, normalizeError, recordErrorLog } from '@/lib/error-tracker';
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = SystemLogLevel;
 
 const isDebug = process.env.APP_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
 const logLevel = (process.env.LOG_LEVEL || 'debug') as LogLevel;
@@ -23,14 +23,46 @@ function sanitizeMeta(meta: unknown): unknown {
   return sanitizeEventValue(meta);
 }
 
-
 function metaRecord(meta: unknown) {
   return meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : null;
 }
 
-function extractContext(meta: unknown) {
+function inferCategory(record: Record<string, unknown> | null, message: string) {
+  const explicit = typeof record?.category === 'string' ? record.category : null;
+  if (explicit) return explicit;
+
+  const feature = typeof record?.feature === 'string' ? record.feature.toLowerCase() : '';
+  if (feature) return feature;
+
+  const sourceText = `${message} ${typeof record?.eventKey === 'string' ? record.eventKey : ''}`.toLowerCase();
+  if (sourceText.includes('auth')) return 'auth';
+  if (sourceText.includes('payment')) return 'payments';
+  if (sourceText.includes('security')) return 'security';
+  if (sourceText.includes('admin')) return 'admin';
+  return 'application';
+}
+
+function inferCode(record: Record<string, unknown> | null) {
+  if (typeof record?.code === 'string' || typeof record?.code === 'number') return String(record.code);
+  if (typeof record?.errorCode === 'string' || typeof record?.errorCode === 'number') return String(record.errorCode);
+  return null;
+}
+
+function inferSeverity(level: LogLevel, status: number | null, category: string | null) {
+  if (level === 'error') return mapSeverityFromStatus(status, category);
+  if (level === 'warn') return classifyEventSeverity({ failed: true, status, category: category?.toUpperCase() || 'SYSTEM_FLOW' });
+  return level === 'debug' ? 'LOW' : null;
+}
+
+function extractContext(meta: unknown, message: string) {
   const record = metaRecord(meta);
+  const status = typeof record?.httpStatus === 'number' ? record.httpStatus : typeof record?.status === 'number' ? record.status : null;
+  const category = inferCategory(record, message);
+
   return {
+    code: inferCode(record),
+    category,
+    severity: inferSeverity('info', status, category),
     feature: typeof record?.feature === 'string' ? record.feature : null,
     route: normalizeRoutePath(typeof record?.route === 'string' ? record.route : null, typeof record?.url === 'string' ? record.url : null),
     method: typeof record?.method === 'string' ? record.method : null,
@@ -47,15 +79,8 @@ function extractContext(meta: unknown) {
     entityType: typeof record?.entityType === 'string' ? record.entityType : null,
     entityId: typeof record?.entityId === 'string' || typeof record?.entityId === 'number' ? String(record.entityId) : null,
     userId: typeof record?.userId === 'number' ? record.userId : null,
-  };
-}
-
-function buildEntry(level: LogLevel, message: string, meta?: unknown) {
-  return {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    meta: sanitizeMeta(meta)
+    source: typeof record?.source === 'string' ? record.source : typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
+    httpStatus: status,
   };
 }
 
@@ -90,13 +115,11 @@ function extractErrorCandidate(meta: unknown): unknown {
   const genericCode = typeof record.code === 'string' || typeof record.code === 'number' ? String(record.code) : null;
   const messageContainsErrorKey = typeof record.message === 'string' && Object.keys(record).some((key) => key.toLowerCase().includes('error'));
   const genericMessage = messageContainsErrorKey ? record.message as string : null;
-  const genericName = typeof record.name === 'string' && explicitErrorName ? record.name : null;
-  const genericStack = typeof record.stack === 'string' && explicitErrorStack ? record.stack : null;
 
   const errorLike: NormalizedLoggerError = {
-    name: explicitErrorName || genericName,
+    name: explicitErrorName,
     message: explicitErrorMessage || genericMessage || errorFieldText,
-    stack: explicitErrorStack || genericStack,
+    stack: explicitErrorStack,
     digest: null,
     code: explicitErrorCode || (status != null && status >= 400 ? genericCode : null),
     status,
@@ -130,39 +153,65 @@ function normalizeLoggerErrorCandidate(candidate: unknown): NormalizedLoggerErro
     };
   }
 
-  return emptyNormalizedError();
+  return { name: null, message: null, stack: null, digest: null, code: null, status: null };
 }
 
-function emptyNormalizedError() {
-  return {
-    name: null,
-    message: null,
-    stack: null,
-    digest: null,
-    code: null,
-    status: null,
-  };
-}
-
-async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown) {
-  let sentryEventId: string | null = null;
+function buildSystemLogEntry(level: LogLevel, message: string, meta?: unknown): SystemLogEntry {
+  const sanitizedMeta = sanitizeMeta(meta);
+  const context = extractContext(sanitizedMeta, message);
   const errorCandidate = extractErrorCandidate(meta);
   const normalized = level === 'error'
     ? normalizeLoggerErrorCandidate(errorCandidate ?? meta ?? message)
     : errorCandidate
       ? normalizeLoggerErrorCandidate(errorCandidate)
-      : emptyNormalizedError();
-  const sanitizedMeta = meta && typeof meta === 'object' ? (sanitizeMeta(meta) as Record<string, unknown>) : { meta: sanitizeMeta(meta) };
-  const context = extractContext(sanitizedMeta);
+      : { name: null, message: null, stack: null, digest: null, code: null, status: context.httpStatus };
+
+  const category = context.category;
+
+  return {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    code: normalized.code || context.code,
+    category,
+    severity: inferSeverity(level, normalized.status ?? context.httpStatus, category),
+    source: context.source,
+    feature: context.feature,
+    route: context.route,
+    method: context.method,
+    url: context.url,
+    component: context.component,
+    userId: context.userId,
+    sessionId: context.sessionId,
+    requestId: context.requestId,
+    traceId: context.traceId,
+    correlationId: context.correlationId,
+    entityType: context.entityType,
+    entityId: context.entityId,
+    httpStatus: normalized.status ?? context.httpStatus,
+    meta: sanitizedMeta,
+  };
+}
+
+async function persistIfNeeded(level: LogLevel, message: string, entry: SystemLogEntry) {
+  let sentryEventId: string | null = null;
+  const errorCandidate = extractErrorCandidate(entry.meta);
+  const normalized = level === 'error'
+    ? normalizeLoggerErrorCandidate(errorCandidate ?? entry.meta ?? message)
+    : errorCandidate
+      ? normalizeLoggerErrorCandidate(errorCandidate)
+      : { name: null, message: null, stack: null, digest: null, code: null, status: entry.httpStatus ?? null };
+
+  const sanitizedMeta = entry.meta && typeof entry.meta === 'object' ? (entry.meta as Record<string, unknown>) : { meta: entry.meta };
 
   try {
     if (level === 'error') {
-      sentryEventId = Sentry.captureException(meta instanceof Error ? meta : new Error(message), {
-        tags: { source: 'logger', log_level: level },
+      sentryEventId = Sentry.captureException(errorCandidate instanceof Error ? errorCandidate : new Error(message), {
+        tags: { source: 'logger', log_level: level, category: entry.category || 'application' },
         extra: sanitizedMeta
       });
     } else if (level === 'warn') {
-      Sentry.captureMessage(message, { level: 'warning', tags: { source: 'logger' } });
+      Sentry.captureMessage(message, { level: 'warning', tags: { source: 'logger', category: entry.category || 'application' } });
     }
   } catch {}
 
@@ -173,31 +222,27 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
       eventKey: `LOGGER_${level.toUpperCase()}`,
       name: message,
       status: level === 'error' ? 'FAILED' : level === 'warn' ? 'WARNING' : 'SUCCESS',
-      severity: level === 'error'
-        ? mapSeverityFromStatus(normalized.status)
-        : level === 'warn'
-          ? classifyEventSeverity({ failed: true, status: normalized.status, category: context.feature === 'security' ? 'SECURITY' : 'SYSTEM_FLOW' })
-          : null,
+      severity: entry.severity,
       isHealthy: level === 'info',
       message,
       readableSummary: message,
-      source: typeof window === 'undefined' ? 'SERVER' : 'CLIENT',
-      feature: context.feature,
-      route: context.route,
-      method: context.method,
-      url: context.url,
-      component: context.component,
-      userId: context.userId,
-      sessionId: context.sessionId,
-      requestId: context.requestId,
-      traceId: context.traceId,
-      correlationId: context.correlationId,
-      entityType: context.entityType,
-      entityId: context.entityId,
+      source: entry.source,
+      feature: entry.feature,
+      route: entry.route,
+      method: entry.method,
+      url: entry.url,
+      component: entry.component,
+      userId: entry.userId,
+      sessionId: entry.sessionId,
+      requestId: entry.requestId,
+      traceId: entry.traceId,
+      correlationId: entry.correlationId,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
       errorName: normalized.name,
-      errorCode: normalized.code,
+      errorCode: normalized.code || entry.code,
       errorStack: normalized.stack,
-      httpStatus: normalized.status,
+      httpStatus: normalized.status ?? entry.httpStatus,
       data: sanitizedMeta,
       tags: sentryEventId ? { sentryEventId } : undefined
     });
@@ -209,16 +254,26 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
     await recordErrorLog({
       title: message,
       message: normalized.message || message,
-      severity: level === 'error' ? mapSeverityFromStatus(normalized.status) : 'LOW',
-      source: 'SERVER',
+      severity: level === 'error' ? mapSeverityFromStatus(normalized.status ?? entry.httpStatus, entry.category) : 'LOW',
+      source: entry.source === 'CLIENT' ? 'CLIENT' : entry.source === 'MIDDLEWARE' ? 'MIDDLEWARE' : 'SERVER',
       runtime: typeof window === 'undefined' ? 'nodejs' : 'browser',
+      category: entry.category,
+      isOperational: true,
+      route: entry.route,
+      method: entry.method,
+      url: entry.url,
       errorName: normalized.name,
       stack: normalized.stack,
       digest: normalized.digest,
-      code: normalized.code,
-      httpStatus: normalized.status,
+      code: normalized.code || entry.code,
+      httpStatus: normalized.status ?? entry.httpStatus,
+      sessionId: entry.sessionId,
+      requestId: entry.requestId,
+      traceId: entry.traceId,
+      correlationId: entry.correlationId,
       sentryEventId,
-      extra: sanitizedMeta
+      extra: sanitizedMeta,
+      userId: entry.userId,
     });
   } catch (error) {
     console.error('Failed to persist error log', error);
@@ -226,7 +281,8 @@ async function persistIfNeeded(level: LogLevel, message: string, meta?: unknown)
 }
 
 async function write(level: LogLevel, message: string, meta?: unknown) {
-  const entry = buildEntry(level, message, meta);
+  const entry = buildSystemLogEntry(level, message, meta);
+
   if (level === 'debug') {
     console.debug(entry);
   } else if (level === 'info') {
@@ -245,7 +301,7 @@ async function write(level: LogLevel, message: string, meta?: unknown) {
     }
   }
 
-  await persistIfNeeded(level, message, meta);
+  await persistIfNeeded(level, message, entry);
 }
 
 export const logger = {

@@ -6,6 +6,20 @@ type HeaderReader = { get(name: string): string | null };
 const REFRESH_TOKEN_AUDIENCE = 'pi-nft-museum-refresh';
 const SESSION_DEVICE_FALLBACK = 'unknown-device';
 
+function getHeader(headers: HeaderReader, name: string) {
+  return headers.get(name) || headers.get(name.toLowerCase()) || headers.get(name.toUpperCase());
+}
+
+function buildSessionTrackingFields(headers: HeaderReader) {
+  return {
+    lastRoute: getHeader(headers, 'x-route-path') || getHeader(headers, 'referer') || null,
+    lastRequestId: getHeader(headers, 'x-request-id') || getHeader(headers, 'x-vercel-id') || null,
+    lastTraceId: getHeader(headers, 'x-trace-id') || null,
+    lastCorrelationId: getHeader(headers, 'x-correlation-id') || getHeader(headers, 'x-trace-id') || null,
+    lastActivityType: getHeader(headers, 'x-session-activity') || 'auth',
+  };
+}
+
 function sha256(input: string) {
   return createHash('sha256').update(input).digest('hex');
 }
@@ -42,6 +56,7 @@ export async function createSessionRegistryEntry(input: {
       deviceInfo: buildDeviceInfo(input.headers),
       ipHash: hashIpAddress(input.headers.get('x-forwarded-for') || input.headers.get('x-real-ip')),
       userAgent: input.headers.get('user-agent'),
+      ...buildSessionTrackingFields(input.headers),
       expiresAt: input.expiresAt,
       refreshExpiresAt: input.refreshExpiresAt,
       lastSeenAt: new Date(),
@@ -49,10 +64,13 @@ export async function createSessionRegistryEntry(input: {
   });
 }
 
-export async function touchSessionRegistryEntry(jti: string) {
+export async function touchSessionRegistryEntry(jti: string, headers?: HeaderReader) {
   return prisma.userSession.updateMany({
     where: { jti, revokedAt: null },
-    data: { lastSeenAt: new Date() },
+    data: {
+      lastSeenAt: new Date(),
+      ...(headers ? buildSessionTrackingFields(headers) : {}),
+    },
   }).catch(() => null);
 }
 
@@ -96,6 +114,7 @@ export async function rotateRefreshSession(input: {
       deviceInfo: buildDeviceInfo(input.headers),
       ipHash: hashIpAddress(input.headers.get('x-forwarded-for') || input.headers.get('x-real-ip')),
       userAgent: input.headers.get('user-agent'),
+      ...buildSessionTrackingFields(input.headers),
       expiresAt: input.expiresAt,
       refreshExpiresAt: input.refreshExpiresAt,
       lastSeenAt: new Date(),
