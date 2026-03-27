@@ -1,7 +1,18 @@
-import type { ArtworkStatus, ErrorSeverity, ErrorSource, ErrorStatus, PageStatus, UserStatus } from '@prisma/client';
+import { ArtworkStatus, UserStatus, PageStatus } from '@/types/enums';
+import type { ErrorSeverity, ErrorSource, ErrorStatus } from '@prisma/client';
 
-export type AdminArtworkModerationStatus = 'APPROVED' | 'REJECTED' | 'HIDDEN' | 'PENDING';
-export const ADMIN_ARTWORK_MODERATION_STATUSES = ['APPROVED', 'REJECTED', 'HIDDEN', 'PENDING'] as const;
+export type AdminArtworkModerationStatus =
+  | ArtworkStatus.APPROVED
+  | ArtworkStatus.REJECTED
+  | ArtworkStatus.HIDDEN
+  | ArtworkStatus.PENDING;
+
+export const ADMIN_ARTWORK_MODERATION_STATUSES = [
+  ArtworkStatus.APPROVED,
+  ArtworkStatus.REJECTED,
+  ArtworkStatus.HIDDEN,
+  ArtworkStatus.PENDING,
+] as const;
 
 export const ADMIN_ERROR_STATUSES = ['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED'] as const;
 export const ADMIN_ERROR_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
@@ -11,15 +22,20 @@ export type AdminErrorStatus = (typeof ADMIN_ERROR_STATUSES)[number] & ErrorStat
 export type AdminErrorSeverity = (typeof ADMIN_ERROR_SEVERITIES)[number] & ErrorSeverity;
 export type AdminErrorSource = (typeof ADMIN_ERROR_SOURCES)[number] & ErrorSource;
 
-export const ADMIN_PAGE_STATUSES = ['DRAFT', 'PUBLISHED', 'HIDDEN'] as const;
-export type AdminPageStatus = (typeof ADMIN_PAGE_STATUSES)[number] & PageStatus;
+export const ADMIN_PAGE_STATUSES = [PageStatus.DRAFT, PageStatus.PUBLISHED, PageStatus.HIDDEN] as const;
+export type AdminPageStatus = (typeof ADMIN_PAGE_STATUSES)[number];
 
-export type AdminReportStatus = 'PENDING' | 'RESOLVED' | 'REJECTED' | 'DISMISSED' | 'REVIEWED';
+export type AdminReportStatus = ArtworkStatus.PENDING | 'RESOLVED' | ArtworkStatus.REJECTED | 'DISMISSED' | 'REVIEWED';
 export type AdminCommentAction = 'keep' | 'remove_score_only' | 'hide_and_remove_score' | 'delete';
 export type AdminArtworkAction = 'keep' | 'pending' | 'review_again' | 'restore_previous';
 
-export const ADMIN_USER_STATUSES = ['ACTIVE', 'SUSPENDED', 'PENDING', 'BANNED'] as const;
-export type AdminUserStatus = (typeof ADMIN_USER_STATUSES)[number] & UserStatus;
+export const ADMIN_USER_STATUSES = [
+  UserStatus.ACTIVE,
+  UserStatus.SUSPENDED,
+  UserStatus.PENDING,
+  UserStatus.BANNED,
+] as const;
+export type AdminUserStatus = (typeof ADMIN_USER_STATUSES)[number];
 
 export interface AdminPageSectionInput {
   sectionKey?: string;

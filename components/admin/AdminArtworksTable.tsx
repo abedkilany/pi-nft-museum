@@ -1,5 +1,7 @@
 'use client';
 
+import { ArtworkStatus } from '@/types/enums';
+
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
@@ -49,7 +51,7 @@ export function AdminArtworksTable({
       }
 
       setMessage(
-        status === 'APPROVED'
+        status === ArtworkStatus.APPROVED
           ? `Artwork #${artworkId} moved to PUBLIC_REVIEW.`
           : `Artwork #${artworkId} updated to ${status}.`
       );
@@ -158,7 +160,7 @@ export function AdminArtworksTable({
                   <button
                     className="button primary"
                     disabled={loadingId === artwork.id}
-                    onClick={() => updateStatus(artwork.id, 'APPROVED')}
+                    onClick={() => updateStatus(artwork.id, ArtworkStatus.APPROVED)}
                   >
                     {loadingId === artwork.id ? 'Saving...' : 'Approve to Public Review'}
                   </button>
@@ -166,7 +168,7 @@ export function AdminArtworksTable({
                   <button
                     className="button secondary"
                     disabled={loadingId === artwork.id}
-                    onClick={() => updateStatus(artwork.id, 'REJECTED')}
+                    onClick={() => updateStatus(artwork.id, ArtworkStatus.REJECTED)}
                   >
                     Reject
                   </button>

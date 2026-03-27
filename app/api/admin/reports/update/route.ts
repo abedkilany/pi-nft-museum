@@ -1,4 +1,5 @@
-import { type ArtworkStatus, type PrismaClient } from '@prisma/client';
+import { ArtworkStatus } from '@/types/enums';
+import type { ArtworkStatus as PrismaArtworkStatus, PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { requireAdminApi } from '@/lib/domains/admin';
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const reportType = String(formData.get('reportType') || 'artwork');
   const reportId = Number(formData.get('reportId'));
-  const status = String(formData.get('status') || 'PENDING') as AdminReportStatus;
+  const status = String(formData.get('status') || ArtworkStatus.PENDING) as AdminReportStatus;
   const adminNote = String(formData.get('adminNote') || '').trim();
 
   if (!reportId) {
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       action: 'ADMIN_COMMENT_REPORT_UPDATED',
       targetType: 'COMMENT_REPORT',
       targetId: reportId,
-      newValues: { commentId, status, commentAction, adminNote: adminNote || null }
+      newValues: { commentId, status, commentAction, adminNote: adminNote || null },
     });
 
     logger.info('Admin updated comment report', { adminUserId: admin.user.userId, reportId, commentId, status, commentAction });
@@ -92,21 +93,21 @@ export async function POST(request: Request) {
           await tx.artwork.update({
             where: { id: artworkId },
             data: {
-              statusBeforeModeration: artwork.status !== 'PENDING' ? artwork.status : artwork.statusBeforeModeration,
-              status: 'PENDING',
+              statusBeforeModeration: artwork.status !== ArtworkStatus.PENDING ? artwork.status : artwork.statusBeforeModeration,
+              status: ArtworkStatus.PENDING,
             },
           });
         } else if (artworkAction === 'review_again') {
           await tx.artwork.update({
             where: { id: artworkId },
             data: {
-              status: 'PUBLIC_REVIEW',
+              status: ArtworkStatus.PUBLIC_REVIEW,
               publicReviewStartedAt: new Date(),
               statusBeforeModeration: null,
             },
           });
         } else if (artworkAction === 'restore_previous') {
-          const restoredStatus = ((artwork.statusBeforeModeration as ArtworkStatus | null) ?? artwork.status ?? 'PENDING') as ArtworkStatus;
+          const restoredStatus = ((artwork.statusBeforeModeration as PrismaArtworkStatus | null) ?? artwork.status ?? ArtworkStatus.PENDING) as PrismaArtworkStatus;
           await tx.artwork.update({
             where: { id: artworkId },
             data: {
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
     action: 'ADMIN_ARTWORK_REPORT_UPDATED',
     targetType: 'ARTWORK_REPORT',
     targetId: reportId,
-    newValues: { artworkId, status, artworkAction, adminNote: adminNote || null }
+    newValues: { artworkId, status, artworkAction, adminNote: adminNote || null },
   });
 
   logger.info('Admin updated artwork report', { adminUserId: admin.user.userId, reportId, artworkId, status, artworkAction });

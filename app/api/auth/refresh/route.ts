@@ -1,3 +1,4 @@
+import { UserStatus } from '@/types/enums';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { logger } from '@/lib/domains/system';
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({ where: { id: sessionEntry.userId }, include: { role: true } });
-  if (!user || user.status === 'BANNED' || user.status === 'SUSPENDED') {
+  if (!user || user.status === UserStatus.BANNED || user.status === 'SUSPENDED') {
     const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Account is not allowed to refresh this session.' }, { status: 403 });
     clearSessionCookies(response, request);
     return response;

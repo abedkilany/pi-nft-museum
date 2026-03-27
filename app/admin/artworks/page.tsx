@@ -1,10 +1,11 @@
+import { ArtworkStatus } from '@/types/enums';
 import { AdminArtworksTable } from '@/components/admin/AdminArtworksTable';
 import { prisma } from '@/lib/domains/system';
 
 export default async function AdminArtworksPage() {
   const artworks = await prisma.artwork.findMany({
     where: {
-      status: 'PENDING'
+      status: ArtworkStatus.PENDING
     },
     include: {
       artist: {

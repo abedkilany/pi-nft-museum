@@ -1,4 +1,4 @@
-import { type PageStatus } from '@prisma/client';
+import { PageStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { requireAdminApi } from '@/lib/domains/admin';
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     if (!slugResult.ok) return slugResult.response;
     const statusResult = getEnumField(parsedBody.data, 'status', ADMIN_PAGE_STATUSES, {
       required: false,
-      defaultValue: 'DRAFT',
+      defaultValue: ADMIN_PAGE_STATUSES[0],
       normalize: 'upper',
     });
     if (!statusResult.ok) return statusResult.response;

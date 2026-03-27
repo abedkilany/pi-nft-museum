@@ -1,3 +1,4 @@
+import { UserStatus } from '@/types/enums';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { prisma } from '@/lib/prisma';
 import type { SessionUser } from '@/lib/auth';
@@ -75,7 +76,7 @@ export async function resolveAdminBridgeToken(token: string): Promise<SessionUse
   });
 
   if (!user) return null;
-  if (user.status === 'BANNED' || user.status === 'SUSPENDED') return null;
+  if (user.status === UserStatus.BANNED || user.status === 'SUSPENDED') return null;
   if (user.sessionVersion !== payload.sv) return null;
   if (user.roleVersion !== payload.rv) return null;
   if (user.role.key !== payload.role) return null;

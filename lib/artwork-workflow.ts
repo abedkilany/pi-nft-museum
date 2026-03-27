@@ -1,4 +1,5 @@
-import { ArtworkStatus, Prisma } from '@prisma/client';
+import { ArtworkStatus } from '@/types/enums';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   calculatePremiumScoreFromSettings,
@@ -12,7 +13,7 @@ import {
   type SiteSettingsMap
 } from '@/lib/site-settings';
 
-export const ADMIN_REVIEW_ACTIONS = ['APPROVED', 'REJECTED', 'HIDDEN', 'PENDING'] as const;
+export const ADMIN_REVIEW_ACTIONS = [ArtworkStatus.APPROVED, ArtworkStatus.REJECTED, ArtworkStatus.HIDDEN, ArtworkStatus.PENDING] as const;
 export type AdminReviewAction = (typeof ADMIN_REVIEW_ACTIONS)[number];
 
 export function slugify(text: string) {
@@ -66,7 +67,7 @@ export async function buildPublicReviewDates(startDate = new Date(), settings?: 
 }
 
 export function canMintNow(artwork: { status: string; mintWindowOpensAt: Date | string | null; mintWindowEndsAt: Date | string | null }) {
-  if (artwork.status !== 'PUBLIC_REVIEW') return false;
+  if (artwork.status !== ArtworkStatus.PUBLIC_REVIEW) return false;
   if (!artwork.mintWindowOpensAt || !artwork.mintWindowEndsAt) return false;
   const opensAt = artwork.mintWindowOpensAt instanceof Date ? artwork.mintWindowOpensAt : new Date(artwork.mintWindowOpensAt);
   const endsAt = artwork.mintWindowEndsAt instanceof Date ? artwork.mintWindowEndsAt : new Date(artwork.mintWindowEndsAt);
@@ -81,7 +82,7 @@ export function getMintWindowStatus(artwork: {
   mintWindowOpensAt: Date | string | null;
   mintWindowEndsAt: Date | string | null;
 }) {
-  if (artwork.status !== 'PUBLIC_REVIEW') return 'not_in_public_review';
+  if (artwork.status !== ArtworkStatus.PUBLIC_REVIEW) return 'not_in_public_review';
   if (!artwork.publicReviewStartedAt || !artwork.mintWindowOpensAt || !artwork.mintWindowEndsAt) return 'missing_dates';
 
   const opensAt = artwork.mintWindowOpensAt instanceof Date ? artwork.mintWindowOpensAt : new Date(artwork.mintWindowOpensAt);
@@ -104,15 +105,15 @@ export function formatDateTime(value: Date | string | number | null | undefined)
 }
 
 export function getReviewStatuses(settings: SiteSettingsMap) {
-  return getArraySetting(settings, 'review_page_statuses', ['PUBLIC_REVIEW']);
+  return getArraySetting(settings, 'review_page_statuses', [ArtworkStatus.PUBLIC_REVIEW]);
 }
 
 export function getGalleryStatuses(settings: SiteSettingsMap) {
-  return getArraySetting(settings, 'gallery_public_statuses', ['PUBLISHED']);
+  return getArraySetting(settings, 'gallery_public_statuses', [ArtworkStatus.PUBLISHED]);
 }
 
 export function getPremiumGalleryStatuses(settings: SiteSettingsMap) {
-  return getArraySetting(settings, 'premium_gallery_statuses', ['PREMIUM']);
+  return getArraySetting(settings, 'premium_gallery_statuses', [ArtworkStatus.PREMIUM]);
 }
 
 export function arePublicReviewReactionsAllowed(settings: SiteSettingsMap) {
@@ -120,9 +121,9 @@ export function arePublicReviewReactionsAllowed(settings: SiteSettingsMap) {
 }
 
 export function getMintExpiryNextStatus(settings: SiteSettingsMap): ArtworkStatus {
-  const allowed: ArtworkStatus[] = ['PENDING', 'REJECTED', 'ARCHIVED', 'HIDDEN'];
-  const configured = getStringSetting(settings, 'mint_expiry_next_status', 'PENDING') as ArtworkStatus;
-  return allowed.includes(configured) ? configured : 'PENDING';
+  const allowed: ArtworkStatus[] = [ArtworkStatus.PENDING, ArtworkStatus.REJECTED, ArtworkStatus.ARCHIVED, ArtworkStatus.HIDDEN];
+  const configured = getStringSetting(settings, 'mint_expiry_next_status', ArtworkStatus.PENDING) as ArtworkStatus;
+  return allowed.includes(configured) ? configured : ArtworkStatus.PENDING;
 }
 
 export async function syncExpiredPublicReviewWindows(settings?: SiteSettingsMap) {
@@ -131,7 +132,7 @@ export async function syncExpiredPublicReviewWindows(settings?: SiteSettingsMap)
 
   await prisma.artwork.updateMany({
     where: {
-      status: 'PUBLIC_REVIEW',
+      status: ArtworkStatus.PUBLIC_REVIEW,
       mintWindowEndsAt: { lt: new Date() }
     },
     data: {
@@ -141,9 +142,9 @@ export async function syncExpiredPublicReviewWindows(settings?: SiteSettingsMap)
 }
 
 export async function resolveAdminStatusUpdate(action: AdminReviewAction, settings?: SiteSettingsMap) {
-  if (action !== 'APPROVED') {
+  if (action !== ArtworkStatus.APPROVED) {
     return {
-      status: action as Exclude<ArtworkStatus, 'APPROVED'>,
+      status: action as Exclude<ArtworkStatus, ArtworkStatus.APPROVED>,
       reviewDates: null
     };
   }
@@ -151,7 +152,7 @@ export async function resolveAdminStatusUpdate(action: AdminReviewAction, settin
   const reviewDates = await buildPublicReviewDates(new Date(), settings);
 
   return {
-    status: 'PUBLIC_REVIEW' as ArtworkStatus,
+    status: ArtworkStatus.PUBLIC_REVIEW as Exclude<ArtworkStatus, ArtworkStatus.APPROVED>,
     reviewDates
   };
 }
@@ -195,7 +196,7 @@ export async function recalculateArtworkEngagement(artworkId: number, settings?:
     ratingsCount,
     premiumScore,
     premiumAt: shouldBecomePremium ? existingArtwork.premiumAt ?? new Date() : existingArtwork.premiumAt,
-    status: shouldBecomePremium ? 'PREMIUM' : existingArtwork.status
+    status: shouldBecomePremium ? ArtworkStatus.PREMIUM : existingArtwork.status
   };
 
   return prisma.artwork.update({

@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -32,14 +33,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'You are not allowed to update this artwork.' }, { status: 403 });
     }
 
-    if (artwork.status !== 'REJECTED') {
+    if (artwork.status !== ArtworkStatus.REJECTED) {
       return NextResponse.json({ ok: false, error: 'Only rejected artworks can be resubmitted.' }, { status: 400 });
     }
 
     const updatedArtwork = await prisma.artwork.update({
       where: { id: artworkId },
       data: {
-        status: 'PENDING',
+        status: ArtworkStatus.PENDING,
         reviewNote: null,
         reviewedAt: null,
       },

@@ -1,5 +1,7 @@
 'use client';
 
+import { ArtworkStatus } from '@/types/enums';
+
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
@@ -9,7 +11,7 @@ export function ArtworkStatusActions({ artworkId, status }: { artworkId: number;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const targetStatus = status === 'DRAFT' ? 'PENDING' : status === 'PENDING' ? 'DRAFT' : status === 'ARCHIVED' ? 'RESTORE_ARCHIVED' : null;
+  const targetStatus = status === 'DRAFT' ? ArtworkStatus.PENDING : status === ArtworkStatus.PENDING ? 'DRAFT' : status === 'ARCHIVED' ? 'RESTORE_ARCHIVED' : null;
   if (!targetStatus) return null;
 
   async function handleChange() {
@@ -26,7 +28,7 @@ export function ArtworkStatusActions({ artworkId, status }: { artworkId: number;
     if (response.ok) router.refresh();
   }
 
-  const label = targetStatus === 'PENDING'
+  const label = targetStatus === ArtworkStatus.PENDING
     ? 'Submit for review'
     : targetStatus === 'DRAFT'
       ? 'Move back to draft'

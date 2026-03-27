@@ -1,3 +1,4 @@
+import { ArtworkStatus, UserStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { logger } from '@/lib/domains/system';
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
           email: syntheticEmail,
           passwordHash: null,
           roleId: bootstrapRole.id,
-          status: 'ACTIVE',
+          status: UserStatus.ACTIVE,
           piUid: piUser.uid,
           piUsername: piUser.username || username,
           piWalletAddress: piUser.wallet_address || null,
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
           username,
           fullName: user.fullName || piUser.username || username,
           email: user.email || syntheticEmail,
-          status: user.status === 'PENDING' ? 'ACTIVE' : user.status,
+          status: user.status === ArtworkStatus.PENDING ? UserStatus.ACTIVE : user.status,
           piUid: piUser.uid,
           piUsername: piUser.username || user.piUsername || username,
           piWalletAddress: piUser.wallet_address || user.piWalletAddress || null,
@@ -238,7 +239,7 @@ export async function POST(request: Request) {
       roleVersion: user.roleVersion,
     });
 
-    if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
+    if (user.status === UserStatus.BANNED || user.status === 'SUSPENDED') {
       logger.warn('PI_LOGIN_ROUTE_BLOCKED_BY_STATUS', {
         ...baseMeta,
         userId: user.id,
@@ -268,7 +269,7 @@ export async function POST(request: Request) {
       return NextResponse.json<AuthResponse>(
         {
           error:
-            user.status === 'BANNED'
+            user.status === UserStatus.BANNED
               ? 'Your account has been banned. Please contact support.'
               : 'Your account is suspended. Please contact support.',
         },

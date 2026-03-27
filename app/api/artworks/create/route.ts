@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     const basePrice = Number(formData.get('basePrice') || formData.get('price') || 0);
     const discountPercent = clampNumber(Number(formData.get('discountPercent') || 0), 0, 100);
     const requestedStatus = String(formData.get('status') || 'DRAFT').trim().toUpperCase();
-    const status = requestedStatus === 'PENDING' ? 'PENDING' : 'DRAFT';
+    const status = requestedStatus === ArtworkStatus.PENDING ? ArtworkStatus.PENDING : 'DRAFT';
     const imageFile = formData.get('imageFile');
 
     if (!title || !description || !basePrice) return NextResponse.json({ error: 'Please complete all required fields.' }, { status: 400 });

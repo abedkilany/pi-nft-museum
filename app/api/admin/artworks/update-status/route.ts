@@ -1,4 +1,5 @@
-import { type ArtworkStatus } from '@prisma/client';
+import { ArtworkStatus } from '@/types/enums';
+import type { ArtworkStatus as PrismaArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { logger } from '@/lib/domains/system';
@@ -11,8 +12,8 @@ import { type AdminArtworkModerationStatus, ADMIN_ARTWORK_MODERATION_STATUSES } 
 
 const ALLOWED_STATUSES = ADMIN_ARTWORK_MODERATION_STATUSES;
 
-function toArtworkStatus(status: AdminArtworkModerationStatus): ArtworkStatus {
-  return status === 'APPROVED' ? 'PUBLIC_REVIEW' : status;
+function toArtworkStatus(status: AdminArtworkModerationStatus): PrismaArtworkStatus {
+  return (status === ArtworkStatus.APPROVED ? ArtworkStatus.PUBLIC_REVIEW : status) as PrismaArtworkStatus;
 }
 
 export async function POST(request: Request) {
@@ -36,14 +37,14 @@ export async function POST(request: Request) {
     const status = statusResult.data;
     const reviewNote = reviewNoteResult.data;
 
-    if (status === 'REJECTED' && !reviewNote) {
+    if (status === ArtworkStatus.REJECTED && !reviewNote) {
       return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
     }
 
     const currentArtwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
     if (!currentArtwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });
 
-    const publicReviewDates = status === 'APPROVED' ? await buildPublicReviewDates() : null;
+    const publicReviewDates = status === ArtworkStatus.APPROVED ? await buildPublicReviewDates() : null;
     const artwork = await prisma.artwork.update({
       where: { id: artworkId },
       data: {
@@ -52,8 +53,8 @@ export async function POST(request: Request) {
         reviewedAt: new Date(),
         publicReviewStartedAt: publicReviewDates?.publicReviewStartedAt || null,
         mintWindowOpensAt: publicReviewDates?.mintWindowOpensAt || null,
-        mintWindowEndsAt: publicReviewDates?.mintWindowEndsAt || null
-      }
+        mintWindowEndsAt: publicReviewDates?.mintWindowEndsAt || null,
+      },
     });
 
     await createAuditLog({
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
       targetType: 'ARTWORK',
       targetId: artwork.id,
       oldValues: { status: currentArtwork.status, reviewNote: currentArtwork.reviewNote },
-      newValues: { requestedStatus: status, appliedStatus: artwork.status, reviewNote: reviewNote || null }
+      newValues: { requestedStatus: status, appliedStatus: artwork.status, reviewNote: reviewNote || null },
     });
 
     logger.info('Artwork status updated', { artworkId: artwork.id, newStatus: artwork.status, adminUserId: admin.user.userId });

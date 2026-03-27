@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
       include: { evidenceFiles: true }
     });
 
-    const reportCount = await prisma.artworkReport.count({ where: { artworkId, status: { not: 'REJECTED' } } });
+    const reportCount = await prisma.artworkReport.count({ where: { artworkId, status: { not: ArtworkStatus.REJECTED } } });
 
     if (reportCount >= REPORT_THRESHOLD) {
       await prisma.notification.create({

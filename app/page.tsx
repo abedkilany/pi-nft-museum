@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
@@ -45,7 +46,7 @@ export default async function HomePage() {
 
   const [artworks, stats] = await getHomePageData(featuredStatuses, featuredLimit);
 
-  const pending = stats.find((item: any) => item.status === 'PENDING')?._count || 0;
+  const pending = stats.find((item: any) => item.status === ArtworkStatus.PENDING)?._count || 0;
   const published = stats.find((item: any) => item.status === 'PUBLISHED')?._count || 0;
   const premium = stats.find((item: any) => item.status === 'PREMIUM')?._count || 0;
 

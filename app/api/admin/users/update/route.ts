@@ -1,4 +1,4 @@
-import { type UserStatus } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { requireSuperadminApi } from '@/lib/domains/admin';
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (!emailResult.ok) return NextResponse.redirect(new URL('/admin/users?error=missing-fields', request.url));
   const statusResult = readEnumFromFormData(formData, 'status', ALLOWED_STATUSES, {
     required: false,
-    defaultValue: 'ACTIVE',
+    defaultValue: ALLOWED_STATUSES[0],
     normalize: 'upper',
   });
   if (!statusResult.ok) return NextResponse.redirect(new URL('/admin/users?error=invalid-fields', request.url));

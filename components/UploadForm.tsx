@@ -1,5 +1,7 @@
 'use client';
 
+import { ArtworkStatus } from '@/types/enums';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { piApiFetch } from '../lib/pi-auth-client';
@@ -116,7 +118,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
       {preview ? <img src={preview} alt="Preview" style={{ width: '100%', maxHeight: '260px', objectFit: 'cover', borderRadius: '16px' }} /> : null}
 
       <div className="form-actions">
-        <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : form.status === 'PENDING' ? 'Save and submit for review' : 'Save as draft'}</button>
+        <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : form.status === ArtworkStatus.PENDING ? 'Save and submit for review' : 'Save as draft'}</button>
         {message ? <p className="form-message">{message}</p> : null}
       </div>
     </form>

@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { prisma } from '@/lib/domains/system';
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       data: {
         txid,
         network: String(completed?.network || existing.network),
-        status: completed?.status?.developer_completed ? 'COMPLETED' : completed?.status?.developer_approved ? 'APPROVED' : existing.status,
+        status: completed?.status?.developer_completed ? 'COMPLETED' : completed?.status?.developer_approved ? ArtworkStatus.APPROVED : existing.status,
         rawPayload: completed,
         completedAt: completed?.status?.developer_completed ? new Date() : existing.completedAt
       }

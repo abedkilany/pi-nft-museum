@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import Link from 'next/link';
 import { prisma } from '@/lib/domains/system';
 import { getDisplayImageUrl } from '@/lib/image-url';
@@ -5,7 +6,7 @@ import { getDisplayImageUrl } from '@/lib/image-url';
 export default async function RejectedArtworksPage() {
   const artworks = await prisma.artwork.findMany({
     where: {
-      status: 'REJECTED'
+      status: ArtworkStatus.REJECTED
     },
     include: {
       artist: {

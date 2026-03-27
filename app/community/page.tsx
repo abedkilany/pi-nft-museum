@@ -1,3 +1,4 @@
+import { UserStatus } from '@/types/enums';
 import Link from 'next/link';
 import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap, getBooleanSetting } from '@/lib/site-settings';
@@ -35,7 +36,7 @@ export default async function CommunityPage({
 
   const creators = await prisma.user.findMany({
     where: {
-      status: 'ACTIVE',
+      status: UserStatus.ACTIVE,
       OR: [
         { posts: { some: { isPublished: true } } },
         { artworks: { some: {} } },

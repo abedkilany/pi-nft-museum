@@ -1,3 +1,4 @@
+import { UserStatus } from '@/types/enums';
 import { randomUUID } from 'crypto';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { prisma } from '@/lib/prisma';
@@ -98,7 +99,7 @@ export async function resolveAppSession(token: string) {
   });
 
   if (!user) return null;
-  if (user.status === 'BANNED' || user.status === 'SUSPENDED') return null;
+  if (user.status === UserStatus.BANNED || user.status === 'SUSPENDED') return null;
   if (user.sessionVersion !== payload.sv) return null;
   if (user.roleVersion !== payload.rv) return null;
   if (user.role.key !== payload.role) return null;

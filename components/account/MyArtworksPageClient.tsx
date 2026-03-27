@@ -1,5 +1,7 @@
 'use client';
 
+import { ArtworkStatus } from '@/types/enums';
+
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButton';
@@ -88,7 +90,7 @@ export default function MyArtworksPageClient() {
                     <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
                     <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link>
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
-                    {artwork.status === 'REJECTED' ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
+                    {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
                     {showMintButton ? <MintArtworkButton artworkId={artwork.id} /> : null}
                     {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Mint opens after the {reviewHours}-hour public review period.</p> : null}
                     {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Mint window expired. This artwork will return to the configured fallback status.</p> : null}

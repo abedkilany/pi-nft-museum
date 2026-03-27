@@ -1,3 +1,4 @@
+import { ArtworkStatus } from '@/types/enums';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { requireAdminApi } from '@/lib/domains/admin';
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const artworkId = Number(formData.get('artworkId'));
   if (artworkId) {
     const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
-    await prisma.artwork.update({ where: { id: artworkId }, data: { status: 'PENDING', reviewedAt: null, reviewNote: null } });
+    await prisma.artwork.update({ where: { id: artworkId }, data: { status: ArtworkStatus.PENDING, reviewedAt: null, reviewNote: null } });
 
     await createAuditLog({
       userId: admin.user.userId,
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       targetType: 'ARTWORK',
       targetId: artworkId,
       oldValues: artwork ? { status: artwork.status, reviewedAt: artwork.reviewedAt, reviewNote: artwork.reviewNote } : undefined,
-      newValues: { status: 'PENDING', reviewedAt: null, reviewNote: null }
+      newValues: { status: ArtworkStatus.PENDING, reviewedAt: null, reviewNote: null }
     });
   }
   return NextResponse.redirect(new URL('/admin/artworks', request.url));
