@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
@@ -122,7 +124,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
 
       {!draftMode ? <p style={{ margin: 0, color: 'var(--muted)' }}>This artwork is no longer in draft. Only base price and discount can be updated now.</p> : null}
 
-      {preview ? <img src={preview} alt={form.title} style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '16px' }} /> : null}
+      {preview ? <Image src={preview} alt={form.title} width={1200} height={280} unoptimized style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '16px', height: 'auto' }} /> : null}
 
       <div className="form-actions">
         <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : draftMode ? 'Save changes' : 'Save pricing'}</button>

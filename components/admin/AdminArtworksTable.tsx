@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { ArtworkStatus } from '@/types/enums';
 
 import { useRouter } from 'next/navigation';
@@ -107,16 +109,7 @@ export function AdminArtworksTable({
                   alignItems: 'center'
                 }}
               >
-                <img
-                  src={getDisplayImageUrl(artwork.imageUrl)}
-                  alt={artwork.title}
-                  style={{
-                    width: '120px',
-                    height: '90px',
-                    objectFit: 'cover',
-                    borderRadius: '12px'
-                  }}
-                />
+                <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={120} height={90} unoptimized style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '12px' }} />
 
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>

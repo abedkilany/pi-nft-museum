@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
@@ -75,16 +76,7 @@ export default async function PremiumPage() {
                   alignItems: 'start'
                 }}
               >
-                <img
-                  src={getDisplayImageUrl(art.imageUrl)}
-                  alt={art.title}
-                  style={{
-                    width: '180px',
-                    height: '130px',
-                    objectFit: 'cover',
-                    borderRadius: '12px'
-                  }}
-                />
+                <Image src={getDisplayImageUrl(art.imageUrl)} alt={art.title} width={180} height={130} unoptimized style={{ width: '180px', height: '130px', objectFit: 'cover', borderRadius: '12px' }} />
 
                 <div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>

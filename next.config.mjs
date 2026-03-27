@@ -48,6 +48,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'ipfs.io' },
       { protocol: 'https', hostname: 'cloudflare-ipfs.com' },
       { protocol: 'https', hostname: 'dweb.link' },
+      { protocol: 'https', hostname: '**' },
     ],
   },
 };

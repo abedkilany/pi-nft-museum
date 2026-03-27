@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPageContentBySlug } from '@/lib/services/content';
+import Image from 'next/image';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 function renderSection(section: any) {
@@ -23,7 +24,7 @@ function renderSection(section: any) {
     return (
       <section key={section.id} className="card" style={{ padding: '24px', display: 'grid', gap: '18px' }}>
         {section.title ? <h2 style={{ margin: 0 }}>{section.title}</h2> : null}
-        {settings.imageUrl ? <img src={getDisplayImageUrl(settings.imageUrl)} alt={section.title || 'Page image'} style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', borderRadius: '18px' }} /> : null}
+        {settings.imageUrl ? <Image src={getDisplayImageUrl(settings.imageUrl)} alt={section.title || 'Page image'} width={1200} height={420} unoptimized style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', borderRadius: '18px', height: 'auto' }} /> : null}
         {section.content ? <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.8 }}>{section.content}</p> : null}
       </section>
     );

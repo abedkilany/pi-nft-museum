@@ -1,4 +1,5 @@
 import { ArtworkStatus } from '@/types/enums';
+import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
@@ -89,7 +90,7 @@ export default async function HomePage() {
               return (
                 <article key={artwork.id} className="card art-card">
                   <div className="art-image-wrap">
-                    <img src={getDisplayImageUrl(artwork.imageUrl) || placeholder} alt={artwork.title} className="art-image" />
+                    <Image src={getDisplayImageUrl(artwork.imageUrl) || placeholder} alt={artwork.title} width={1200} height={900} unoptimized className="art-image" />
                   </div>
                   <div className="art-body">
                     <div className="art-top home-art-top">

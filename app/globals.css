@@ -432,7 +432,7 @@ img {
 .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+  align-items: flex-end;
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -485,7 +485,7 @@ img {
 
 .art-top {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
@@ -705,7 +705,7 @@ textarea {
   min-height: 240px;
   padding: 28px;
   display: grid;
-  align-content: end;
+  align-content: flex-end;
   gap: 14px;
   background:
     linear-gradient(135deg, rgba(221, 176, 79, 0.14), rgba(255,255,255,0.03)),
@@ -774,7 +774,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 180px) minmax(0, 1fr) minmax(240px, 280px);
   gap: 18px;
-  align-items: start;
+  align-items: flex-start;
   padding: 18px;
 }
 
@@ -795,7 +795,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .account-summary-grid {
@@ -812,7 +812,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 132px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
   padding: 18px;
 }
 
@@ -841,7 +841,7 @@ textarea {
 .follow-controls-wrap {
   display: grid;
   gap: 10px;
-  justify-items: end;
+  justify-items: flex-end;
 }
 
 .follow-controls-row {
@@ -1093,7 +1093,7 @@ textarea {
   .profile-cover {
     min-height: 0;
     padding: 18px;
-    align-content: start;
+    align-content: flex-start;
   }
 
   .profile-cover-actions {

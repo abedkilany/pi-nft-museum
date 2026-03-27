@@ -1,4 +1,5 @@
 import { ArtworkStatus } from '@/types/enums';
+import Image from 'next/image';
 import Link from 'next/link';
 import { prisma } from '@/lib/domains/system';
 import { getDisplayImageUrl } from '@/lib/image-url';
@@ -67,16 +68,7 @@ export default async function RejectedArtworksPage() {
                   alignItems: 'start'
                 }}
               >
-                <img
-                  src={getDisplayImageUrl(artwork.imageUrl)}
-                  alt={artwork.title}
-                  style={{
-                    width: '120px',
-                    height: '90px',
-                    objectFit: 'cover',
-                    borderRadius: '12px'
-                  }}
-                />
+                <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={120} height={90} unoptimized style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '12px' }} />
 
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>

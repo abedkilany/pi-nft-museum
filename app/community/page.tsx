@@ -103,7 +103,7 @@ export default async function CommunityPage({
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     })
     .slice(0, 6)
-    .map(({ updatedAt, ...creator }) => creator);
+    .map(({ ...creator }) => creator);
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>

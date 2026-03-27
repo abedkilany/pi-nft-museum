@@ -1,3 +1,4 @@
+import Image from 'next/image';
 
 import { prisma } from '@/lib/domains/system';
 import { unstable_cache } from 'next/cache';
@@ -59,7 +60,7 @@ export default async function AdminUsersPage() {
             <input type="hidden" name="userId" value={user.id} />
             <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: '18px', alignItems: 'start' }}>
               <div className="profile-avatar" style={{ width: 84, height: 84 }}>
-                {user.profileImage ? <img src={getDisplayImageUrl(user.profileImage)} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(user.fullName || user.username).slice(0, 1).toUpperCase()}</span>}
+                {user.profileImage ? <Image src={getDisplayImageUrl(user.profileImage)} alt={user.username} width={84} height={84} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(user.fullName || user.username).slice(0, 1).toUpperCase()}</span>}
               </div>
               <div className="form-grid">
                 <label><span>Username</span><input name="username" defaultValue={user.username} /></label>

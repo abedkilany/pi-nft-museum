@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -83,7 +85,7 @@ function CommentItem({
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <Link href={`/profile/${comment.author.username}`} className="profile-avatar" style={{ width: 36, height: 36, textDecoration: 'none' }}>
           {comment.author.profileImage ? (
-            <img src={getDisplayImageUrl(comment.author.profileImage)} alt={commentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <Image src={getDisplayImageUrl(comment.author.profileImage)} alt={commentName} width={36} height={36} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <span>{avatarLabel(commentName)}</span>
           )}
@@ -203,7 +205,7 @@ export function PostCard({
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link href={`/profile/${post.author.username}`} className="profile-avatar" style={{ width: 48, height: 48, textDecoration: 'none' }}>
             {post.author.profileImage ? (
-              <img src={getDisplayImageUrl(post.author.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Image src={getDisplayImageUrl(post.author.profileImage)} alt={displayName} width={48} height={48} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <span>{avatarLabel(displayName)}</span>
             )}
@@ -244,11 +246,7 @@ export function PostCard({
             background: 'rgba(255,255,255,0.02)',
           }}
         >
-          <img
-            src={getDisplayImageUrl(post.artwork.imageUrl)}
-            alt={post.artwork.title}
-            style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12 }}
-          />
+          <Image src={getDisplayImageUrl(post.artwork.imageUrl)} alt={post.artwork.title} width={96} height={96} unoptimized style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12 }} />
           <div style={{ minWidth: 0, display: 'grid', gap: 8 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <strong style={{ fontSize: 16 }}>{post.artwork.title}</strong>

@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { ArtworkStatus } from '@/types/enums';
 
 import { useState } from 'react';
@@ -115,7 +117,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
         </label>
       </div>
 
-      {preview ? <img src={preview} alt="Preview" style={{ width: '100%', maxHeight: '260px', objectFit: 'cover', borderRadius: '16px' }} /> : null}
+      {preview ? <Image src={preview} alt="Preview" width={1200} height={260} unoptimized style={{ width: "100%", maxHeight: "260px", objectFit: "cover", borderRadius: "16px", height: "auto" }} /> : null}
 
       <div className="form-actions">
         <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : form.status === ArtworkStatus.PENDING ? 'Save and submit for review' : 'Save as draft'}</button>

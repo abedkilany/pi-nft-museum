@@ -1,6 +1,7 @@
 
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
@@ -130,7 +131,7 @@ export function ProfileForms({ user, countries }: Props) {
           <strong>Live preview</strong>
           <div className="profile-cover" style={{ minHeight: '180px', backgroundImage: coverPreview ? `linear-gradient(135deg, rgba(10,12,18,0.35), rgba(10,12,18,0.65)), url(${coverPreview})` : undefined }}>
             <div className="profile-avatar profile-avatar-large">
-              {avatarPreview ? <img src={getDisplayImageUrl(avatarPreview)} alt="Avatar preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(profile.fullName || user.username || 'U').slice(0, 1).toUpperCase()}</span>}
+              {avatarPreview ? <Image src={getDisplayImageUrl(avatarPreview)} alt="Avatar preview" width={108} height={108} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{(profile.fullName || user.username || 'U').slice(0, 1).toUpperCase()}</span>}
             </div>
             <div>
               <h2 style={{ margin: 0 }}>{profile.fullName || user.username}</h2>

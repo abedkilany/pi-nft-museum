@@ -4,6 +4,7 @@ import { ArtworkComments } from '@/components/artwork/ArtworkComments';
 import { ArtworkReportForm } from '@/components/artwork/ArtworkReportForm';
 import { PiPaymentButton } from '@/components/artwork/PiPaymentButton';
 import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/domains/artworks';
+import Image from 'next/image';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export default function ArtworkDetailContent({
@@ -16,7 +17,7 @@ export default function ArtworkDetailContent({
   return (
     <div className="page-stack">
       <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
-        <img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} style={{ width: '100%', maxHeight: '520px', objectFit: 'cover', display: 'block' }} />
+        <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={1600} height={1200} unoptimized style={{ width: '100%', maxHeight: '520px', objectFit: 'cover', display: 'block', height: 'auto' }} />
         <div className="surface-section">
           <div className="card-actions" style={{ marginTop: 0, marginBottom: 10 }}>
             <h1 style={{ margin: 0 }}>{artwork.title}</h1>

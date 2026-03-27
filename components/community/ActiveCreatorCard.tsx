@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { FollowButton } from '@/components/community/FollowButton';
 import { getDisplayImageUrl } from '@/lib/image-url';
@@ -33,7 +34,7 @@ export function ActiveCreatorCard({ creator, isFollowing, followsYou, isSelf }: 
           style={{ width: 56, height: 56, textDecoration: 'none', flexShrink: 0 }}
         >
           {creator.profileImage ? (
-            <img src={getDisplayImageUrl(creator.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <Image src={getDisplayImageUrl(creator.profileImage)} alt={displayName} width={72} height={72} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <span>{displayName.slice(0, 1).toUpperCase()}</span>
           )}

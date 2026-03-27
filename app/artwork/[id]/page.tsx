@@ -33,9 +33,6 @@ export default async function ArtworkDetailPage({ params }: Props) {
   const publicCanView =
     ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(String(artwork.status)) ||
     reviewStatuses.includes(artwork.status as any);
-
-  const _commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
-
   if (!publicCanView) {
     return <ArtworkPrivateAccessClient artworkId={artwork.id} />;
   }

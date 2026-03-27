@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/domains/system';
@@ -259,7 +260,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         >
           <div className="profile-avatar profile-avatar-large">
             {user.profileImage ? (
-              <img src={getDisplayImageUrl(user.profileImage)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Image src={getDisplayImageUrl(user.profileImage)} alt={displayName} width={108} height={108} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <span>{displayName.slice(0, 1).toUpperCase()}</span>
             )}
@@ -316,7 +317,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <div className="gallery-grid">
             {user.artworks.map((artwork: any) => (
               <article key={artwork.id} className="card art-card">
-                <div className="art-image-wrap"><img src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} className="art-image" /></div>
+                <div className="art-image-wrap"><Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={1200} height={900} unoptimized className="art-image" /></div>
                 <div className="art-body">
                   <div className="art-top">
                     <div>
