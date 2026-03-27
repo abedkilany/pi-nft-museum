@@ -35,7 +35,7 @@ export default async function AdminSettingsPage() {
           <section key={groupKey} className="card" style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{GROUP_TITLES[groupKey] || groupKey}</h2>
             <div style={{ display: 'grid', gap: '14px' }}>
-              {definitions.map((definition: any) => (
+              {definitions.map((definition) => (
                 <label key={definition.key} style={{ display: 'grid', gap: '6px' }}>
                   <span>{definition.label}</span>
                   {definition.type === 'textarea' || definition.type === 'json' ? (

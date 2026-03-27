@@ -91,7 +91,7 @@ export function AdminArtworksTable({
         <p>No pending artworks found.</p>
       ) : (
         <div style={{ display: 'grid', gap: '16px' }}>
-          {artworks.map((artwork: any) => (
+          {artworks.map((artwork) => (
             <div
               key={artwork.id}
               className="card"

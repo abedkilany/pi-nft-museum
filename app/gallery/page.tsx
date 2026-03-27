@@ -47,7 +47,7 @@ export default async function GalleryPage() {
 
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
         <section className="stack-md">
-          {artworks.map((artwork: any) => {
+          {artworks.map((artwork) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             return (
               <article key={artwork.id} className="card split-list-card">

@@ -22,7 +22,7 @@ export function normalizeMenuItems(value: unknown): MenuItem[] {
   if (!Array.isArray(value)) return DEFAULT_MENU;
 
   const items = value
-    .map((item: any) => {
+    .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const candidate = item as Record<string, unknown>;
       const label = String(candidate.label || '').trim();
@@ -68,14 +68,14 @@ export async function getMenuItems() {
     select: { slug: true, title: true, menuLabel: true },
   });
 
-  const autoPageItems = managedPages.map((page: any) => ({
+  const autoPageItems = managedPages.map((page) => ({
     label: page.menuLabel || page.title,
     href: `/pages/${page.slug}`,
     visibility: 'public' as const,
     enabled: true,
   }));
 
-  const hrefs = new Set(manual.map((item: any) => item.href));
+  const hrefs = new Set(manual.map((item) => item.href));
   for (const item of autoPageItems) {
     if (!hrefs.has(item.href)) manual.push(item);
   }

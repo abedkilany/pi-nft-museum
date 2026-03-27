@@ -92,7 +92,7 @@ export function RatingStars({
       <p style={{ margin: '0 0 10px', fontWeight: 700 }}>Rate this artwork</p>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-        {[1, 2, 3, 4, 5].map((star: any) => (
+        {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"

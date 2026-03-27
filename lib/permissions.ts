@@ -241,8 +241,8 @@ export async function getPermissionKeysForUserId(userId: number): Promise<Permis
   if (!user) return [];
 
   const dbPermissions = user.role.permissions
-    .map((entry: any) => entry.permission?.key)
-    .filter((value: any): value is PermissionKey => Boolean(value));
+    .map((entry) => entry.permission?.key)
+    .filter((value): value is PermissionKey => Boolean(value));
 
   if (dbPermissions.length > 0) {
     return Array.from(new Set(dbPermissions));

@@ -2,16 +2,35 @@ import { ArtworkStatus } from '@/types/enums';
 import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap, getArraySetting, getNumberSetting, getStringSetting } from '@/lib/site-settings';
 import { getArtworkStatusLabel } from '@/lib/domains/artworks';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
+type HomeArtwork = Prisma.ArtworkGetPayload<{
+  select: {
+    id: true;
+    title: true;
+    imageUrl: true;
+    status: true;
+    description: true;
+    artist: {
+      select: {
+        username: true;
+        fullName: true;
+        artistProfile: { select: { displayName: true } };
+      };
+    };
+    category: { select: { id: true; name: true } };
+  };
+}>;
+
 const getHomePageData = unstable_cache(
-  async (featuredStatuses: string[], featuredLimit: number) => {
+  async (featuredStatuses: ArtworkStatus[], featuredLimit: number) => {
     return Promise.all([
       prisma.artwork.findMany({
-        where: { status: { in: featuredStatuses as any[] } },
+        where: { status: { in: featuredStatuses } },
         take: featuredLimit,
         select: {
           id: true,
@@ -29,7 +48,7 @@ const getHomePageData = unstable_cache(
           category: { select: { id: true, name: true } }
         },
         orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }]
-      }),
+      }) as Promise<HomeArtwork[]>,
       prisma.artwork.groupBy({ by: ['status'], _count: true })
     ]);
   },
@@ -39,7 +58,7 @@ const getHomePageData = unstable_cache(
 
 export default async function HomePage() {
   const settings = await getSiteSettingsMap();
-  const featuredStatuses = getArraySetting(settings, 'home_featured_statuses', ['PUBLISHED', 'PREMIUM']);
+  const featuredStatuses = getArraySetting(settings, 'home_featured_statuses', ['PUBLISHED', 'PREMIUM']) as ArtworkStatus[];
   const featuredLimit = getNumberSetting(settings, 'home_featured_limit', 6);
   const siteName = getStringSetting(settings, 'site_name', 'Pi NFT Museum');
   const siteTagline = getStringSetting(settings, 'site_tagline', 'A digital museum for NFT artworks on Pi Network');
@@ -47,9 +66,9 @@ export default async function HomePage() {
 
   const [artworks, stats] = await getHomePageData(featuredStatuses, featuredLimit);
 
-  const pending = stats.find((item: any) => item.status === ArtworkStatus.PENDING)?._count || 0;
-  const published = stats.find((item: any) => item.status === 'PUBLISHED')?._count || 0;
-  const premium = stats.find((item: any) => item.status === 'PREMIUM')?._count || 0;
+  const pending = stats.find((item) => item.status === ArtworkStatus.PENDING)?._count || 0;
+  const published = stats.find((item) => item.status === 'PUBLISHED')?._count || 0;
+  const premium = stats.find((item) => item.status === 'PREMIUM')?._count || 0;
 
   return (
     <div className="home-page">
@@ -83,7 +102,7 @@ export default async function HomePage() {
           <p className="home-empty-state">No featured artworks are available yet.</p>
         ) : (
           <div className="gallery-grid home-gallery-grid">
-            {artworks.map((artwork: any) => {
+            {artworks.map((artwork) => {
               const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
               const description = artwork.description.length > 90 ? `${artwork.description.slice(0, 90)}…` : artwork.description;
 

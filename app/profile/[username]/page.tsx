@@ -44,9 +44,57 @@ function serializeArtwork(artwork: {
   };
 }
 
-function serializeComments(comments: Array<any>) {
-  const byId = new Map<number, any>();
-  const roots: any[] = [];
+type SerializedCommentNode = {
+  id: number;
+  body: string;
+  createdAt: string;
+  authorId: number;
+  parentId: number | null;
+  author: {
+    username: string;
+    fullName: string | null;
+    profileImage: string | null;
+  };
+  replies: SerializedCommentNode[];
+};
+
+type RawPostComment = {
+  id: number;
+  body: string;
+  createdAt: Date;
+  authorId: number;
+  parentId: number | null;
+  author: {
+    username: string;
+    fullName: string | null;
+    profileImage: string | null;
+  };
+};
+
+type RawCommunityPost = {
+  id: number;
+  body: string;
+  createdAt: Date;
+  _updatedAt?: Date;
+  likesCount: number;
+  commentsCount: number;
+  authorId: number;
+  artworkId: number | null;
+  author: CommunityFeedPost['author'];
+  artwork: {
+    id: number;
+    title: string;
+    imageUrl: string;
+    status: unknown;
+    price: { toString(): string } | number | string | null;
+    currency: string;
+  } | null;
+  comments: RawPostComment[];
+};
+
+function serializeComments(comments: RawPostComment[]): SerializedCommentNode[] {
+  const byId = new Map<number, SerializedCommentNode>();
+  const roots: SerializedCommentNode[] = [];
 
   for (const comment of comments) {
     byId.set(comment.id, {
@@ -78,14 +126,12 @@ function serializeComments(comments: Array<any>) {
   return roots;
 }
 
-type RawCommunityPost = Parameters<typeof serializePost>[0];
-
-function serializePost(post: any): CommunityFeedPost {
+function serializePost(post: RawCommunityPost): CommunityFeedPost {
   return {
     id: post.id,
     body: post.body,
     createdAt: post.createdAt.toISOString(),
-    _updatedAt: post._updatedAt.toISOString(),
+    _updatedAt: (post._updatedAt ?? post.createdAt).toISOString(),
     likesCount: post.likesCount,
     commentsCount: post.commentsCount,
     viewerLiked: false,
@@ -221,8 +267,8 @@ export default async function PublicProfilePage({ params }: { params: { username
   const ownPosts = ownPostsRaw.map((post) => serializePost(post));
   const likedPosts = likedPostLikesRaw
     .map((entry) => entry.post)
-    .filter((post: RawCommunityPost, index: number, array: RawCommunityPost[]) =>
-      array.findIndex((candidate: RawCommunityPost) => candidate.id === post.id) === index,
+    .filter((post, index, array) =>
+      array.findIndex((candidate) => candidate.id === post.id) === index,
     )
     .map((post) => serializePost(post));
 
@@ -315,7 +361,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <p style={{ margin: 0 }}>No public artworks yet.</p>
         ) : (
           <div className="gallery-grid">
-            {user.artworks.map((artwork: any) => (
+            {user.artworks.map((artwork) => (
               <article key={artwork.id} className="card art-card">
                 <div className="art-image-wrap"><Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={1200} height={900} unoptimized className="art-image" /></div>
                 <div className="art-body">

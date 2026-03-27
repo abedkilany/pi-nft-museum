@@ -4,8 +4,17 @@ import { useEffect, useState } from 'react';
 import { NotificationsList } from '@/components/notifications/NotificationsList';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
+type NotificationItem = {
+  id: number;
+  title: string;
+  message: string;
+  linkUrl?: string | null;
+  isRead: boolean;
+  createdAt: string;
+};
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

@@ -1,6 +1,8 @@
+import { ArtworkStatus } from '@/types/enums';
 import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/domains/system';
 import { AuthAwareRatingStars } from '@/components/auth/AuthAwareRatingStars';
 import { formatDateTime } from '@/lib/artwork-windows';
@@ -8,9 +10,30 @@ import { getReviewStatuses } from '@/lib/domains/artworks';
 import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
+type ReviewArtwork = Prisma.ArtworkGetPayload<{
+  select: {
+    id: true;
+    title: true;
+    imageUrl: true;
+    mintWindowOpensAt: true;
+    mintWindowEndsAt: true;
+    description: true;
+    averageRating: true;
+    ratingsCount: true;
+    artist: {
+      select: {
+        username: true;
+        fullName: true;
+        artistProfile: { select: { displayName: true } };
+      };
+    };
+    category: { select: { name: true } };
+  };
+}>;
+
 const getReviewArtworks = unstable_cache(
-  async (reviewStatuses: string[]) => prisma.artwork.findMany({
-    where: { status: { in: reviewStatuses as any } },
+  async (reviewStatuses: ArtworkStatus[]) => prisma.artwork.findMany({
+    where: { status: { in: reviewStatuses } },
     select: {
       id: true,
       title: true,
@@ -30,14 +53,14 @@ const getReviewArtworks = unstable_cache(
       category: { select: { name: true } },
     },
     orderBy: [{ mintWindowOpensAt: 'asc' }, { createdAt: 'desc' }]
-  }),
+  }) as Promise<ReviewArtwork[]>,
   ['review-artworks'],
   { revalidate: 20 }
 );
 
 export default async function ReviewPage() {
   const settings = await getSiteSettingsMap();
-  const reviewStatuses = getReviewStatuses(settings);
+  const reviewStatuses = getReviewStatuses(settings) as ArtworkStatus[];
   const artworks = await getReviewArtworks(reviewStatuses);
 
   return (
@@ -49,7 +72,7 @@ export default async function ReviewPage() {
       <section className="card surface-section"><p style={{ margin: 0 }}>Log in with Pi to rate artworks during review.</p></section>
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No artworks are currently in public review.</p></section> : (
         <section className="stack-md">
-          {artworks.map((artwork: any) => {
+          {artworks.map((artwork) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             return (
               <article key={artwork.id} className="card split-list-card">

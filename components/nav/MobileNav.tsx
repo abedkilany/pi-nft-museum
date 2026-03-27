@@ -38,7 +38,7 @@ export function MobileNav({ items }: Props) {
 
       {open ? (
         <nav id="mobile-nav-panel" className="mobile-nav-panel">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <Link
               key={`${item.label}-${item.href}`}
               href={item.href}

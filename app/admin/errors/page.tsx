@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Prisma } from '@prisma/client';
+import { Prisma, type ErrorSeverity, type ErrorSource, type ErrorStatus } from '@prisma/client';
 import { prisma } from '@/lib/domains/system';
 import { ErrorExportButtons } from '@/components/admin/ErrorExportButtons';
 
@@ -14,15 +14,15 @@ function toWhere(searchParams: SearchParams): Prisma.ErrorLogWhereInput {
   const where: Prisma.ErrorLogWhereInput = {};
 
   if (searchParams.status && ['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED'].includes(searchParams.status)) {
-    where.status = searchParams.status as any;
+    where.status = searchParams.status as ErrorStatus;
   }
 
   if (searchParams.severity && ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(searchParams.severity)) {
-    where.severity = searchParams.severity as any;
+    where.severity = searchParams.severity as ErrorSeverity;
   }
 
   if (searchParams.source && ['API', 'SERVER', 'CLIENT', 'REACT', 'MIDDLEWARE', 'CRON', 'UNKNOWN'].includes(searchParams.source)) {
-    where.source = searchParams.source as any;
+    where.source = searchParams.source as ErrorSource;
   }
 
   if (searchParams.q) {

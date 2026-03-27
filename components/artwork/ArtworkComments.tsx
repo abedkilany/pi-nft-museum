@@ -165,7 +165,7 @@ function CommentCard({
 
       {replies.length > 0 ? (
         <div style={{ display: 'grid', gap: '12px', paddingLeft: '16px', borderLeft: '2px solid rgba(255,255,255,0.08)' }}>
-          {replies.map((reply: any) => (
+          {replies.map((reply) => (
             <CommentCard
               key={reply.id}
               comment={reply}
@@ -219,7 +219,7 @@ export function ArtworkComments({
   const [replyBody, setReplyBody] = useState('');
 
   const { topLevel, repliesMap, currentUserFirstComment } = useMemo(() => {
-    const top = comments.filter((comment: any) => !comment.parentId);
+    const top = comments.filter((comment) => !comment.parentId);
     const map = new Map<number, ArtworkCommentItem[]>();
     for (const comment of comments) {
       if (!comment.parentId) continue;
@@ -230,7 +230,7 @@ export function ArtworkComments({
     return {
       topLevel: sortComments(top, map),
       repliesMap: map,
-      currentUserFirstComment: comments.find((comment: any) => comment.authorId === currentUserId && comment.commentKind === 'FIRST_COMMENT') || null,
+      currentUserFirstComment: comments.find((comment) => comment.authorId === currentUserId && comment.commentKind === 'FIRST_COMMENT') || null,
     };
   }, [comments, currentUserId]);
 
@@ -385,7 +385,7 @@ export function ArtworkComments({
       ) : <p style={{ color: 'var(--muted)' }}>Comments are open for Pi-authenticated users only.</p>}
 
       <div style={{ display: 'grid', gap: '16px' }}>
-        {topLevel.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No comments yet.</p> : topLevel.map((comment: any) => (
+        {topLevel.length === 0 ? <p style={{ margin: 0, color: 'var(--muted)' }}>No comments yet.</p> : topLevel.map((comment) => (
           <CommentCard
             key={comment.id}
             comment={comment}

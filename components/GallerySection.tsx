@@ -13,7 +13,7 @@ export function GallerySection({ artworks }: { artworks: Artwork[] }) {
       </div>
 
       <div className="gallery-grid">
-        {artworks.map((artwork: any) => (
+        {artworks.map((artwork) => (
           <ArtworkCard key={artwork.id} artwork={artwork} />
         ))}
       </div>

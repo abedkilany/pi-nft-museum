@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         slug: uniqueSlug,
         description,
         imageUrl: finalImageUrl,
-        status: status as any,
+        status: status as import('@/types/enums').ArtworkStatus,
         basePrice,
         discountPercent,
         price: finalPrice,

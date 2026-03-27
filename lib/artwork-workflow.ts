@@ -78,9 +78,9 @@ export function canMintNow(artwork: { status: string; mintWindowOpensAt: Date | 
 
 export function getMintWindowStatus(artwork: {
   status: string;
-  publicReviewStartedAt: Date | string | null;
-  mintWindowOpensAt: Date | string | null;
-  mintWindowEndsAt: Date | string | null;
+  publicReviewStartedAt?: Date | string | null;
+  mintWindowOpensAt?: Date | string | null;
+  mintWindowEndsAt?: Date | string | null;
 }) {
   if (artwork.status !== ArtworkStatus.PUBLIC_REVIEW) return 'not_in_public_review';
   if (!artwork.publicReviewStartedAt || !artwork.mintWindowOpensAt || !artwork.mintWindowEndsAt) return 'missing_dates';

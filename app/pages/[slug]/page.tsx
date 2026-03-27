@@ -3,8 +3,17 @@ import Link from 'next/link';
 import { getPageContentBySlug } from '@/lib/services/content';
 import Image from 'next/image';
 import { getDisplayImageUrl } from '@/lib/image-url';
+import type { Prisma } from '@prisma/client';
 
-function renderSection(section: any) {
+type CmsSection = {
+  id: number;
+  title: string | null;
+  content: string | null;
+  sectionType: string;
+  settingsJson?: Prisma.JsonValue | null;
+};
+
+function renderSection(section: CmsSection) {
   const settings = (section.settingsJson || {}) as Record<string, string>;
 
   if (section.sectionType === 'hero') {

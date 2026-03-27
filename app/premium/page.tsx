@@ -58,7 +58,7 @@ export default async function PremiumPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '18px' }}>
-          {artworks.map((art: any) => {
+          {artworks.map((art) => {
             const artistName =
               art.artist.artistProfile?.displayName ||
               art.artist.fullName ||

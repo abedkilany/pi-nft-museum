@@ -18,7 +18,7 @@ export function NavBarClient({ items }: Props) {
   const checkedAuth = status !== 'loading';
 
   const visibleItems = useMemo(() => {
-    return items.filter((item: any) => {
+    return items.filter((item) => {
       if (item.enabled === false) return false;
       if (item.visibility === 'admin') return Boolean(user?.adminPanelAccess);
       if (item.visibility === 'auth') return Boolean(user);
@@ -27,7 +27,7 @@ export function NavBarClient({ items }: Props) {
     });
   }, [checkedAuth, items, user]);
 
-  const mobileItems = visibleItems.map((item: any) => ({
+  const mobileItems = visibleItems.map((item) => ({
     label: item.label,
     href: item.href,
   }));
@@ -41,7 +41,7 @@ export function NavBarClient({ items }: Props) {
         </Link>
 
         <nav className="navlinks navlinks-desktop">
-          {visibleItems.map((item: any) => (
+          {visibleItems.map((item) => (
             <Link key={`${item.label}-${item.href}`} href={item.href}>
               {item.label}
             </Link>

@@ -6,7 +6,7 @@ export type ArtworkCommentDto = {
   createdAt: string;
   authorId: number;
   parentId?: number | null;
-  commentKind: 'FIRST_COMMENT' | 'REPLY' | 'ARTIST_REPLY';
+  commentKind: "FIRST_COMMENT" | "REPLY" | "ARTIST_REPLY";
   stanceType?: string | null;
   scoreImpact: number;
   hiddenByArtist?: boolean;
@@ -54,7 +54,62 @@ export type ArtworkViewerStateDto = {
   paymentDisabledReason: string | null;
 };
 
-export function serializeArtworkDetail(artwork: any, currentUser: SessionUser | null): ArtworkDetailDto {
+type ArtworkDetailCommentRecord = {
+  id: number;
+  body: string;
+  createdAt: Date;
+  authorId: number;
+  parentId: number | null;
+  commentKind: string;
+  stanceType?: string | null;
+  scoreImpact?: number | null;
+  hiddenByArtist?: boolean | null;
+  hiddenByModerator?: boolean | null;
+  commentLikes: Array<{ userId: number }>;
+  author: {
+    username: string;
+    fullName?: string | null;
+    profileImage?: string | null;
+  };
+};
+
+
+
+type NormalizedCommentKind = 'FIRST_COMMENT' | 'REPLY' | 'ARTIST_REPLY';
+
+function normalizeCommentKind(value: string): NormalizedCommentKind {
+  if (value === 'FIRST_COMMENT' || value === 'REPLY' || value === 'ARTIST_REPLY') {
+    return value;
+  }
+  return 'REPLY';
+}
+
+type ArtworkDetailRecord = {
+  id: number;
+  title: string;
+  imageUrl: string;
+  description: string;
+  status: unknown;
+  category?: { name?: string | null } | null;
+  artistUserId: number;
+  artist: {
+    username: string;
+    fullName?: string | null;
+    artistProfile?: { displayName?: string | null } | null;
+  };
+  currency: string;
+  basePrice?: number | string | { toString(): string } | null;
+  discountPercent?: number | string | { toString(): string } | null;
+  price?: number | string | { toString(): string } | null;
+  averageRating?: number | string | { toString(): string } | null;
+  ratingsCount?: number | null;
+  likesCount?: number | null;
+  dislikesCount?: number | null;
+  premiumScore?: number | string | { toString(): string } | null;
+  comments?: ArtworkDetailCommentRecord[];
+};
+
+export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser: SessionUser | null): ArtworkDetailDto {
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   return {
     id: artwork.id,
@@ -66,27 +121,27 @@ export function serializeArtworkDetail(artwork: any, currentUser: SessionUser | 
     artistUsername: artwork.artist.username,
     artistName,
     currency: artwork.currency,
-    basePrice: Number((artwork as any).basePrice ?? artwork.price ?? 0),
-    discountPercent: Number((artwork as any).discountPercent ?? 0),
+    basePrice: Number(artwork.basePrice ?? artwork.price ?? 0),
+    discountPercent: Number(artwork.discountPercent ?? 0),
     finalPrice: Number(artwork.price ?? 0),
     averageRating: Number(artwork.averageRating ?? 0),
     ratingsCount: Number(artwork.ratingsCount ?? 0),
     likesCount: Number(artwork.likesCount ?? 0),
     dislikesCount: Number(artwork.dislikesCount ?? 0),
     premiumScore: Number(artwork.premiumScore ?? 0),
-    comments: (artwork.comments || []).map((comment: any) => ({
+    comments: (artwork.comments || []).map((comment) => ({
       id: comment.id,
       body: comment.body,
       createdAt: comment.createdAt.toISOString(),
       authorId: comment.authorId,
       parentId: comment.parentId,
-      commentKind: comment.commentKind as 'FIRST_COMMENT' | 'REPLY' | 'ARTIST_REPLY',
+      commentKind: normalizeCommentKind(comment.commentKind),
       stanceType: comment.stanceType,
       scoreImpact: Number(comment.scoreImpact || 0),
-      hiddenByArtist: comment.hiddenByArtist,
-      hiddenByModerator: comment.hiddenByModerator,
+      hiddenByArtist: comment.hiddenByArtist ?? undefined,
+      hiddenByModerator: comment.hiddenByModerator ?? undefined,
       likesCount: comment.commentLikes.length,
-      viewerLiked: Boolean(currentUser && comment.commentLikes.some((like: any) => like.userId === currentUser.userId)),
+      viewerLiked: Boolean(currentUser && comment.commentLikes.some((like) => like.userId === currentUser.userId)),
       author: {
         username: comment.author.username,
         fullName: comment.author.fullName,
@@ -96,7 +151,7 @@ export function serializeArtworkDetail(artwork: any, currentUser: SessionUser | 
   };
 }
 
-export function buildArtworkViewerState(artwork: any, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
+export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "artistUserId" | "status">, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
   const role = currentUser?.role || null;
   const isOwner = Boolean(currentUser && currentUser.userId === artwork.artistUserId);
   const canModerate = role === 'admin' || role === 'superadmin';

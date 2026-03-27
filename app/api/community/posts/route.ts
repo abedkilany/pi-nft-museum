@@ -7,6 +7,35 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 
+type SerializedCommentNode = {
+  id: number;
+  body: string;
+  createdAt: string;
+  _updatedAt: string;
+  parentId: number | null;
+  authorId: number;
+  author: {
+    username: string;
+    fullName: string | null;
+    profileImage: string | null;
+  };
+  replies: SerializedCommentNode[];
+};
+
+type RawPostComment = {
+  id: number;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+  parentId: number | null;
+  authorId: number;
+  author: {
+    username: string;
+    fullName: string | null;
+    profileImage: string | null;
+  };
+};
+
 function serializeArtwork(artwork: {
   id: number;
   title: string;
@@ -26,9 +55,9 @@ function serializeArtwork(artwork: {
   };
 }
 
-function serializeComments(comments: Array<any>) {
-  const byId = new Map<number, any>();
-  const roots: any[] = [];
+function serializeComments(comments: RawPostComment[]): SerializedCommentNode[] {
+  const byId = new Map<number, SerializedCommentNode>();
+  const roots: SerializedCommentNode[] = [];
 
   for (const comment of comments) {
     byId.set(comment.id, {

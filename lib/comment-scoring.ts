@@ -85,9 +85,9 @@ export async function recalculateArtworkPremiumState(artworkId: number) {
   const likeWeight = getNumberSetting(settings, 'comment_like_weight', 0.2);
   const maxPerComment = Math.max(0, getNumberSetting(settings, 'comment_like_max_per_comment', 5));
   const likeCounts = new Map<number, number>();
-  for (const item of likesByComment as any[]) likeCounts.set(item.commentId, (likeCounts.get(item.commentId) || 0) + 1);
+  for (const item of likesByComment) likeCounts.set(item.commentId, (likeCounts.get(item.commentId) || 0) + 1);
   const commentLikeMap = new Map(Array.from(likeCounts.entries()).map(([commentId, count]) => [commentId, Math.min(maxPerComment, Number(count || 0)) * likeWeight]));
-  const commentsScore = comments.reduce((sum: number, comment: any) => sum + Number(comment.scoreImpact || 0) + Number(commentLikeMap.get(comment.id) || 0), 0);
+  const commentsScore = comments.reduce((sum: number, comment) => sum + Number(comment.scoreImpact || 0) + Number(commentLikeMap.get(comment.id) || 0), 0);
   const premiumScore = calculatePremiumScoreFromSettings(
     artwork.likesCount,
     artwork.dislikesCount,
@@ -103,6 +103,6 @@ export async function recalculateArtworkPremiumState(artworkId: number) {
     updateData.premiumAt = nextStatus === 'PREMIUM' ? (artwork.premiumAt || new Date()) : null;
   }
 
-  const updated = await prisma.artwork.update({ where: { id: artworkId }, data: updateData as any });
+  const updated = await prisma.artwork.update({ where: { id: artworkId }, data: updateData as Record<string, unknown> });
   return { artwork: updated, commentsScore, premiumScore };
 }

@@ -18,9 +18,33 @@ import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
+type MyArtworkItem = {
+  id: number;
+  title: string;
+  imageUrl: string;
+  status: string;
+  category?: { name?: string | null } | null;
+  currency: string;
+  basePrice?: number | string | null;
+  discountPercent?: number | string | null;
+  price: number | string;
+  reviewNote?: string | null;
+  publicReviewStartedAt?: string | Date | null;
+  mintWindowOpensAt?: string | Date | null;
+  mintWindowEndsAt?: string | Date | null;
+};
+
+type MyArtworksResponse = {
+  ok: true;
+  artworks: MyArtworkItem[];
+  reviewHours?: number;
+  archiveMessage?: string;
+  user?: { username?: string | null } | null;
+};
+
 export default function MyArtworksPageClient() {
   const { status } = usePiAuth();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<MyArtworksResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -74,7 +98,7 @@ export default function MyArtworksPageClient() {
         </div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
           <div className="stack-md">
-            {artworks.map((artwork: any) => {
+            {artworks.map((artwork) => {
               const mintWindowStatus = getMintWindowStatus(artwork);
               const showMintButton = mintWindowStatus === 'mint_open';
               return (

@@ -32,7 +32,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
   const reviewStatuses = getReviewStatuses(settings);
   const publicCanView =
     ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(String(artwork.status)) ||
-    reviewStatuses.includes(artwork.status as any);
+    reviewStatuses.includes(String(artwork.status));
   if (!publicCanView) {
     return <ArtworkPrivateAccessClient artworkId={artwork.id} />;
   }

@@ -5,10 +5,27 @@ import { useParams, useRouter } from 'next/navigation';
 import { EditArtworkForm } from '@/components/account/EditArtworkForm';
 import { piApiFetch } from '@/lib/pi-auth-client';
 
+type EditArtworkResponse = {
+  ok: true;
+  artwork: {
+    id: number;
+    status: string;
+    title: string;
+    description: string;
+    basePrice?: number | string | null;
+    discountPercent?: number | string | null;
+    price: number | string;
+    imageUrl: string;
+    reviewNote?: string | null;
+    category?: { name?: string | null } | null;
+  };
+  categories?: Array<{ id: number; name: string; slug: string }>;
+};
+
 export default function EditArtworkPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<EditArtworkResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

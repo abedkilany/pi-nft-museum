@@ -145,12 +145,12 @@ export default async function AdminRolesPage({
       </section>
 
       <div style={{ display: 'grid', gap: '18px' }}>
-        {roles.map((role: any) => {
-          const assignedPermissionKeys = new Set(role.permissions.map((entry: any) => entry.permission.key));
+        {roles.map((role) => {
+          const assignedPermissionKeys = new Set(role.permissions.map((entry) => entry.permission.key));
           const usersCount = role._count.users;
           const isSuperadmin = role.key === 'superadmin';
           const isSystem = isSystemRole(role.key);
-          const effectivePermissions = new Set(isSuperadmin ? permissions.map((permission: any) => permission.key) : Array.from(assignedPermissionKeys));
+          const effectivePermissions = new Set(isSuperadmin ? permissions.map((permission) => permission.key) : Array.from(assignedPermissionKeys));
 
           return (
             <section key={role.id} className="card" style={{ padding: '20px', display: 'grid', gap: '16px' }}>

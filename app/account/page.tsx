@@ -9,9 +9,40 @@ import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
 import { AdminPageLink } from '@/components/auth/AdminPageLink';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
+type AccountSummaryResponse = {
+  ok: true;
+  user: {
+    id: number;
+    username: string;
+    fullName: string;
+    email: string;
+    bio: string;
+    country: string;
+    customCountryName: string;
+    phoneNumber: string;
+    headline: string;
+    profileImage: string;
+    coverImage: string;
+    websiteUrl: string;
+    twitterUrl: string;
+    instagramUrl: string;
+    showEmailPublic: boolean;
+    showPhonePublic: boolean;
+    showCountryPublic: boolean;
+    piUsername?: string | null;
+    piUid?: string | null;
+    piWalletAddress?: string | null;
+    adminPanelAccess?: boolean;
+    roleName?: string;
+    roleKey?: string;
+    linkedAt?: string | null;
+  };
+  countries?: Array<{ name: string; phoneCode: string }>;
+};
+
 export default function AccountPage() {
   const { status } = usePiAuth();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AccountSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

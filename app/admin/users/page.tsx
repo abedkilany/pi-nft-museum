@@ -55,7 +55,7 @@ export default async function AdminUsersPage() {
       </div>
 
       <div style={{ display: 'grid', gap: '16px' }}>
-        {users.map((user: any) => (
+        {users.map((user) => (
           <form key={user.id} action="/api/admin/users/update" method="POST" className="card" style={{ padding: '18px', display: 'grid', gap: '14px' }}>
             <input type="hidden" name="userId" value={user.id} />
             <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: '18px', alignItems: 'start' }}>
@@ -73,14 +73,14 @@ export default async function AdminUsersPage() {
                   <span>Country</span>
                   <select name="country" defaultValue={user.country || ''}>
                     <option value="">Choose country</option>
-                    {countries.map((country: any) => <option key={country.id} value={country.name}>{country.name}</option>)}
+                    {countries.map((country) => <option key={country.id} value={country.name}>{country.name}</option>)}
                   </select>
                 </label>
                 <label><span>Headline</span><input name="headline" defaultValue={user.headline || ''} placeholder="Member headline" /></label>
                 <label>
                   <span>Role</span>
                   <select name="roleId" defaultValue={String(user.roleId)}>
-                    {roles.map((role: any) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                    {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
                   </select>
                 </label>
                 <label>
@@ -97,14 +97,14 @@ export default async function AdminUsersPage() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><input type="checkbox" name="showEmailPublic" defaultChecked={user.showEmailPublic} /> <span>Public email</span></label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><input type="checkbox" name="showPhonePublic" defaultChecked={user.showPhonePublic} /> <span>Public phone</span></label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><input type="checkbox" name="showCountryPublic" defaultChecked={user.showCountryPublic} /> <span>Public country</span></label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><input type="checkbox" name="canEditCommentsAfterDeadline" defaultChecked={Boolean((user as any).canEditCommentsAfterDeadline)} /> <span>Can edit comments after deadline</span></label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><input type="checkbox" name="canEditCommentsAfterDeadline" defaultChecked={Boolean(user.canEditCommentsAfterDeadline)} /> <span>Can edit comments after deadline</span></label>
                 <label className="full-width"><span>Bio</span><textarea name="bio" rows={3} defaultValue={user.bio || ''} /></label>
               </div>
             </div>
             <div className="card-actions">
               <button className="button primary" type="submit">Save user</button>
               <span className="pill">{user._count.artworks} artworks</span>
-              {STAFF_ROLES.includes(user.role.key as any) ? <span className="pill">Staff account</span> : null}
+              {STAFF_ROLES.includes(user.role.key as (typeof STAFF_ROLES)[number]) ? <span className="pill">Staff account</span> : null}
             </div>
           </form>
         ))}

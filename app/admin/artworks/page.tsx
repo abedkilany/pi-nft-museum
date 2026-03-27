@@ -19,7 +19,7 @@ export default async function AdminArtworksPage() {
     }
   });
 
-  const mappedArtworks = artworks.map((artwork: any) => ({
+  const mappedArtworks = artworks.map((artwork) => ({
     id: artwork.id,
     title: artwork.title,
     imageUrl: artwork.imageUrl,

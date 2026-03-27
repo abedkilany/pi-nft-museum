@@ -1,5 +1,5 @@
 import './globals.css';
-import type { Metadata, Viewport } from 'next';
+import type { Metadata } from 'next';
 import { NavBar } from '@/components/NavBar';
 import { PiScript } from '@/components/PiScript';
 import { PiAuthProvider } from '@/components/auth/PiAuthProvider';

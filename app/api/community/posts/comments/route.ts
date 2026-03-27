@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     ? `@${currentUser.username} replied to a comment in the community.`
     : `@${currentUser.username} commented on a community post.`;
 
-  const notifications: Promise<any>[] = [];
+  const notifications: Promise<unknown>[] = [];
 
   if (post.authorId !== currentUser.userId) {
     notifications.push(

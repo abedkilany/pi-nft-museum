@@ -38,9 +38,9 @@ export async function POST(request: Request) {
 
     let scoreImpact = comment.scoreImpact;
     let nextStance: string | null | undefined = comment.stanceType;
-    if (comment.commentKind === 'FIRST_COMMENT' && stanceType && COMMENT_STANCE_OPTIONS.includes(String(stanceType) as any)) {
+    if (comment.commentKind === 'FIRST_COMMENT' && stanceType && COMMENT_STANCE_OPTIONS.includes(String(stanceType) as import('@/lib/comment-scoring').CommentStance)) {
       nextStance = String(stanceType);
-      scoreImpact = getNumberSetting(settings, getCommentStanceWeightKey(nextStance as any), scoreImpact);
+      scoreImpact = getNumberSetting(settings, getCommentStanceWeightKey(nextStance as import('@/lib/comment-scoring').CommentStance), scoreImpact);
     }
 
     await prisma.artworkComment.update({

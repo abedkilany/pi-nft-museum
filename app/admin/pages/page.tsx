@@ -7,15 +7,15 @@ export default async function AdminPagesPage() {
     orderBy: [{ updatedAt: 'desc' }]
   });
 
-  const normalized = pages.map((page: any) => ({
+  const normalized = pages.map((page) => ({
     ...page,
-    sections: page.sections.map((section: any) => ({
+    sections: page.sections.map((section) => ({
       id: section.id,
       sectionKey: section.sectionKey,
       sectionType: (section.sectionType as 'hero' | 'rich_text' | 'image' | 'cta') || 'rich_text',
       title: section.title || '',
       content: section.content || '',
-      settingsJson: (section.settingsJson || {}) as any,
+      settingsJson: (section.settingsJson || {}) as Record<string, unknown>,
       sortOrder: section.sortOrder,
       isEnabled: section.isEnabled
     }))

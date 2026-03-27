@@ -16,9 +16,9 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'User not found.' }, { status: 404 });
 
     const artworks = await prisma.artwork.findMany({ where: { artistUserId: user.id }, select: { id: true } });
-    const artworkIds = artworks.map((item: any) => item.id);
+    const artworkIds = artworks.map((item) => item.id);
 
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx) => {
       if (artworkIds.length > 0) {
         await tx.artworkComment.deleteMany({ where: { artworkId: { in: artworkIds } } });
         await tx.rating.deleteMany({ where: { artworkId: { in: artworkIds } } });

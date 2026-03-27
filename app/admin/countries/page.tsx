@@ -39,7 +39,7 @@ export default async function AdminCountriesPage() {
       </section>
 
       <div style={{ display: 'grid', gap: '12px' }}>
-        {countries.map((country: any) => (
+        {countries.map((country) => (
           <form key={country.id} action="/api/admin/countries/update" method="POST" className="card" style={{ padding: '16px', display: 'grid', gap: '12px' }}>
             <input type="hidden" name="countryId" value={country.id} />
             <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr auto' }}>

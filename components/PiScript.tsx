@@ -9,7 +9,11 @@ export function PiScript() {
       strategy="afterInteractive"
       onLoad={() => {
         try {
-          const w = window as any;
+          type PiWindow = Window & {
+            Pi?: { init?: (options: Record<string, unknown>) => void };
+            __pi_initialized__?: boolean;
+          };
+          const w = window as PiWindow;
 
           if (w.Pi && !w.__pi_initialized__) {
             w.Pi.init({

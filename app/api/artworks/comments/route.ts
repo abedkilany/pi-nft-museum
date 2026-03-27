@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     });
 
     const isReply = Boolean(existingFirstComment) || Boolean(replyToId);
-    if (!isReply && !COMMENT_STANCE_OPTIONS.includes(String(stanceType || '') as any)) {
+    if (!isReply && !COMMENT_STANCE_OPTIONS.includes(String(stanceType || '') as import('@/lib/comment-scoring').CommentStance)) {
       return NextResponse.json({ error: 'Choose a reason for your first comment.' }, { status: 400 });
     }
 
