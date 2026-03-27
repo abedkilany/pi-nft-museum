@@ -42,7 +42,11 @@ export function beginClientTrace(preferredTraceId?: string | null) {
 
 export function consumeOrCreateTraceId(preferredTraceId?: string | null) {
   const existing = preferredTraceId || getActiveTraceId();
-  return existing || beginClientTrace();
+  if (existing) {
+    setActiveTraceId(existing);
+    return existing;
+  }
+  return beginClientTrace();
 }
 
 export function buildObservabilityHeaders(init?: HeadersInit, preferredTraceId?: string | null): Headers {

@@ -244,7 +244,7 @@ async function resolveUserAfterLogin(traceId?: string | null) {
 }
 
 async function authenticateAndResolveUser(traceId?: string | null) {
-  const resolvedTraceId = beginClientTrace(traceId);
+  const resolvedTraceId = consumeOrCreateTraceId(traceId);
   await pushClientAuthDebug('PI_AUTH_SDK_START', {}, 'info', resolvedTraceId);
 
   const auth = await authenticateWithPi(['username', 'payments']);

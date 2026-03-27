@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
-import { beginClientTrace, buildObservabilityHeaders } from '@/lib/observability-client';
+import { buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observability-client';
 import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -61,7 +61,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
 
     try {
       setLoading(true);
-      const traceId = beginClientTrace();
+      const traceId = consumeOrCreateTraceId();
       const headers = buildObservabilityHeaders({
         'Content-Type': 'application/json',
         Accept: 'application/json',
@@ -135,7 +135,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-App-Request': 'pi-web',
-        }),
+        }, consumeOrCreateTraceId()),
         {
           event: 'PI_CONNECT_BUTTON_ERROR',
           level: 'warn',

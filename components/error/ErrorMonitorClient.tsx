@@ -67,6 +67,27 @@ function shouldIgnoreObservedRequest(url: string | null) {
   return url.includes('/api/events') || url.includes('/api/client-errors') || url.includes('/api/auth/pi/debug');
 }
 
+function classifyObservedFetch(url: string | null, status: number) {
+  const normalizedUrl = String(url || '');
+  const isAuthProbe = normalizedUrl.includes('/api/auth/me') || normalizedUrl.includes('/api/auth/refresh');
+
+  if (isAuthProbe && status === 401) {
+    return {
+      category: 'AUTH_STATE',
+      severity: 'LOW',
+      readableSummary: `Expected unauthenticated auth probe for ${normalizedUrl}`,
+      tags: { anomaly: false, expected: true, authState: 'unauthenticated_probe' } as Record<string, unknown>,
+    };
+  }
+
+  return {
+    category: 'SYSTEM_FLOW',
+    severity: status >= 500 ? 'HIGH' : 'MEDIUM',
+    readableSummary: null,
+    tags: { anomaly: true } as Record<string, unknown>,
+  };
+}
+
 async function reportClientError(payload: ClientErrorPayload) {
   try {
     await fetch('/api/client-errors', {
@@ -93,17 +114,18 @@ export function ErrorMonitorClient() {
         const response = await originalFetch(input, init);
         if (!shouldIgnoreObservedRequest(url) && response.status >= 400) {
           const traceId = consumeOrCreateTraceId();
+          const classification = classifyObservedFetch(url, response.status);
           void fetch('/api/events', {
             method: 'POST',
             headers: buildObservabilityHeaders({ 'Content-Type': 'application/json' }, traceId),
             body: JSON.stringify({
-              category: 'SYSTEM_FLOW',
+              category: classification.category,
               type: 'FETCH',
               name: 'CLIENT_FETCH_NON_SUCCESS',
               eventKey: 'CLIENT_FETCH_NON_SUCCESS',
               status: response.status >= 500 ? 'FAILED' : 'WARNING',
-              severity: response.status >= 500 ? 'HIGH' : 'MEDIUM',
-              isHealthy: false,
+              severity: classification.severity,
+              isHealthy: classification.category === 'AUTH_STATE',
               source: 'CLIENT',
               feature: url?.includes('/api/auth') ? 'auth' : 'general',
               route: window.location.pathname,
@@ -112,6 +134,8 @@ export function ErrorMonitorClient() {
               correlationId: traceId,
               httpStatus: response.status,
               message: `Fetch returned ${response.status} for ${url || 'unknown URL'}`,
+              readableSummary: classification.readableSummary,
+              tags: classification.tags,
               data: {
                 requestUrl: url,
                 requestMethod: method,

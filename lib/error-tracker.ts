@@ -260,10 +260,11 @@ export function mapSeverityFromStatus(status?: number | null, category?: string 
   const normalizedCategory = String(category || '').toLowerCase();
   if (normalizedCategory === 'security') return 'HIGH';
   if (normalizedCategory === 'payments') return 'HIGH';
+  if (normalizedCategory === 'auth_state') return 'LOW';
   if (!status) return 'MEDIUM';
   if (status >= 500) return 'HIGH';
   if (status === 429) return 'LOW';
-  if (status === 401 || status === 403) return normalizedCategory === 'security' ? 'HIGH' : 'MEDIUM';
+  if (status === 401 || status === 403) return normalizedCategory === 'security' ? 'HIGH' : normalizedCategory === 'auth_state' ? 'LOW' : 'MEDIUM';
   if (status >= 400) return 'MEDIUM';
   return 'LOW';
 }

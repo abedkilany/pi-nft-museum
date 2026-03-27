@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { beginClientTrace, sendClientAppEvent } from '@/lib/observability-client';
+import { consumeOrCreateTraceId, sendClientAppEvent } from '@/lib/observability-client';
 
 type EventPayload = Record<string, unknown> & {
   category: string;
@@ -142,7 +142,7 @@ export function AppEventClient() {
   const previousRouteRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const traceId = beginClientTrace();
+    const traceId = consumeOrCreateTraceId();
     sendClientAppEvent({
       category: 'NAVIGATION',
       type: 'PAGE_VIEW',

@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
   const refreshToken = refreshTokenFromCookie || refreshTokenFromHeader;
   if (!refreshToken) {
     logger.warn('AUTH_REFRESH_MISSING_COOKIE', {
+      category: 'auth_state',
       feature: 'auth',
       route: '/api/auth/refresh',
       method: 'POST',
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
       cookieHeaderPresent: cookieHeader.length > 0,
       cookieNamesSeen,
       refreshHeaderPresent: Boolean(request.headers.get('x-refresh-token')),
+      expectedNoise: true,
+      authState: 'missing_refresh_token',
     });
     const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Refresh token is missing.', reason: 'NO_REFRESH_TOKEN' }, { status: 401 });
     clearSessionCookies(response, request);
@@ -72,6 +75,7 @@ export async function POST(request: NextRequest) {
   const sessionEntry = await getActiveSessionByRefreshToken(refreshToken);
   if (!sessionEntry) {
     logger.warn('AUTH_REFRESH_TOKEN_NOT_ACTIVE', {
+      category: 'auth_state',
       feature: 'auth',
       route: '/api/auth/refresh',
       method: 'POST',
@@ -80,6 +84,8 @@ export async function POST(request: NextRequest) {
       correlationId: ctx.correlationId,
       sessionId: ctx.sessionId,
       ipAddress: ctx.ipAddress,
+      expectedNoise: true,
+      authState: 'refresh_session_not_active',
     });
     const response = NextResponse.json<AuthResponse>({ ok: false, error: 'Refresh token is invalid or expired.', reason: 'INVALID_OR_EXPIRED_REFRESH_SESSION' }, { status: 401 });
     clearSessionCookies(response, request);

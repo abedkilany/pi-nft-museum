@@ -366,9 +366,11 @@ export async function safeAppEventQuery<T>(operation: () => Promise<T>, fallback
 }
 
 export function classifyEventSeverity(input: { status?: number | null; failed?: boolean; category?: string | null }) {
-  if (input.category === 'SECURITY') return 'HIGH';
+  const category = String(input.category || '').toUpperCase();
+  if (category === 'SECURITY') return 'HIGH';
+  if (category === 'AUTH_STATE') return 'LOW';
   if (input.status && input.status >= 500) return 'HIGH';
-  if (input.status && input.status >= 400) return 'MEDIUM';
-  if (input.failed) return 'MEDIUM';
+  if (input.status && input.status >= 400) return category === 'AUTH_STATE' ? 'LOW' : 'MEDIUM';
+  if (input.failed) return category === 'AUTH_STATE' ? 'LOW' : 'MEDIUM';
   return 'LOW';
 }
