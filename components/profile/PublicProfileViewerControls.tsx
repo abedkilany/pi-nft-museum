@@ -30,7 +30,7 @@ const defaultViewerState: ViewerState = {
   followsYou: false,
 };
 
-export default function PublicProfileViewerControls({ username, targetUserId, _counts }: Props) {
+export default function PublicProfileViewerControls({ username, targetUserId }: Props) {
   const { status } = usePiAuth();
   const searchParams = useSearchParams();
   const [viewerState, setViewerState] = useState<ViewerState>(defaultViewerState);

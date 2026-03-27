@@ -8,15 +8,21 @@ import { AppEventClient } from '@/components/analytics/AppEventClient';
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://example.com'),
   title: 'Pi NFT Museum',
-  description: 'Pi NFT Museum platform for visitors, members, collectors, and future Pi community features.'
+  description: 'A curated Pi-powered NFT museum experience.',
+  openGraph: {
+    title: 'Pi NFT Museum',
+    description: 'A curated Pi-powered NFT museum experience.',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pi NFT Museum',
+    description: 'A curated Pi-powered NFT museum experience.',
+  },
 };
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  viewportFit: 'cover'
-};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

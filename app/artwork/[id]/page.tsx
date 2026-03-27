@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/domains/system';
-import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
+import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getReviewStatuses } from '@/lib/domains/artworks';
 import { serializeArtworkDetail } from '@/lib/domains/artworks';
 import ArtworkDetailClient from '@/components/artwork/ArtworkDetailClient';
