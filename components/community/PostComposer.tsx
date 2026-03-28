@@ -12,9 +12,10 @@ type Props = {
     title: string;
     status: string;
   }>;
+  onPostCreated?: () => void | Promise<void>;
 };
 
-export function PostComposer({ disabled = false, username, artworks = [] }: Props) {
+export function PostComposer({ disabled = false, username, artworks = [], onPostCreated }: Props) {
   const router = useRouter();
   const [body, setBody] = useState('');
   const [artworkId, setArtworkId] = useState('');
@@ -40,6 +41,7 @@ export function PostComposer({ disabled = false, username, artworks = [] }: Prop
       }
       setBody('');
       setArtworkId('');
+      await onPostCreated?.();
       router.refresh();
     } finally {
       setBusy(false);

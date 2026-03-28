@@ -59,11 +59,13 @@ function CommentItem({
   comment,
   postId,
   canInteract,
+  onPostMutated,
   depth = 0,
 }: {
   comment: CommunityFeedComment;
   postId: number;
   canInteract: boolean;
+  onPostMutated?: () => void | Promise<void>;
   depth?: number;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
@@ -122,6 +124,7 @@ function CommentItem({
             submitLabel="Reply"
             placeholder={canInteract ? `Reply to @${comment.author.username}...` : 'Log in to reply.'}
             onSuccess={() => setReplyOpen(false)}
+            onCommentCreated={onPostMutated}
           />
         </div>
       ) : null}
@@ -129,7 +132,7 @@ function CommentItem({
       {replies.length > 0 ? (
         <div style={{ display: 'grid', gap: 10 }}>
           {replies.map((reply) => (
-            <CommentItem key={reply.id} comment={reply} postId={postId} canInteract={canInteract} depth={depth + 1} />
+            <CommentItem key={reply.id} comment={reply} postId={postId} canInteract={canInteract} onPostMutated={onPostMutated} depth={depth + 1} />
           ))}
         </div>
       ) : null}
@@ -141,10 +144,12 @@ export function PostCard({
   post,
   currentUserId,
   canInteract,
+  onPostMutated,
 }: {
   post: CommunityFeedPost;
   currentUserId?: number | null;
   canInteract: boolean;
+  onPostMutated?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const [busyLike, setBusyLike] = useState(false);
@@ -170,6 +175,7 @@ export function PostCard({
         setMessage(data?.error || 'Unable to update like.');
         return;
       }
+      await onPostMutated?.();
       router.refresh();
     } finally {
       setBusyLike(false);
@@ -193,6 +199,7 @@ export function PostCard({
         setMessage(data?.error || 'Unable to delete post.');
         return;
       }
+      await onPostMutated?.();
       router.refresh();
     } finally {
       setBusyDelete(false);
@@ -276,13 +283,13 @@ export function PostCard({
           {post.comments.length > 0 ? (
             <div style={{ display: 'grid', gap: 10 }}>
               {post.comments.map((comment) => (
-                <CommentItem key={comment.id} comment={comment} postId={post.id} canInteract={canInteract} />
+                <CommentItem key={comment.id} comment={comment} postId={post.id} canInteract={canInteract} onPostMutated={onPostMutated} />
               ))}
             </div>
           ) : (
             <p style={{ margin: 0, color: 'var(--muted)' }}>No comments yet. Start the conversation.</p>
           )}
-          <CommentBox postId={post.id} disabled={!canInteract} />
+          <CommentBox postId={post.id} disabled={!canInteract} onCommentCreated={onPostMutated} />
         </div>
       ) : null}
     </article>

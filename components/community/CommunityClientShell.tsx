@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { PostComposer } from '@/components/community/PostComposer';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
@@ -42,6 +42,15 @@ export function CommunityClientShell({
   const [followerIds, setFollowerIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+
+  const loadPosts = useCallback(async () => {
+    const postsResponse = await piApiFetch(`/api/community/posts?mode=${feedMode}`, {
+      method: 'GET',
+      cache: 'no-store',
+    }).catch(() => null);
+    const postsPayload = postsResponse ? await postsResponse.json().catch(() => null) : null;
+    setPosts(Array.isArray(postsPayload?.posts) ? postsPayload.posts : []);
+  }, [feedMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +105,15 @@ export function CommunityClientShell({
   const currentUserId = user?.id ?? null;
   const canInteract = Boolean(user) && status === 'authenticated';
 
+  async function refreshPosts() {
+    try {
+      setMessage(null);
+      await loadPosts();
+    } catch {
+      setMessage('Unable to refresh the community feed right now.');
+    }
+  }
+
   const creatorCards = useMemo(() => creators.map((creator) => ({
     ...creator,
     isFollowing: followingIds.includes(creator.id),
@@ -109,6 +127,7 @@ export function CommunityClientShell({
         disabled={!canInteract}
         username={user?.username || null}
         artworks={myArtworks}
+        onPostCreated={refreshPosts}
       />
 
       <section style={{ display: 'grid', gap: 16 }}>
@@ -150,7 +169,7 @@ export function CommunityClientShell({
         {loading && posts.length === 0 ? (
           <div className="card" style={{ padding: 24 }}><p style={{ margin: 0 }}>Loading community feed…</p></div>
         ) : (
-          <CommunityFeed posts={posts} currentUserId={currentUserId} canInteract={canInteract} />
+          <CommunityFeed posts={posts} currentUserId={currentUserId} canInteract={canInteract} onPostsChange={refreshPosts} />
         )}
       </section>
     </>

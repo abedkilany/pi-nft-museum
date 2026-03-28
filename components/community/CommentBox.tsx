@@ -12,7 +12,8 @@ type Props = {
   placeholder?: string;
   submitLabel?: string;
   minRows?: number;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
+  onCommentCreated?: () => void | Promise<void>;
 };
 
 export function CommentBox({
@@ -24,6 +25,7 @@ export function CommentBox({
   submitLabel,
   minRows = 3,
   onSuccess,
+  onCommentCreated,
 }: Props) {
   const router = useRouter();
   const [body, setBody] = useState('');
@@ -48,7 +50,8 @@ export function CommentBox({
         return;
       }
       setBody('');
-      onSuccess?.();
+      await onSuccess?.();
+      await onCommentCreated?.();
       router.refresh();
     } finally {
       setBusy(false);

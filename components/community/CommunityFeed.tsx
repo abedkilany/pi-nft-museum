@@ -6,9 +6,10 @@ type Props = {
   posts: CommunityFeedPost[];
   currentUserId?: number | null;
   canInteract: boolean;
+  onPostsChange?: () => void | Promise<void>;
 };
 
-export function CommunityFeed({ posts, currentUserId, canInteract }: Props) {
+export function CommunityFeed({ posts, currentUserId, canInteract, onPostsChange }: Props) {
   if (!posts.length) {
     return (
       <section className="card" style={{ padding: 24 }}>
@@ -22,7 +23,13 @@ export function CommunityFeed({ posts, currentUserId, canInteract }: Props) {
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} currentUserId={currentUserId} canInteract={canInteract} />
+        <PostCard
+          key={post.id}
+          post={post}
+          currentUserId={currentUserId}
+          canInteract={canInteract}
+          onPostMutated={onPostsChange}
+        />
       ))}
     </div>
   );
