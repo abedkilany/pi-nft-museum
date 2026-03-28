@@ -3,6 +3,22 @@
 import { ReactNode, useState } from 'react';
 import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 
+function submitAdminHandoff(url: string, grant: string) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
+  form.style.display = 'none';
+
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'grant';
+  input.value = grant;
+
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+}
+
 type Props = {
   className?: string;
   children?: ReactNode;
@@ -28,11 +44,11 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
       });
 
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok || !payload?.url) {
+      if (!response.ok || !payload?.ok || !payload?.url || !payload?.grant) {
         throw new Error(payload?.error || 'Unable to open admin panel.');
       }
 
-      window.location.assign(payload.url as string);
+      submitAdminHandoff(String(payload.url), String(payload.grant));
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to open admin panel.');
       setLoading(false);

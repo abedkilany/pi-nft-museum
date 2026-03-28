@@ -6,6 +6,22 @@ import { buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observa
 import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
+function submitAdminHandoff(url: string, grant: string) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
+  form.style.display = 'none';
+
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'grant';
+  input.value = grant;
+
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+}
+
 async function pushPiClientDebug(headers: HeadersInit, payload: Record<string, unknown>) {
   if (!isPiDebugEnabled) return;
 
@@ -91,6 +107,7 @@ export function PiConnectButton({ className = 'button primary', children, redire
       await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_RESOLVED', 'SUCCESS', { userId: user.id, role: user.role });
 
       let target = redirectTo || ((user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/account');
+      let adminHandoffGrant: string | null = null;
 
       if (!redirectTo && (user.role === 'admin' || user.role === 'superadmin')) {
         const adminEntryResponse = await fetch('/api/auth/admin-entry', {
@@ -100,8 +117,9 @@ export function PiConnectButton({ className = 'button primary', children, redire
           credentials: 'include',
         }).catch(() => null);
         const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
-        if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url) {
+        if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url && adminEntryPayload?.grant) {
           target = String(adminEntryPayload.url);
+          adminHandoffGrant = String(adminEntryPayload.grant);
         }
       }
 
@@ -127,6 +145,11 @@ export function PiConnectButton({ className = 'button primary', children, redire
         cache: 'no-store',
         keepalive: true,
       }).catch(() => null);
+
+      if (adminHandoffGrant) {
+        submitAdminHandoff(target, adminHandoffGrant);
+        return;
+      }
 
       window.location.assign(target);
     } catch (error) {

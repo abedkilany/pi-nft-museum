@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromHeaders } from '@/lib/domains/auth';
-import { issueAdminBridgeToken } from '@/lib/admin-bridge';
+import { issueAdminHandoffToken } from '@/lib/admin-bridge';
 import { prisma } from '@/lib/domains/system';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { assertSameOrigin } from '@/lib/services/request';
-import { setAdminBridgeCookie } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,18 +29,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Admin access required.' }, { status: 403 });
   }
 
-  const grant = await issueAdminBridgeToken({
+  const grant = await issueAdminHandoffToken({
     userId: dbUser.id,
     role: dbUser.role.key,
     piUid: dbUser.piUid,
     piUsername: dbUser.piUsername,
     sessionVersion: dbUser.sessionVersion,
     roleVersion: dbUser.roleVersion,
-    expiresInSeconds: 5 * 60,
+    expiresInSeconds: 60,
   });
 
-  const response = NextResponse.json({ ok: true, url: '/admin' });
-  setAdminBridgeCookie(response, grant, request);
+  const response = NextResponse.json({ ok: true, url: '/admin/handoff', grant });
   response.headers.set('Cache-Control', 'no-store');
   return response;
 }
