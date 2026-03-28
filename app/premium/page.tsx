@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
 import { timeToPremium } from '@/lib/timeToPremium';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
@@ -41,7 +42,29 @@ export default async function PremiumPage() {
   const settings = await getSiteSettingsMap();
   const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
 
-  const artworks = await getPremiumArtworks();
+  const [artworks, currentUser] = await Promise.all([
+    getPremiumArtworks(),
+    getCurrentUser(),
+  ]);
+
+  const reactionMap = new Map<number, 'LIKE' | 'DISLIKE'>();
+
+  if (currentUser && artworks.length > 0) {
+    const reactions = await prisma.artworkReaction.findMany({
+      where: {
+        userId: currentUser.userId,
+        artworkId: { in: artworks.map((artwork) => artwork.id) },
+      },
+      select: {
+        artworkId: true,
+        type: true,
+      },
+    });
+
+    for (const reaction of reactions) {
+      reactionMap.set(reaction.artworkId, reaction.type);
+    }
+  }
 
   return (
     <div className="container" style={{ paddingTop: '40px' }}>
@@ -111,7 +134,7 @@ export default async function PremiumPage() {
                     artworkId={art.id}
                     likesCount={art.likesCount}
                     dislikesCount={art.dislikesCount}
-                    myReaction={null}
+                    myReaction={reactionMap.get(art.id) ?? null}
                     isPremium={true}
                     premiumAllowDislike={premiumAllowDislike}
                   />

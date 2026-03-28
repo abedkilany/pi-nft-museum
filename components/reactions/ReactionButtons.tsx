@@ -27,10 +27,25 @@ export function ReactionButtons({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [resolvedCanReact, setResolvedCanReact] = useState(canReact);
+  const [localReaction, setLocalReaction] = useState<ReactionType>(myReaction);
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount);
+  const [localDislikesCount, setLocalDislikesCount] = useState(dislikesCount);
 
   useEffect(() => {
     setResolvedCanReact(canReact);
   }, [canReact]);
+
+  useEffect(() => {
+    setLocalReaction(myReaction);
+  }, [myReaction]);
+
+  useEffect(() => {
+    setLocalLikesCount(likesCount);
+  }, [likesCount]);
+
+  useEffect(() => {
+    setLocalDislikesCount(dislikesCount);
+  }, [dislikesCount]);
 
   async function ensureAuthenticated() {
     if (resolvedCanReact) return true;
@@ -74,7 +89,15 @@ export function ReactionButtons({
         return;
       }
 
-      setMessage('Reaction updated successfully.');
+      setLocalReaction((data.currentReaction ?? null) as ReactionType);
+      if (typeof data.likesCount === 'number') {
+        setLocalLikesCount(data.likesCount);
+      }
+      if (typeof data.dislikesCount === 'number') {
+        setLocalDislikesCount(data.dislikesCount);
+      }
+
+      setMessage(data.currentReaction ? 'Reaction updated successfully.' : 'Reaction removed successfully.');
       router.refresh();
     } catch {
       setMessage('Something went wrong while updating the reaction.');
@@ -84,6 +107,8 @@ export function ReactionButtons({
   }
 
   const showDislikeButton = !isPremium || premiumAllowDislike;
+  const likeLabel = localReaction === 'LIKE' ? 'Unlike' : 'Like';
+  const dislikeLabel = localReaction === 'DISLIKE' ? 'Remove dislike' : 'Dislike';
 
   return (
     <div
@@ -105,10 +130,10 @@ export function ReactionButtons({
           disabled={loading}
           onClick={() => sendReaction('LIKE')}
           style={{
-            borderColor: myReaction === 'LIKE' ? '#2ecc71' : undefined
+            borderColor: localReaction === 'LIKE' ? '#2ecc71' : undefined
           }}
         >
-          👍 Like ({likesCount})
+          👍 {likeLabel} ({localLikesCount})
         </button>
 
         {showDislikeButton ? (
@@ -118,10 +143,10 @@ export function ReactionButtons({
             disabled={loading}
             onClick={() => sendReaction('DISLIKE')}
             style={{
-              borderColor: myReaction === 'DISLIKE' ? '#e74c3c' : undefined
+              borderColor: localReaction === 'DISLIKE' ? '#e74c3c' : undefined
             }}
           >
-            👎 Dislike ({dislikesCount})
+            👎 {dislikeLabel} ({localDislikesCount})
           </button>
         ) : (
           <div

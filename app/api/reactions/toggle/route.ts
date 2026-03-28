@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -83,6 +84,10 @@ export async function POST(request: Request) {
         }),
       ]);
     }
+
+    revalidatePath('/gallery');
+    revalidatePath('/premium');
+    revalidatePath(`/artwork/${artworkId}`);
 
     logger.info('Artwork reaction updated', { artworkId, userId: currentUser.userId, currentReaction, likesCount, dislikesCount, premiumScore, nextStatus });
     return NextResponse.json({ ok: true, currentReaction, likesCount, dislikesCount, premiumScore, nextStatus });

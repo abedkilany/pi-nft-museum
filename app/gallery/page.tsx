@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
+import { getCurrentUser } from '@/lib/domains/auth';
 import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
@@ -34,7 +35,29 @@ const getGalleryArtworks = unstable_cache(
 );
 
 export default async function GalleryPage() {
-  const artworks = await getGalleryArtworks();
+  const [artworks, currentUser] = await Promise.all([
+    getGalleryArtworks(),
+    getCurrentUser(),
+  ]);
+
+  const reactionMap = new Map<number, 'LIKE' | 'DISLIKE'>();
+
+  if (currentUser && artworks.length > 0) {
+    const reactions = await prisma.artworkReaction.findMany({
+      where: {
+        userId: currentUser.userId,
+        artworkId: { in: artworks.map((artwork) => artwork.id) },
+      },
+      select: {
+        artworkId: true,
+        type: true,
+      },
+    });
+
+    for (const reaction of reactions) {
+      reactionMap.set(reaction.artworkId, reaction.type);
+    }
+  }
 
   return (
     <div className="page-stack">
@@ -60,7 +83,7 @@ export default async function GalleryPage() {
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>
-                <div className="split-list-side"><AuthAwareReactionButtons artworkId={artwork.id} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={null} /></div>
+                <div className="split-list-side"><AuthAwareReactionButtons artworkId={artwork.id} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={reactionMap.get(artwork.id) ?? null} /></div>
               </article>
             );
           })}
