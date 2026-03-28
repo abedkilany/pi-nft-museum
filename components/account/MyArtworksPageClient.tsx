@@ -117,7 +117,7 @@ export default function MyArtworksPageClient() {
                     {artwork.status === ArtworkStatus.DRAFT ? <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link> : null}
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
                     {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
-                    {showMintButton ? <MintArtworkButton artworkId={artwork.id} onMinted={loadArtworks} /> : null}
+                    {showMintButton ? <MintArtworkButton artworkId={artwork.id} title={artwork.title} onMinted={loadArtworks} /> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
                     {artwork.status === 'PUBLISHED' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Published via Lazy Mint. On-chain mint will be available later.</p></> : null}

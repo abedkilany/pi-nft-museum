@@ -41,13 +41,22 @@ export async function callPiPaymentApi(path: string, init?: RequestInit) {
   return payload;
 }
 
-export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number) {
+export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number, purpose: 'ARTWORK_PURCHASE' | 'LAZY_MINT_FEE' = 'ARTWORK_PURCHASE') {
   const artwork = await prisma.artwork.findUnique({
     where: { id: artworkId },
     select: { id: true, artistUserId: true, title: true, price: true, currency: true, status: true },
   });
 
   if (!artwork) throw new Error('Artwork not found.');
+
+  if (purpose === 'LAZY_MINT_FEE') {
+    if (artwork.artistUserId !== buyerUserId) throw new Error('Only the artwork owner can pay the lazy mint fee.');
+    if (artwork.status !== 'PUBLIC_REVIEW') {
+      throw new Error('This artwork is not available for lazy mint payment right now.');
+    }
+    return { artwork };
+  }
+
   if (artwork.artistUserId === buyerUserId) throw new Error('You cannot buy your own artwork.');
   if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status)) {
     throw new Error('This artwork is not available for payment right now.');

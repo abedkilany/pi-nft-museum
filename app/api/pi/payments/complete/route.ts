@@ -1,7 +1,10 @@
+import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { prisma } from '@/lib/domains/system';
 import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/domains/pi';
+import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
+import { performLazyMint } from '@/lib/lazy-mint-execution';
 import { assertSameOrigin } from '@/lib/services/request';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
@@ -22,10 +25,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'paymentId and txid are required.' }, { status: 400 });
     }
 
+    await syncExpiredPublicReviewWindows();
     const existing = await prisma.piPayment.findUnique({ where: { paymentIdentifier: paymentId } });
     if (!existing) {
       return NextResponse.json({ error: 'Payment record not found for completion.' }, { status: 404 });
     }
+
+
+    const paymentPurpose = existing.memo?.startsWith('Lazy Mint fee') || (existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'LAZY_MINT_FEE')
+      ? 'LAZY_MINT_FEE'
+      : 'ARTWORK_PURCHASE';
 
     const canCompleteAnyPayment = await userHasPermission(currentUser, PERMISSIONS.paymentsCompleteAny);
     if (existing.buyerUserId !== currentUser.userId && !canCompleteAnyPayment) {
@@ -45,16 +54,25 @@ export async function POST(request: Request) {
         txid,
         network: String(completed?.network || existing.network),
         status: completed?.status?.developer_completed ? 'COMPLETED' : completed?.status?.developer_approved ? 'APPROVED' : existing.status,
-        rawPayload: completed,
+        rawPayload: { ...(completed && typeof completed === 'object' ? completed : {}), localPurpose: paymentPurpose },
         completedAt: completed?.status?.developer_completed ? new Date() : existing.completedAt
       }
     });
 
     if (completed?.status?.developer_completed) {
-      await prisma.artwork.update({
-        where: { id: existing.artworkId },
-        data: { status: 'SOLD' }
-      });
+      if (paymentPurpose === 'LAZY_MINT_FEE') {
+        await performLazyMint({
+          artworkId: existing.artworkId,
+          ownerUserId: currentUser.userId,
+          ownerName: currentUser.username,
+          ownerWalletAddress: null,
+        });
+      } else {
+        await prisma.artwork.update({
+          where: { id: existing.artworkId },
+          data: { status: 'SOLD' }
+        });
+      }
     }
 
     await logPaymentEvent('Pi payment completed', {
@@ -62,11 +80,19 @@ export async function POST(request: Request) {
       txid,
       artworkId: existing.artworkId,
       buyerUserId: currentUser.userId,
+      purpose: paymentPurpose,
       network: completed?.network || null,
       completed: Boolean(completed?.status?.developer_completed)
     });
 
-    return NextResponse.json({ ok: true, payment: completed });
+    if (completed?.status?.developer_completed && paymentPurpose === 'LAZY_MINT_FEE') {
+      revalidatePath('/review');
+      revalidatePath('/gallery');
+      revalidatePath('/account/artworks');
+      revalidatePath(`/artwork/${existing.artworkId}`);
+    }
+
+    return NextResponse.json({ ok: true, payment: completed, purpose: paymentPurpose });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }
