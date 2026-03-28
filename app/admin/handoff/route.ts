@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ADMIN_DEVICE_REQUIRED_PATH, issueAdminBridgeToken, resolveAdminHandoffToken, isSecureAdminDevice } from '@/lib/domains/admin';
+import { ADMIN_DEVICE_REQUIRED_PATH, issueAdminBridgeToken, resolveAdminHandoffToken } from '@/lib/domains/admin';
 import { setAdminBridgeCookie } from '@/lib/auth-cookies';
 import { prisma } from '@/lib/domains/system';
 
 export const dynamic = 'force-dynamic';
 
-function buildUnauthorizedRedirect(request: NextRequest) {
+function buildUnauthorizedRedirect(request: NextRequest, reason: string) {
   const targetUrl = new URL(ADMIN_DEVICE_REQUIRED_PATH, request.url);
-  targetUrl.searchParams.set('reason', 'admin_handoff_failed');
+  targetUrl.searchParams.set('reason', reason);
   return NextResponse.redirect(targetUrl, { status: 303 });
 }
 
@@ -33,19 +33,17 @@ async function consumeGrant(request: NextRequest) {
 }
 
 async function handleHandoff(request: NextRequest) {
-  if (!(await isSecureAdminDevice())) return buildUnauthorizedRedirect(request);
-
   const grant = await consumeGrant(request);
-  if (!grant) return buildUnauthorizedRedirect(request);
+  if (!grant) return buildUnauthorizedRedirect(request, 'missing_handoff_grant');
 
   const user = await resolveAdminHandoffToken(grant).catch(() => null);
-  if (!user) return buildUnauthorizedRedirect(request);
+  if (!user) return buildUnauthorizedRedirect(request, 'invalid_handoff_grant');
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.userId },
     include: { role: true },
   });
-  if (!dbUser) return buildUnauthorizedRedirect(request);
+  if (!dbUser) return buildUnauthorizedRedirect(request, 'missing_admin_user');
 
   const bridgeToken = await issueAdminBridgeToken({
     userId: dbUser.id,
@@ -57,7 +55,7 @@ async function handleHandoff(request: NextRequest) {
     expiresInSeconds: 5 * 60,
   }).catch(() => null);
 
-  if (!bridgeToken) return buildUnauthorizedRedirect(request);
+  if (!bridgeToken) return buildUnauthorizedRedirect(request, 'bridge_issue_failed');
 
   const adminUrl = new URL('/admin', request.url);
   const response = NextResponse.redirect(adminUrl, { status: 303 });
