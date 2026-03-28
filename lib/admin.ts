@@ -1,11 +1,25 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getCurrentAdminContextUser } from '@/lib/current-user';
 import { PERMISSIONS, type PermissionKey, userHasPermission } from '@/lib/permissions';
+import { isIosUserAgent } from '@/lib/pi-browser-auth';
+
+export const ADMIN_DEVICE_REQUIRED_PATH = '/admin/device-required';
+
+export async function isSecureAdminDevice(): Promise<boolean> {
+  const headerStore = await headers();
+  const userAgent = headerStore.get('user-agent') || '';
+  return !isIosUserAgent(userAgent);
+}
 
 export async function requireAdminPage(permission: PermissionKey = PERMISSIONS.adminAccess) {
+  if (!(await isSecureAdminDevice())) {
+    redirect(ADMIN_DEVICE_REQUIRED_PATH);
+  }
+
   const user = await getCurrentAdminContextUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(ADMIN_DEVICE_REQUIRED_PATH);
   if (!(await userHasPermission(user, permission))) redirect('/account');
   return user;
 }

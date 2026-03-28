@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { issueAdminBridgeToken, resolveAdminHandoffToken } from '@/lib/domains/admin';
+import { ADMIN_DEVICE_REQUIRED_PATH, issueAdminBridgeToken, resolveAdminHandoffToken, isSecureAdminDevice } from '@/lib/domains/admin';
 import { setAdminBridgeCookie } from '@/lib/auth-cookies';
 import { prisma } from '@/lib/domains/system';
 
 export const dynamic = 'force-dynamic';
 
 function buildUnauthorizedRedirect(request: NextRequest) {
-  const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('error', 'admin_handoff_failed');
-  return NextResponse.redirect(loginUrl, { status: 303 });
+  const targetUrl = new URL(ADMIN_DEVICE_REQUIRED_PATH, request.url);
+  targetUrl.searchParams.set('reason', 'admin_handoff_failed');
+  return NextResponse.redirect(targetUrl, { status: 303 });
 }
 
 async function consumeGrant(request: NextRequest) {
@@ -33,6 +33,8 @@ async function consumeGrant(request: NextRequest) {
 }
 
 async function handleHandoff(request: NextRequest) {
+  if (!(await isSecureAdminDevice())) return buildUnauthorizedRedirect(request);
+
   const grant = await consumeGrant(request);
   if (!grant) return buildUnauthorizedRedirect(request);
 

@@ -120,6 +120,10 @@ export function PiConnectButton({ className = 'button primary', children, redire
         if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url && adminEntryPayload?.grant) {
           target = String(adminEntryPayload.url);
           adminHandoffGrant = String(adminEntryPayload.grant);
+        } else if (adminEntryPayload?.redirectUrl) {
+          target = String(adminEntryPayload.redirectUrl);
+        } else if (adminEntryResponse && !adminEntryResponse.ok && adminEntryPayload?.error) {
+          throw new Error(String(adminEntryPayload.error));
         }
       }
 

@@ -44,7 +44,19 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
       });
 
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok || !payload?.url || !payload?.grant) {
+      if (!response.ok) {
+        if (payload?.redirectUrl) {
+          window.location.assign(String(payload.redirectUrl));
+          return;
+        }
+        throw new Error(payload?.error || 'Unable to open admin panel.');
+      }
+
+      if (!payload?.ok || !payload?.url || !payload?.grant) {
+        if (payload?.redirectUrl) {
+          window.location.assign(String(payload.redirectUrl));
+          return;
+        }
         throw new Error(payload?.error || 'Unable to open admin panel.');
       }
 
