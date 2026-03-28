@@ -35,6 +35,9 @@ export async function POST(request: Request) {
 
     const artwork = await prisma.artwork.findUnique({ where: { id } });
     if (!artwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });
+    if (!['PUBLISHED', 'PREMIUM'].includes(String(artwork.status))) {
+      return NextResponse.json({ error: 'Comments open only after Lazy Mint publishes the artwork.' }, { status: 400 });
+    }
 
     const existingFirstComment = await prisma.artworkComment.findFirst({
       where: { artworkId: id, authorId: currentUser.userId, commentKind: 'FIRST_COMMENT' },

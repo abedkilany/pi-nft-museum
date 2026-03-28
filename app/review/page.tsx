@@ -67,7 +67,7 @@ export default async function ReviewPage() {
     <div className="page-stack">
       <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Public review</h1>
-        <p style={{ margin: 0, color: 'var(--muted)' }}>Artworks are reviewed here before mint. They do not appear in the main gallery until mint succeeds.</p>
+        <p style={{ margin: 0, color: 'var(--muted)' }}>Artworks are reviewed here before Lazy Mint. They do not appear in the main gallery until Lazy Mint succeeds.</p>
       </section>
       <section className="card surface-section"><p style={{ margin: 0 }}>Log in with Pi to rate artworks during review.</p></section>
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No artworks are currently in public review.</p></section> : (
@@ -80,8 +80,8 @@ export default async function ReviewPage() {
                 <div>
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>
-                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p>
-                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p>
+                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p>
+                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p>
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>

@@ -90,7 +90,7 @@ export default function MyArtworksPageClient() {
       <div className="card surface-section">
         <div className="section-head compact">
           <div><span className="section-kicker">Artwork workflow</span><h1>My artworks</h1></div>
-          <p>Private library for your own drafts, published works, premium pieces, and archived items.</p>
+          <p>Private library for your drafts, review-stage artworks, lazy-minted gallery works, premium pieces, and archived items.</p>
         </div>
         <div className="card-actions">
           <Link href="/upload" className="button primary">Upload new artwork</Link>
@@ -110,17 +110,17 @@ export default function MyArtworksPageClient() {
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number(artwork.basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p><p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number(artwork.discountPercent ?? 0).toFixed(2)}%</p><p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
                     {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
-                    {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
+                    {artwork.status === 'PUBLIC_REVIEW' ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
                   </div>
                   <div className="my-artwork-actions">
                     <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
-                    <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link>
+                    {artwork.status === ArtworkStatus.DRAFT ? <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link> : null}
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
                     {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
                     {showMintButton ? <MintArtworkButton artworkId={artwork.id} /> : null}
-                    {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Mint opens after the {reviewHours}-hour public review period.</p> : null}
-                    {['PUBLIC_REVIEW', 'MINTING'].includes(artwork.status) && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Mint window expired. This artwork will return to the configured fallback status.</p> : null}
-                    {artwork.status === 'PUBLISHED' ? <Link href="/gallery" className="button primary">Open in gallery</Link> : null}
+                    {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
+                    {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
+                    {artwork.status === 'PUBLISHED' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Published via Lazy Mint. On-chain mint will be available later.</p></> : null}
                     {artwork.status === 'PREMIUM' ? <Link href="/premium" className="button primary">Open in premium</Link> : null}
                     {artwork.status === 'ARCHIVED' ? <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{archiveMessage}</p> : null}
                     <DeleteArtworkButton artworkId={artwork.id} title={artwork.title} archived={artwork.status === 'ARCHIVED'} />

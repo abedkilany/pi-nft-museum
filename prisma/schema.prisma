@@ -96,6 +96,10 @@ model User {
   purchasePayments             PiPayment[]            @relation("PiPaymentBuyer")
   salesPayments                PiPayment[]            @relation("PiPaymentSeller")
   ratings                      Rating[]
+  lazyMintOwnerships           ArtworkOwnership[]     @relation("ArtworkOwnershipCurrentOwner")
+  lazyMintSnapshots            ArtworkMintSnapshot[]  @relation("ArtworkMintOwner")
+  ownershipHistoryFrom         ArtworkOwnershipHistory[] @relation("ArtworkOwnershipFromUser")
+  ownershipHistoryTo           ArtworkOwnershipHistory[] @relation("ArtworkOwnershipToUser")
   sessions                     UserSession[]
   role                         Role                   @relation(fields: [roleId], references: [id])
 }
@@ -230,9 +234,76 @@ model Artwork {
   favorites              Favorite[]
   payments               PiPayment[]
   ratings                Rating[]
+  lazyMintSnapshot       ArtworkMintSnapshot?
+  ownership              ArtworkOwnership?
+  ownershipHistory       ArtworkOwnershipHistory[]
 
   @@index([artistUserId])
   @@index([categoryId])
+}
+
+model ArtworkMintSnapshot {
+  id                 Int       @id @default(autoincrement())
+  artworkId          Int       @unique
+  ownerUserId        Int
+  ownerName          String
+  ownerWalletAddress String?
+  mintType           String    @default("LAZY")
+  mintedAt           DateTime  @default(now())
+  title              String
+  description        String
+  imageUrl           String
+  artistId           Int
+  artistName         String
+  finalRating        Decimal   @db.Decimal(3, 2)
+  totalVotes         Int       @default(0)
+  metadataVersion    Int       @default(1)
+  tokenId            String?
+  txHash             String?
+  onChainMintedAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  artwork            Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  owner              User      @relation("ArtworkMintOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerUserId])
+  @@index([mintType])
+}
+
+model ArtworkOwnership {
+  id                 Int       @id @default(autoincrement())
+  artworkId          Int       @unique
+  currentOwnerId     Int
+  currentOwnerName   String
+  currentWalletAddress String?
+  acquiredAt         DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  artwork            Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  currentOwner       User      @relation("ArtworkOwnershipCurrentOwner", fields: [currentOwnerId], references: [id], onDelete: Cascade)
+
+  @@index([currentOwnerId])
+}
+
+model ArtworkOwnershipHistory {
+  id                 Int       @id @default(autoincrement())
+  artworkId          Int
+  fromOwnerId        Int?
+  fromOwnerName      String?
+  toOwnerId          Int
+  toOwnerName        String
+  walletAddress      String?
+  eventType          String    @default("LAZY_MINT")
+  price              Decimal?  @db.Decimal(12, 2)
+  createdAt          DateTime  @default(now())
+  artwork            Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  fromOwner          User?     @relation("ArtworkOwnershipFromUser", fields: [fromOwnerId], references: [id], onDelete: SetNull)
+  toOwner            User      @relation("ArtworkOwnershipToUser", fields: [toOwnerId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId])
+  @@index([fromOwnerId])
+  @@index([toOwnerId])
+  @@index([eventType])
 }
 
 model PiPayment {

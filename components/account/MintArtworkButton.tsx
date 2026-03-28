@@ -10,6 +10,9 @@ export function MintArtworkButton({ artworkId }: { artworkId: number }) {
   const [message, setMessage] = useState('');
 
   async function handleMint() {
+    const confirmed = window.confirm('This will create a lazy-mint record inside the platform and publish the artwork to the gallery. On-chain minting will become available later when Pi tooling is ready.');
+    if (!confirmed) return;
+
     try {
       setLoading(true);
       setMessage('');
@@ -23,15 +26,15 @@ export function MintArtworkButton({ artworkId }: { artworkId: number }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.error || 'Failed to mint artwork.');
+        setMessage(data.error || 'Failed to lazy mint artwork.');
         setLoading(false);
         return;
       }
 
-      setMessage('Mint completed successfully.');
+      setMessage('Lazy mint completed. The artwork is now published in the gallery.');
       router.refresh();
     } catch {
-      setMessage('Something went wrong while minting the artwork.');
+      setMessage('Something went wrong while lazy minting the artwork.');
     } finally {
       setLoading(false);
     }
@@ -45,8 +48,21 @@ export function MintArtworkButton({ artworkId }: { artworkId: number }) {
         onClick={handleMint}
         disabled={loading}
       >
-        {loading ? 'Minting...' : 'Start Mint'}
+        {loading ? 'Lazy minting...' : 'Lazy Mint'}
       </button>
+
+      <button
+        className="button secondary"
+        type="button"
+        disabled
+        title="On-chain minting will be available once Pi Network tooling is ready."
+      >
+        Mint
+      </button>
+
+      <p style={{ margin: 0, fontSize: '13px', opacity: 0.8 }}>
+        Lazy Mint publishes the artwork on-platform now. On-chain minting will be enabled later through Pi Network.
+      </p>
 
       {message ? (
         <p style={{ margin: 0, fontSize: '14px', opacity: 0.85 }}>{message}</p>

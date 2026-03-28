@@ -29,6 +29,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
   const [preview, setPreview] = useState(getDisplayImageUrl(artwork.imageUrl));
   const [file, setFile] = useState<File | null>(null);
   const draftMode = artwork.status === 'DRAFT';
+  const lockedMode = !draftMode;
   const [form, setForm] = useState({
     title: artwork.title,
     description: artwork.description,
@@ -63,7 +64,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
       return;
     }
 
-    setMessage(draftMode ? 'Artwork updated successfully.' : 'Artwork pricing updated successfully.');
+    setMessage('Artwork updated successfully.');
     router.push('/artwork');
     router.refresh();
   }
@@ -75,7 +76,7 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
           <span className="section-kicker">Edit artwork</span>
           <h1>Update your artwork</h1>
         </div>
-        <p>{draftMode ? 'Draft artworks can be fully edited.' : 'After leaving draft, only pricing can be changed by the artist.'}</p>
+        <p>{draftMode ? 'Draft artworks can be fully edited.' : 'This artwork is locked because it already left the draft stage.'}</p>
       </div>
 
       {artwork.reviewNote ? <div className="card" style={{ padding: '16px', marginBottom: '18px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
@@ -87,11 +88,11 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
         </label>
         <label>
           <span>Base price</span>
-          <input type="number" min="0" step="0.01" required value={form.basePrice} onChange={(e) => setForm((current) => ({ ...current, basePrice: e.target.value }))} />
+          <input type="number" min="0" step="0.01" required disabled={lockedMode} value={form.basePrice} onChange={(e) => setForm((current) => ({ ...current, basePrice: e.target.value }))} />
         </label>
         <label>
           <span>Discount %</span>
-          <input type="number" min="0" max="100" step="0.01" value={form.discountPercent} onChange={(e) => setForm((current) => ({ ...current, discountPercent: e.target.value }))} />
+          <input type="number" min="0" max="100" step="0.01" disabled={lockedMode} value={form.discountPercent} onChange={(e) => setForm((current) => ({ ...current, discountPercent: e.target.value }))} />
         </label>
         <label>
           <span>Final price</span>
@@ -122,12 +123,12 @@ export function EditArtworkForm({ artwork, categories }: { artwork: EditableArtw
         </label>
       </div>
 
-      {!draftMode ? <p style={{ margin: 0, color: 'var(--muted)' }}>This artwork is no longer in draft. Only base price and discount can be updated now.</p> : null}
+      {lockedMode ? <p style={{ margin: 0, color: 'var(--muted)' }}>Pending, review, and published artworks are locked and can no longer be edited.</p> : null}
 
       {preview ? <Image src={preview} alt={form.title} width={1200} height={280} unoptimized style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '16px', height: 'auto' }} /> : null}
 
       <div className="form-actions">
-        <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : draftMode ? 'Save changes' : 'Save pricing'}</button>
+        <button className="button primary" type="submit" disabled={loading || lockedMode}>{loading ? 'Saving...' : 'Save changes'}</button>
         {message ? <p className="form-message">{message}</p> : null}
       </div>
     </form>

@@ -55,16 +55,7 @@ export async function POST(request: Request) {
     const finalPrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
 
     if (artwork.status !== 'DRAFT') {
-      const updatedArtwork = await prisma.artwork.update({
-        where: { id: artworkId },
-        data: {
-          basePrice,
-          discountPercent,
-          price: finalPrice,
-        }
-      });
-      logger.info('Artwork pricing updated by owner', { artworkId: updatedArtwork.id, userId: currentUser.userId, basePrice, discountPercent, finalPrice });
-      return NextResponse.json({ ok: true, artwork: updatedArtwork, pricingOnly: true });
+      return NextResponse.json({ error: 'Only draft artworks can be edited.' }, { status: 400 });
     }
 
     if (!title || !description) return NextResponse.json({ error: 'Please complete all required fields.' }, { status: 400 });

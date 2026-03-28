@@ -174,13 +174,15 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
           ? 'Your current role cannot make payments.'
           : null;
 
+  const galleryInteractive = ['PUBLISHED', 'PREMIUM'].includes(String(artwork.status));
+
   return {
     authenticated: Boolean(currentUser),
     userId: currentUser?.userId || null,
     role,
     isOwner,
     canReport: Boolean(currentUser),
-    canComment: _commentsEnabled && Boolean(currentUser),
+    canComment: _commentsEnabled && Boolean(currentUser) && galleryInteractive,
     canModerate,
     canHide,
     paymentDisabled,

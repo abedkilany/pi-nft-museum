@@ -3,7 +3,7 @@ export const ARTWORK_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pending review',
   APPROVED: 'Approved',
   PUBLIC_REVIEW: 'Public review',
-  MINTING: 'Mint window open',
+  MINTING: 'Minting',
   PUBLISHED: 'Published',
   PREMIUM: 'Premium',
   REJECTED: 'Rejected',
@@ -13,7 +13,7 @@ export const ARTWORK_STATUS_LABELS: Record<string, string> = {
 };
 
 export const GALLERY_VISIBLE_STATUSES = ['PUBLISHED', 'PREMIUM'];
-export const REVIEW_VISIBLE_STATUSES = ['PUBLIC_REVIEW', 'MINTING'];
+export const REVIEW_VISIBLE_STATUSES = ['PUBLIC_REVIEW'];
 
 export function getArtworkStatusLabel(status: string) {
   return ARTWORK_STATUS_LABELS[status] || status;
