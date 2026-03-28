@@ -20,10 +20,17 @@ export function RatingStars({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [resolvedCanRate, setResolvedCanRate] = useState(canRate);
+  const [average, setAverage] = useState(currentAverage);
+  const [votes, setVotes] = useState(currentVotes);
 
   useEffect(() => {
     setResolvedCanRate(canRate);
   }, [canRate]);
+
+  useEffect(() => {
+    setAverage(currentAverage);
+    setVotes(currentVotes);
+  }, [currentAverage, currentVotes]);
 
   async function ensureAuthenticated() {
     if (resolvedCanRate) return true;
@@ -71,6 +78,8 @@ export function RatingStars({
         return;
       }
 
+      setAverage(Number(data.averageRating ?? average));
+      setVotes(Number(data.ratingsCount ?? votes));
       setMessage('Rating submitted successfully.');
       router.refresh();
     } catch {
@@ -117,10 +126,10 @@ export function RatingStars({
       </div>
 
       <p style={{ margin: '0 0 8px', opacity: 0.8 }}>
-        Average: {currentAverage.toFixed(1)} / 5
+        Average: {average.toFixed(1)} / 5
       </p>
       <p style={{ margin: '0 0 8px', opacity: 0.8 }}>
-        Votes: {currentVotes}
+        Votes: {votes}
       </p>
 
       {message ? (

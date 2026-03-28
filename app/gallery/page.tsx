@@ -1,14 +1,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
+import { GalleryAutoRefresh } from '@/components/gallery/GalleryAutoRefresh';
 
-const getGalleryArtworks = unstable_cache(
-  async () => prisma.artwork.findMany({
+export const dynamic = 'force-dynamic';
+
+async function getGalleryArtworks() {
+  return prisma.artwork.findMany({
     where: { status: 'PUBLISHED' },
     select: {
       id: true,
@@ -29,10 +31,8 @@ const getGalleryArtworks = unstable_cache(
       category: { select: { name: true } },
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }]
-  }),
-  ['gallery-artworks'],
-  { revalidate: 30 }
-);
+  });
+}
 
 export default async function GalleryPage() {
   const [artworks, currentUser] = await Promise.all([
@@ -61,6 +61,7 @@ export default async function GalleryPage() {
 
   return (
     <div className="page-stack">
+      <GalleryAutoRefresh />
       <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Gallery</h1>
         <p style={{ margin: 0, color: 'var(--muted)' }}>Approved artworks that passed review and are now visible to the public gallery.</p>

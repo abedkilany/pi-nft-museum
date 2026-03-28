@@ -1,10 +1,10 @@
 import { ArtworkStatus } from '@/types/enums';
 import Image from 'next/image';
 import Link from 'next/link';
-import { unstable_cache } from 'next/cache';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/domains/system';
 import { AuthAwareRatingStars } from '@/components/auth/AuthAwareRatingStars';
+import { ReviewAutoRefresh } from '@/components/review/ReviewAutoRefresh';
 import { formatDateTime } from '@/lib/artwork-windows';
 import { getReviewStatuses } from '@/lib/domains/artworks';
 import { getSiteSettingsMap } from '@/lib/site-settings';
@@ -31,8 +31,10 @@ type ReviewArtwork = Prisma.ArtworkGetPayload<{
   };
 }>;
 
-const getReviewArtworks = unstable_cache(
-  async (reviewStatuses: ArtworkStatus[]) => prisma.artwork.findMany({
+export const dynamic = 'force-dynamic';
+
+async function getReviewArtworks(reviewStatuses: ArtworkStatus[]) {
+  return prisma.artwork.findMany({
     where: { status: { in: reviewStatuses } },
     select: {
       id: true,
@@ -53,10 +55,8 @@ const getReviewArtworks = unstable_cache(
       category: { select: { name: true } },
     },
     orderBy: [{ mintWindowOpensAt: 'asc' }, { createdAt: 'desc' }]
-  }) as Promise<ReviewArtwork[]>,
-  ['review-artworks'],
-  { revalidate: 20 }
-);
+  }) as Promise<ReviewArtwork[]>;
+}
 
 export default async function ReviewPage() {
   const settings = await getSiteSettingsMap();
@@ -65,6 +65,7 @@ export default async function ReviewPage() {
 
   return (
     <div className="page-stack">
+      <ReviewAutoRefresh />
       <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Public review</h1>
         <p style={{ margin: 0, color: 'var(--muted)' }}>Artworks are reviewed here before Lazy Mint. They do not appear in the main gallery until Lazy Mint succeeds.</p>

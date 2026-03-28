@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { ArtworkStatus } from '@/types/enums';
 import type { ArtworkStatus as PrismaArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
@@ -66,6 +67,11 @@ export async function POST(request: Request) {
       newValues: { requestedStatus: status, appliedStatus: artwork.status, reviewNote: reviewNote || null },
     });
 
+    revalidatePath('/review');
+    revalidatePath('/gallery');
+    revalidatePath('/account/artworks');
+    revalidatePath('/admin/artworks');
+    revalidatePath(`/artwork/${artwork.id}`);
     logger.info('Artwork status updated', { artworkId: artwork.id, newStatus: artwork.status, adminUserId: admin.user.userId });
     return NextResponse.json({ ok: true, artwork });
   } catch (error) {

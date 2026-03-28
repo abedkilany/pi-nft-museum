@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -86,6 +87,10 @@ export async function POST(request: Request) {
       return { updatedArtwork, snapshot, ownership };
     });
 
+    revalidatePath('/review');
+    revalidatePath('/gallery');
+    revalidatePath('/account/artworks');
+    revalidatePath(`/artwork/${result.updatedArtwork.id}`);
     logger.info('Artwork lazy minted and published', { artworkId: result.updatedArtwork.id, userId: currentUser.userId, snapshotId: result.snapshot.id, ownershipId: result.ownership.id });
     return NextResponse.json({ ok: true, artwork: result.updatedArtwork, snapshot: result.snapshot });
   } catch (error) {
