@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
-export function MintArtworkButton({ artworkId }: { artworkId: number }) {
+export function MintArtworkButton({ artworkId, onMinted }: { artworkId: number; onMinted?: () => void | Promise<void> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -32,7 +32,11 @@ export function MintArtworkButton({ artworkId }: { artworkId: number }) {
       }
 
       setMessage('Lazy mint completed. The artwork is now published in the gallery.');
-      router.refresh();
+      if (onMinted) {
+        await onMinted();
+      } else {
+        router.refresh();
+      }
     } catch {
       setMessage('Something went wrong while lazy minting the artwork.');
     } finally {

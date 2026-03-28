@@ -48,32 +48,32 @@ export default function MyArtworksPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  async function loadArtworks() {
+    const response = await piApiFetch('/api/account/artworks', { method: 'GET', cache: 'no-store' }).catch(() => null);
+    const payload = response ? await response.json().catch(() => null) : null;
+    if (response?.status === 401) {
+      setError('Please reconnect with Pi to load your artworks.');
+      setLoading(false);
+      return;
+    }
+
+    if (!response?.ok || !payload?.ok) {
+      setError(payload?.error || 'Failed to load artworks.');
+      setLoading(false);
+      return;
+    }
+    setError('');
+    setData(payload);
+    setLoading(false);
+  }
+
   useEffect(() => {
     if (status !== 'authenticated') {
       return;
     }
 
-    let cancelled = false;
-    async function load() {
-      const response = await piApiFetch('/api/account/artworks', { method: 'GET', cache: 'no-store' }).catch(() => null);
-      const payload = response ? await response.json().catch(() => null) : null;
-      if (cancelled) return;
-      if (response?.status === 401) {
-        setError('Please reconnect with Pi to load your artworks.');
-        setLoading(false);
-        return;
-      }
-
-      if (!response?.ok || !payload?.ok) {
-        setError(payload?.error || 'Failed to load artworks.');
-        setLoading(false);
-        return;
-      }
-      setData(payload);
-      setLoading(false);
-    }
-    void load();
-    return () => { cancelled = true; };
+    setLoading(true);
+    void loadArtworks();
   }, [status]);
 
   if (status !== 'authenticated') return <RequirePiAuth loadingText="Loading your artworks…" />;
@@ -117,7 +117,7 @@ export default function MyArtworksPageClient() {
                     {artwork.status === ArtworkStatus.DRAFT ? <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link> : null}
                     <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
                     {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
-                    {showMintButton ? <MintArtworkButton artworkId={artwork.id} /> : null}
+                    {showMintButton ? <MintArtworkButton artworkId={artwork.id} onMinted={loadArtworks} /> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
                     {artwork.status === 'PUBLISHED' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Published via Lazy Mint. On-chain mint will be available later.</p></> : null}
