@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const updatedArtwork = await prisma.artwork.update({
       where: { id: artworkId },
       data: {
-        status: ArtworkStatus.PENDING,
+        status: ArtworkStatus.PENDING_REVIEW,
         reviewNote: null,
         reviewedAt: null,
       },

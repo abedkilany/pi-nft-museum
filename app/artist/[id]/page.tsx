@@ -9,7 +9,7 @@ export default async function ArtistPage({ params }: { params: { id: string } })
     include: {
       artistProfile: true,
       artworks: {
-        where: { status: { in: ['PUBLISHED', 'PREMIUM'] } },
+        where: { status: { in: ['PUBLISHED', 'PREMIUM'] }, visibility: 'PUBLIC' },
         orderBy: { createdAt: 'desc' }
       }
     }

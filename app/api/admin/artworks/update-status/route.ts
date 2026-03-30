@@ -1,5 +1,5 @@
 import { revalidatePath } from 'next/cache';
-import { ArtworkStatus } from '@/types/enums';
+import { ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 import type { ArtworkStatus as PrismaArtworkStatus } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/domains/system';
@@ -14,7 +14,7 @@ import { type AdminArtworkModerationStatus, ADMIN_ARTWORK_MODERATION_STATUSES } 
 const ALLOWED_STATUSES = ADMIN_ARTWORK_MODERATION_STATUSES;
 
 function toArtworkStatus(status: AdminArtworkModerationStatus): PrismaArtworkStatus {
-  return (status === ArtworkStatus.APPROVED ? ArtworkStatus.PUBLIC_REVIEW : status) as PrismaArtworkStatus;
+  return (status === 'APPROVED' ? ArtworkStatus.PUBLIC_REVIEW : status) as PrismaArtworkStatus;
 }
 
 export async function POST(request: Request) {
@@ -38,18 +38,19 @@ export async function POST(request: Request) {
     const status = statusResult.data;
     const reviewNote = reviewNoteResult.data;
 
-    if (status === ArtworkStatus.REJECTED && !reviewNote) {
+    if (status === 'REJECTED' && !reviewNote) {
       return NextResponse.json({ error: 'Review note is required when rejecting an artwork.' }, { status: 400 });
     }
 
     const currentArtwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
     if (!currentArtwork) return NextResponse.json({ error: 'Artwork not found.' }, { status: 404 });
 
-    const publicReviewDates = status === ArtworkStatus.APPROVED ? await buildPublicReviewDates() : null;
+    const publicReviewDates = status === 'APPROVED' ? await buildPublicReviewDates() : null;
     const artwork = await prisma.artwork.update({
       where: { id: artworkId },
       data: {
         status: toArtworkStatus(status),
+        visibility: status === 'APPROVED' ? ArtworkVisibility.PUBLIC : currentArtwork.visibility,
         reviewNote: reviewNote || null,
         reviewedAt: new Date(),
         publicReviewStartedAt: publicReviewDates?.publicReviewStartedAt || null,

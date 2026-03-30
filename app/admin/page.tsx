@@ -20,7 +20,7 @@ export default async function AdminDashboardPage() {
     latestAudit,
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.artwork.count({ where: { status: ArtworkStatus.PENDING } }),
+    prisma.artwork.count({ where: { status: ArtworkStatus.PENDING_REVIEW } }),
     prisma.artwork.count({ where: { status: { in: ['PUBLISHED', 'PREMIUM'] } } }),
     prisma.artworkReport.count({ where: { status: 'OPEN' } }).catch(() => 0),
     prisma.errorLog.count({ where: { status: 'OPEN' } }),

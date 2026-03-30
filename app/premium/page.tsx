@@ -11,7 +11,7 @@ import { getDisplayImageUrl } from '@/lib/image-url';
 
 const getPremiumArtworks = unstable_cache(
   async () => prisma.artwork.findMany({
-    where: { status: 'PREMIUM' },
+    where: { status: 'PREMIUM', visibility: 'PUBLIC' },
     select: {
       id: true,
       title: true,

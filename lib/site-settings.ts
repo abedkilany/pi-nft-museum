@@ -48,7 +48,7 @@ export const SITE_SETTING_DEFINITIONS: SiteSettingDefinition[] = [
   { key: 'premium_rating_weight', label: 'Rating weight', group: 'business_rules', type: 'number', defaultValue: '3' },
   { key: 'public_review_hours', label: 'Public review hours', group: 'business_rules', type: 'number', defaultValue: '48' },
   { key: 'mint_window_days', label: 'Mint window days', group: 'business_rules', type: 'number', defaultValue: '7' },
-  { key: 'mint_expiry_next_status', label: 'Status after missed mint', group: 'business_rules', type: 'text', defaultValue: ArtworkStatus.PENDING },
+  { key: 'mint_expiry_next_status', label: 'Status after missed mint', group: 'business_rules', type: 'text', defaultValue: ArtworkStatus.PENDING_REVIEW },
   { key: 'rating_min', label: 'Minimum rating', group: 'business_rules', type: 'number', defaultValue: '1' },
   { key: 'rating_max', label: 'Maximum rating', group: 'business_rules', type: 'number', defaultValue: '5' },
   { key: 'premium_allow_dislike', label: 'Allow dislike on premium', group: 'business_rules', type: 'boolean', defaultValue: 'false' },

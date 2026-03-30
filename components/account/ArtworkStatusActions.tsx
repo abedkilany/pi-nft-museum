@@ -11,7 +11,7 @@ export function ArtworkStatusActions({ artworkId, status }: { artworkId: number;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const targetStatus = status === 'DRAFT' ? ArtworkStatus.PENDING : status === ArtworkStatus.PENDING ? 'DRAFT' : status === 'ARCHIVED' ? 'RESTORE_ARCHIVED' : null;
+  const targetStatus = status === 'DRAFT' ? ArtworkStatus.PENDING_REVIEW : status === ArtworkStatus.PENDING_REVIEW ? 'DRAFT' : status === 'ARCHIVED' ? 'RESTORE_ARCHIVED' : null;
   if (!targetStatus) return null;
 
   async function handleChange() {
@@ -28,7 +28,7 @@ export function ArtworkStatusActions({ artworkId, status }: { artworkId: number;
     if (response.ok) router.refresh();
   }
 
-  const label = targetStatus === ArtworkStatus.PENDING
+  const label = targetStatus === ArtworkStatus.PENDING_REVIEW
     ? 'Submit for review'
     : targetStatus === 'DRAFT'
       ? 'Move back to draft'

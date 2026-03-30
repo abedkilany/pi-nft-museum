@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 async function getGalleryArtworks() {
   return prisma.artwork.findMany({
-    where: { status: 'PUBLISHED' },
+    where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
     select: {
       id: true,
       title: true,
@@ -19,6 +19,8 @@ async function getGalleryArtworks() {
       price: true,
       currency: true,
       description: true,
+      listingType: true,
+      mintStatus: true,
       likesCount: true,
       dislikesCount: true,
       artist: {
@@ -80,6 +82,8 @@ export default async function GalleryPage() {
                   <h3 style={{ margin: '0 0 8px' }}>{artwork.title}</h3>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
+                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Availability: {artwork.listingType === 'FIXED_PRICE' ? 'For sale' : artwork.listingType === 'AUCTION' ? 'Auction' : 'Not for sale'}</p>
+                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Chain: {artwork.mintStatus === 'MINTED' ? 'On chain' : 'Off chain'}</p>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>

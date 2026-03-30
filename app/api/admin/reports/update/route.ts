@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const reportType = String(formData.get('reportType') || 'artwork');
   const reportId = Number(formData.get('reportId'));
-  const status = String(formData.get('status') || 'PENDING') as AdminReportStatus;
+  const status = String(formData.get('status') || 'PENDING_REVIEW') as AdminReportStatus;
   const adminNote = String(formData.get('adminNote') || '').trim();
 
   if (!reportId) {
@@ -93,8 +93,8 @@ export async function POST(request: Request) {
           await tx.artwork.update({
             where: { id: artworkId },
             data: {
-              statusBeforeModeration: artwork.status !== ArtworkStatus.PENDING ? artwork.status : artwork.statusBeforeModeration,
-              status: ArtworkStatus.PENDING,
+              statusBeforeModeration: artwork.status !== ArtworkStatus.PENDING_REVIEW ? artwork.status : artwork.statusBeforeModeration,
+              status: ArtworkStatus.PENDING_REVIEW,
             },
           });
         } else if (artworkAction === 'review_again') {
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
             },
           });
         } else if (artworkAction === 'restore_previous') {
-          const restoredStatus = ((artwork.statusBeforeModeration as PrismaArtworkStatus | null) ?? artwork.status ?? ArtworkStatus.PENDING) as PrismaArtworkStatus;
+          const restoredStatus = ((artwork.statusBeforeModeration as PrismaArtworkStatus | null) ?? artwork.status ?? ArtworkStatus.PENDING_REVIEW) as PrismaArtworkStatus;
           await tx.artwork.update({
             where: { id: artworkId },
             data: {

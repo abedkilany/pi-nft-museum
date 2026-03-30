@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/domains/system';
 import { canLazyMintNow, hasLazyMintSnapshot } from '@/lib/lazy-mint';
+import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 
 export async function performLazyMint({ artworkId, ownerUserId, ownerName, ownerWalletAddress = null }: {
   artworkId: number;
@@ -39,7 +40,11 @@ export async function performLazyMint({ artworkId, ownerUserId, ownerName, owner
     const updatedArtwork = await tx.artwork.update({
       where: { id: artworkId },
       data: {
-        status: 'PUBLISHED',
+        status: ArtworkStatus.PUBLISHED,
+        mintStatus: ArtworkMintStatus.MINTED,
+        listingType: ArtworkListingType.NOT_FOR_SALE,
+        visibility: ArtworkVisibility.PUBLIC,
+        currentOwnerUserId: ownerUserId,
         mintedAt,
         publishedAt: artwork.publishedAt || mintedAt,
       }

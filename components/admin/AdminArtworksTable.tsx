@@ -2,7 +2,6 @@
 
 import Image from 'next/image';
 
-import { ArtworkStatus } from '@/types/enums';
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -53,7 +52,7 @@ export function AdminArtworksTable({
       }
 
       setMessage(
-        status === ArtworkStatus.APPROVED
+        status === 'APPROVED'
           ? `Artwork #${artworkId} moved to PUBLIC_REVIEW.`
           : `Artwork #${artworkId} updated to ${status}.`
       );
@@ -153,7 +152,7 @@ export function AdminArtworksTable({
                   <button
                     className="button primary"
                     disabled={loadingId === artwork.id}
-                    onClick={() => updateStatus(artwork.id, ArtworkStatus.APPROVED)}
+                    onClick={() => updateStatus(artwork.id, 'APPROVED')}
                   >
                     {loadingId === artwork.id ? 'Saving...' : 'Approve to Public Review'}
                   </button>
@@ -161,7 +160,7 @@ export function AdminArtworksTable({
                   <button
                     className="button secondary"
                     disabled={loadingId === artwork.id}
-                    onClick={() => updateStatus(artwork.id, ArtworkStatus.REJECTED)}
+                    onClick={() => updateStatus(artwork.id, 'REJECTED')}
                   >
                     Reject
                   </button>

@@ -1,17 +1,13 @@
-import { ArtworkStatus, UserStatus, PageStatus } from '@/types/enums';
+import { UserStatus, PageStatus } from '@/types/enums';
 import type { ErrorSeverity, ErrorSource, ErrorStatus } from '@prisma/client';
 
-export type AdminArtworkModerationStatus =
-  | ArtworkStatus.APPROVED
-  | ArtworkStatus.REJECTED
-  | ArtworkStatus.HIDDEN
-  | ArtworkStatus.PENDING;
+export type AdminArtworkModerationStatus = 'APPROVED' | 'REJECTED' | 'ARCHIVED' | 'PENDING_REVIEW';
 
 export const ADMIN_ARTWORK_MODERATION_STATUSES = [
-  ArtworkStatus.APPROVED,
-  ArtworkStatus.REJECTED,
-  ArtworkStatus.HIDDEN,
-  ArtworkStatus.PENDING,
+  'APPROVED',
+  'REJECTED',
+  'ARCHIVED',
+  'PENDING_REVIEW',
 ] as const;
 
 export const ADMIN_ERROR_STATUSES = ['OPEN', 'INVESTIGATING', 'RESOLVED', 'IGNORED'] as const;
@@ -25,7 +21,7 @@ export type AdminErrorSource = (typeof ADMIN_ERROR_SOURCES)[number] & ErrorSourc
 export const ADMIN_PAGE_STATUSES = [PageStatus.DRAFT, PageStatus.PUBLISHED, PageStatus.HIDDEN] as const;
 export type AdminPageStatus = (typeof ADMIN_PAGE_STATUSES)[number];
 
-export type AdminReportStatus = ArtworkStatus.PENDING | 'RESOLVED' | ArtworkStatus.REJECTED | 'DISMISSED' | 'REVIEWED';
+export type AdminReportStatus = 'PENDING_REVIEW' | 'RESOLVED' | 'REJECTED' | 'DISMISSED' | 'REVIEWED';
 export type AdminCommentAction = 'keep' | 'remove_score_only' | 'hide_and_remove_score' | 'delete';
 export type AdminArtworkAction = 'keep' | 'pending' | 'review_again' | 'restore_previous';
 

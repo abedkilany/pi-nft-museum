@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
 
 async function getReviewArtworks(reviewStatuses: ArtworkStatus[]) {
   return prisma.artwork.findMany({
-    where: { status: { in: reviewStatuses } },
+    where: { status: { in: reviewStatuses }, visibility: 'PUBLIC' },
     select: {
       id: true,
       title: true,

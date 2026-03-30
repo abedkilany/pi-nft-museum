@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       update: {
         artworkId,
         buyerUserId: currentUser.userId,
-        sellerUserId: artwork.artistUserId,
+        sellerUserId: artwork.currentOwnerUserId ?? artwork.artistUserId,
         amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : artwork.price)),
         memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
         network: String(approved?.network || 'Pi Testnet'),
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         paymentIdentifier: paymentId,
         artworkId,
         buyerUserId: currentUser.userId,
-        sellerUserId: artwork.artistUserId,
+        sellerUserId: artwork.currentOwnerUserId ?? artwork.artistUserId,
         amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : artwork.price)),
         memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
         network: String(approved?.network || 'Pi Testnet'),

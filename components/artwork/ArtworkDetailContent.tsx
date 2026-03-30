@@ -31,20 +31,21 @@ export default function ArtworkDetailContent({
             <p style={{ margin: 0 }}><strong>Base price:</strong> {artwork.basePrice.toFixed(2)} {artwork.currency}</p>
             <p style={{ margin: 0 }}><strong>Discount:</strong> {artwork.discountPercent.toFixed(2)}%</p>
             <p style={{ margin: 0 }}><strong>Final price:</strong> {artwork.finalPrice.toFixed(2)} {artwork.currency}</p>
-            <p style={{ margin: 0 }}><strong>Status:</strong> {artwork.status}</p>
+            <p style={{ margin: 0 }}><strong>Workflow:</strong> {artwork.status}</p>
+            <p style={{ margin: 0 }}><strong>Chain:</strong> {artwork.mintStatus === 'MINTED' ? 'On chain' : 'Off chain'}</p>
+            <p style={{ margin: 0 }}><strong>Listing:</strong> {artwork.listingType === 'FIXED_PRICE' ? 'For sale' : artwork.listingType === 'AUCTION' ? 'Auction' : 'Not for sale'}</p>
+            <p style={{ margin: 0 }}><strong>Visibility:</strong> {artwork.visibility}</p>
             <p style={{ margin: 0 }}><strong>Rating:</strong> {artwork.averageRating.toFixed(1)} ({artwork.ratingsCount} ratings)</p>
             <p style={{ margin: 0 }}><strong>Likes:</strong> {artwork.likesCount}</p>
             <p style={{ margin: 0 }}><strong>Dislikes:</strong> {artwork.dislikesCount}</p>
             <p style={{ margin: 0 }}><strong>Premium Score:</strong> {artwork.premiumScore.toFixed(2)}</p>
           </div>
 
-          {artwork.status === 'SOLD' ? (
-            <div className="card" style={{ padding: '16px', marginTop: '16px' }}>
-              <strong>This artwork has already been sold.</strong>
-            </div>
-          ) : (
-            <div className="card" style={{ padding: '16px', marginTop: '16px', display: 'grid', gap: '12px' }}>
-              <strong>Pi payment (Testnet)</strong>
+          <div className="card" style={{ padding: '16px', marginTop: '16px', display: 'grid', gap: '12px' }}>
+            <strong>{artwork.listingType === 'AUCTION' ? 'Auction listing' : 'Pi payment (Testnet)'}</strong>
+            {artwork.listingType === 'AUCTION' ? (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>Auction flow is reserved for the next update. This artwork is visible as an auction placeholder only.</p>
+            ) : (
               <PiPaymentButton
                 artworkId={artwork.id}
                 title={artwork.title}
@@ -53,8 +54,8 @@ export default function ArtworkDetailContent({
                 disabled={viewer.paymentDisabled}
                 disabledReason={viewer.paymentDisabledReason}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

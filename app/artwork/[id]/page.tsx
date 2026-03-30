@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/domains/system';
 import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getReviewStatuses } from '@/lib/domains/artworks';
+import { ArtworkVisibility } from '@/types/enums';
 import { serializeArtworkDetail } from '@/lib/domains/artworks';
 import ArtworkDetailClient from '@/components/artwork/ArtworkDetailClient';
 import ArtworkPrivateAccessClient from '@/components/artwork/ArtworkPrivateAccessClient';
@@ -31,8 +32,10 @@ export default async function ArtworkDetailPage({ params }: Props) {
 
   const reviewStatuses = getReviewStatuses(settings);
   const publicCanView =
-    ['PUBLISHED', 'PREMIUM', 'SOLD'].includes(String(artwork.status)) ||
-    reviewStatuses.includes(String(artwork.status));
+    artwork.visibility === ArtworkVisibility.PUBLIC && (
+      ['PUBLISHED', 'PREMIUM'].includes(String(artwork.status)) ||
+      reviewStatuses.includes(String(artwork.status))
+    );
   if (!publicCanView) {
     return <ArtworkPrivateAccessClient artworkId={artwork.id} />;
   }

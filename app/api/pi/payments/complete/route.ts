@@ -7,6 +7,7 @@ import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 import { performLazyMint } from '@/lib/lazy-mint-execution';
 import { assertSameOrigin } from '@/lib/services/request';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
+import { ArtworkListingType, ArtworkVisibility } from '@/types/enums';
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -68,10 +69,57 @@ export async function POST(request: Request) {
           ownerWalletAddress: null,
         });
       } else {
-        await prisma.artwork.update({
+        const artwork = await prisma.artwork.findUnique({
           where: { id: existing.artworkId },
-          data: { status: 'SOLD' }
+          include: { ownership: true }
         });
+
+        if (artwork) {
+          const acquiredAt = new Date();
+          await prisma.$transaction(async (tx) => {
+            await tx.artwork.update({
+              where: { id: existing.artworkId },
+              data: {
+                currentOwnerUserId: currentUser.userId,
+                listingType: ArtworkListingType.NOT_FOR_SALE,
+                visibility: ArtworkVisibility.PUBLIC,
+              }
+            });
+
+            if (artwork.ownership) {
+              await tx.artworkOwnership.update({
+                where: { artworkId: existing.artworkId },
+                data: {
+                  currentOwnerId: currentUser.userId,
+                  currentOwnerName: currentUser.username,
+                  acquiredAt,
+                }
+              });
+            } else {
+              await tx.artworkOwnership.create({
+                data: {
+                  artworkId: existing.artworkId,
+                  currentOwnerId: currentUser.userId,
+                  currentOwnerName: currentUser.username,
+                  acquiredAt,
+                }
+              });
+            }
+
+            await tx.artworkOwnershipHistory.create({
+              data: {
+                artworkId: existing.artworkId,
+                fromOwnerId: artwork.currentOwnerUserId ?? artwork.artistUserId,
+                fromOwnerName: artwork.ownership?.currentOwnerName ?? null,
+                toOwnerId: currentUser.userId,
+                toOwnerName: currentUser.username,
+                eventType: 'PURCHASE',
+                price: existing.amount,
+                createdAt: acquiredAt,
+              }
+            });
+          });
+        }
       }
     }
 

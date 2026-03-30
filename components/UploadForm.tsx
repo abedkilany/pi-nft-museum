@@ -69,7 +69,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
           <span>Initial status</span>
           <select value={form.status} onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}>
             <option value="DRAFT">Draft</option>
-            <option value="PENDING">Submit for review now</option>
+            <option value="PENDING_REVIEW">Submit for review now</option>
           </select>
           <small className="field-help">Draft keeps the artwork private. Submit for review sends it to moderation immediately.</small>
         </label>
@@ -120,7 +120,7 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
       {preview ? <Image src={preview} alt="Preview" width={1200} height={260} unoptimized style={{ width: "100%", maxHeight: "260px", objectFit: "cover", borderRadius: "16px", height: "auto" }} /> : null}
 
       <div className="form-actions">
-        <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : form.status === ArtworkStatus.PENDING ? 'Save and submit for review' : 'Save as draft'}</button>
+        <button className="button primary" type="submit" disabled={loading}>{loading ? 'Saving...' : form.status === ArtworkStatus.PENDING_REVIEW ? 'Save and submit for review' : 'Save as draft'}</button>
         {message ? <p className="form-message">{message}</p> : null}
       </div>
     </form>

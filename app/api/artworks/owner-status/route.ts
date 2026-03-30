@@ -7,7 +7,7 @@ import { logger } from '@/lib/domains/system';
 import { assertSameOrigin } from '@/lib/services/request';
 import { getEnumField, getNumberField, readJsonObject } from '@/lib/services/request';
 
-const OWNER_TARGET_STATUSES = [ArtworkStatus.DRAFT, ArtworkStatus.PENDING, 'RESTORE_ARCHIVED'] as const;
+const OWNER_TARGET_STATUSES = [ArtworkStatus.DRAFT, ArtworkStatus.PENDING_REVIEW, 'RESTORE_ARCHIVED'] as const;
 
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, message: 'Artwork restored.' });
     }
 
-    if (![ArtworkStatus.DRAFT, ArtworkStatus.PENDING].includes(artwork.status as ArtworkStatus)) {
+    if (![ArtworkStatus.DRAFT, ArtworkStatus.PENDING_REVIEW].includes(artwork.status as ArtworkStatus)) {
       return NextResponse.json({ ok: false, error: 'Artwork status can no longer be changed by the artist.' }, { status: 400 });
     }
 
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
     await prisma.artwork.update({ where: { id }, data: { status: status as PrismaArtworkStatus } });
     logger.info('Artwork owner status changed', { artworkId: id, userId: currentUser.userId, from: artwork.status, to: status });
-    return NextResponse.json({ ok: true, message: status === ArtworkStatus.PENDING ? 'Artwork submitted for review.' : 'Artwork moved back to draft.' });
+    return NextResponse.json({ ok: true, message: status === ArtworkStatus.PENDING_REVIEW ? 'Artwork submitted for review.' : 'Artwork moved back to draft.' });
   } catch (error) {
     logger.error('Failed to change owner artwork status', error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });

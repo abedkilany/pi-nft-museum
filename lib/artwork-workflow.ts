@@ -13,7 +13,7 @@ import {
   type SiteSettingsMap
 } from '@/lib/site-settings';
 
-export const ADMIN_REVIEW_ACTIONS = [ArtworkStatus.APPROVED, ArtworkStatus.REJECTED, ArtworkStatus.HIDDEN, ArtworkStatus.PENDING] as const;
+export const ADMIN_REVIEW_ACTIONS = ['APPROVED', ArtworkStatus.REJECTED, ArtworkStatus.ARCHIVED, ArtworkStatus.PENDING_REVIEW] as const;
 export type AdminReviewAction = (typeof ADMIN_REVIEW_ACTIONS)[number];
 
 export function slugify(text: string) {
@@ -121,9 +121,9 @@ export function arePublicReviewReactionsAllowed(settings: SiteSettingsMap) {
 }
 
 export function getMintExpiryNextStatus(settings: SiteSettingsMap): ArtworkStatus {
-  const allowed: ArtworkStatus[] = [ArtworkStatus.PENDING, ArtworkStatus.REJECTED, ArtworkStatus.ARCHIVED, ArtworkStatus.HIDDEN];
-  const configured = getStringSetting(settings, 'mint_expiry_next_status', ArtworkStatus.PENDING) as ArtworkStatus;
-  return allowed.includes(configured) ? configured : ArtworkStatus.PENDING;
+  const allowed: ArtworkStatus[] = [ArtworkStatus.PENDING_REVIEW, ArtworkStatus.REJECTED, ArtworkStatus.ARCHIVED];
+  const configured = getStringSetting(settings, 'mint_expiry_next_status', ArtworkStatus.PENDING_REVIEW) as ArtworkStatus;
+  return allowed.includes(configured) ? configured : ArtworkStatus.PENDING_REVIEW;
 }
 
 export async function syncExpiredPublicReviewWindows(settings?: SiteSettingsMap) {
@@ -142,9 +142,9 @@ export async function syncExpiredPublicReviewWindows(settings?: SiteSettingsMap)
 }
 
 export async function resolveAdminStatusUpdate(action: AdminReviewAction, settings?: SiteSettingsMap) {
-  if (action !== ArtworkStatus.APPROVED) {
+  if (action !== 'APPROVED') {
     return {
-      status: action as Exclude<ArtworkStatus, ArtworkStatus.APPROVED>,
+      status: action as ArtworkStatus,
       reviewDates: null
     };
   }
@@ -152,7 +152,7 @@ export async function resolveAdminStatusUpdate(action: AdminReviewAction, settin
   const reviewDates = await buildPublicReviewDates(new Date(), settings);
 
   return {
-    status: ArtworkStatus.PUBLIC_REVIEW as Exclude<ArtworkStatus, ArtworkStatus.APPROVED>,
+    status: ArtworkStatus.PUBLIC_REVIEW as ArtworkStatus,
     reviewDates
   };
 }

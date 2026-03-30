@@ -26,6 +26,10 @@ export type ArtworkDetailDto = {
   imageUrl: string;
   description: string;
   status: string;
+  mintStatus: string;
+  listingType: string;
+  visibility: string;
+  ownerUserId: number;
   categoryName: string;
   artistUsername: string;
   artistName: string;
@@ -92,6 +96,10 @@ type ArtworkDetailRecord = {
   status: unknown;
   category?: { name?: string | null } | null;
   artistUserId: number;
+  currentOwnerUserId?: number | null;
+  mintStatus?: unknown;
+  listingType?: unknown;
+  visibility?: unknown;
   artist: {
     username: string;
     fullName?: string | null;
@@ -117,6 +125,10 @@ export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser
     imageUrl: artwork.imageUrl,
     description: artwork.description,
     status: String(artwork.status),
+    mintStatus: String(artwork.mintStatus ?? 'UNMINTED'),
+    listingType: String(artwork.listingType ?? 'NOT_FOR_SALE'),
+    visibility: String(artwork.visibility ?? 'PRIVATE'),
+    ownerUserId: Number(artwork.currentOwnerUserId ?? artwork.artistUserId),
     categoryName: artwork.category?.name || 'General',
     artistUsername: artwork.artist.username,
     artistName,
@@ -151,9 +163,10 @@ export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser
   };
 }
 
-export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "artistUserId" | "status">, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
+export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "artistUserId" | "currentOwnerUserId" | "status" | "mintStatus" | "listingType" | "visibility">, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
   const role = currentUser?.role || null;
-  const isOwner = Boolean(currentUser && currentUser.userId === artwork.artistUserId);
+  const ownerUserId = artwork.currentOwnerUserId ?? artwork.artistUserId;
+  const isOwner = Boolean(currentUser && currentUser.userId === ownerUserId);
   const canModerate = role === 'admin' || role === 'superadmin';
   const canHide = Boolean(currentUser && (isOwner || canModerate));
 
@@ -161,6 +174,9 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
     !currentUser ||
     isOwner ||
     !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status)) ||
+    String(artwork.mintStatus ?? 'UNMINTED') !== 'MINTED' ||
+    String(artwork.listingType ?? 'NOT_FOR_SALE') !== 'FIXED_PRICE' ||
+    String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC' ||
     !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
   );
 
@@ -170,11 +186,17 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
       ? 'You cannot buy your own artwork.'
       : !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status))
         ? 'Only published or premium artworks can be paid for right now.'
-        : !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
-          ? 'Your current role cannot make payments.'
-          : null;
+        : String(artwork.mintStatus ?? 'UNMINTED') !== 'MINTED'
+          ? 'This artwork is not on-chain yet.'
+          : String(artwork.listingType ?? 'NOT_FOR_SALE') !== 'FIXED_PRICE'
+            ? 'This artwork is not currently listed for direct sale.'
+            : String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC'
+              ? 'This artwork is not publicly visible.'
+              : !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
+                ? 'Your current role cannot make payments.'
+                : null;
 
-  const galleryInteractive = ['PUBLISHED', 'PREMIUM'].includes(String(artwork.status));
+  const galleryInteractive = ['PUBLISHED', 'PREMIUM'].includes(String(artwork.status)) && String(artwork.visibility ?? 'PRIVATE') === 'PUBLIC';
 
   return {
     authenticated: Boolean(currentUser),

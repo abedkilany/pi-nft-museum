@@ -5,7 +5,7 @@ import { prisma } from '@/lib/domains/system';
 export default async function AdminArtworksPage() {
   const artworks = await prisma.artwork.findMany({
     where: {
-      status: ArtworkStatus.PENDING
+      status: ArtworkStatus.PENDING_REVIEW
     },
     include: {
       artist: {

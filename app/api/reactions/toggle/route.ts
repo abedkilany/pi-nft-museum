@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
     if (!artwork) return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
-    if (!canReceiveReactions(artwork.status)) return NextResponse.json({ ok: false, error: 'Only minted gallery artworks can receive public reactions.' }, { status: 400 });
+    if (!canReceiveReactions(artwork)) return NextResponse.json({ ok: false, error: 'Only minted gallery artworks can receive public reactions.' }, { status: 400 });
 
     const settings = await getSiteSettingsMap();
     const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);

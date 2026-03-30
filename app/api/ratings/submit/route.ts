@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     const artwork = await prisma.artwork.findUnique({ where: { id: artworkId } });
     if (!artwork) return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
-    if (!canReceiveRatings(artwork.status)) return NextResponse.json({ ok: false, error: 'Only artworks in public review can be rated.' }, { status: 400 });
+    if (!canReceiveRatings(artwork)) return NextResponse.json({ ok: false, error: 'Only artworks in public review can be rated.' }, { status: 400 });
 
     await prisma.rating.upsert({ where: { artworkId_userId: { artworkId, userId: currentUser.userId } }, update: { value }, create: { artworkId, userId: currentUser.userId, value } });
 

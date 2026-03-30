@@ -3,7 +3,7 @@
 import Image from 'next/image';
 
 import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
-import { ArtworkStatus } from '@/types/enums';
+import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -11,7 +11,7 @@ import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButto
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { formatDateTime, getMintWindowStatus } from '@/lib/artwork-windows';
-import { getArtworkStatusLabel } from '@/lib/domains/artworks';
+import { getArtworkListingLabel, getArtworkMintStatusLabel, getArtworkStatusLabel, getArtworkVisibilityLabel } from '@/lib/domains/artworks';
 import { DeleteArtworkButton } from '@/components/account/DeleteArtworkButton';
 import { piApiFetch } from '@/lib/pi-auth-client';
 import { RequirePiAuth } from '@/components/auth/RequirePiAuth';
@@ -23,6 +23,10 @@ type MyArtworkItem = {
   title: string;
   imageUrl: string;
   status: string;
+  mintStatus?: string | null;
+  listingType?: string | null;
+  visibility?: string | null;
+  currentOwnerUserId?: number | null;
   category?: { name?: string | null } | null;
   currency: string;
   basePrice?: number | string | null;
@@ -106,7 +110,10 @@ export default function MyArtworksPageClient() {
                   <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={800} height={600} unoptimized className="my-artwork-thumb" />
                   <div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Status: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
+                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Workflow: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
+                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Chain: <strong>{getArtworkMintStatusLabel(artwork.mintStatus || ArtworkMintStatus.UNMINTED)}</strong></p>
+                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Listing: <strong>{getArtworkListingLabel(artwork.listingType || ArtworkListingType.NOT_FOR_SALE)}</strong></p>
+                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Visibility: <strong>{getArtworkVisibilityLabel(artwork.visibility || ArtworkVisibility.PRIVATE)}</strong></p>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
                     <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number(artwork.basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p><p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number(artwork.discountPercent ?? 0).toFixed(2)}%</p><p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
                     {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
@@ -120,8 +127,8 @@ export default function MyArtworksPageClient() {
                     {showMintButton ? <MintArtworkButton artworkId={artwork.id} title={artwork.title} onMinted={loadArtworks} /> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
                     {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
-                    {artwork.status === 'PUBLISHED' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Published via Lazy Mint. On-chain mint will be available later.</p></> : null}
-                    {artwork.status === 'PREMIUM' ? <Link href="/premium" className="button primary">Open in premium</Link> : null}
+                    {artwork.status === 'PUBLISHED' && artwork.visibility === 'PUBLIC' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{artwork.listingType === 'FIXED_PRICE' ? 'This artwork is live for direct sale.' : artwork.listingType === 'AUCTION' ? 'This artwork is visible as an auction listing.' : 'This artwork is public but not for sale.'}</p></> : null}
+                    {artwork.status === 'PREMIUM' && artwork.visibility === 'PUBLIC' ? <Link href="/premium" className="button primary">Open in premium</Link> : null}
                     {artwork.status === 'ARCHIVED' ? <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{archiveMessage}</p> : null}
                     <DeleteArtworkButton artworkId={artwork.id} title={artwork.title} archived={artwork.status === 'ARCHIVED'} />
                   </div>

@@ -30,7 +30,7 @@ const getHomePageData = unstable_cache(
   async (featuredStatuses: ArtworkStatus[], featuredLimit: number) => {
     return Promise.all([
       prisma.artwork.findMany({
-        where: { status: { in: featuredStatuses } },
+        where: { status: { in: featuredStatuses }, visibility: 'PUBLIC' },
         take: featuredLimit,
         select: {
           id: true,
@@ -66,7 +66,7 @@ export default async function HomePage() {
 
   const [artworks, stats] = await getHomePageData(featuredStatuses, featuredLimit);
 
-  const pending = stats.find((item) => item.status === ArtworkStatus.PENDING)?._count || 0;
+  const pending = stats.find((item) => item.status === ArtworkStatus.PENDING_REVIEW)?._count || 0;
   const published = stats.find((item) => item.status === 'PUBLISHED')?._count || 0;
   const premium = stats.find((item) => item.status === 'PREMIUM')?._count || 0;
 

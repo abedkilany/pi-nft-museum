@@ -9,16 +9,29 @@ export enum UserStatus {
 
 export enum ArtworkStatus {
   DRAFT = 'DRAFT',
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
+  PENDING_REVIEW = 'PENDING_REVIEW',
   PUBLIC_REVIEW = 'PUBLIC_REVIEW',
-  MINTING = 'MINTING',
   PUBLISHED = 'PUBLISHED',
   PREMIUM = 'PREMIUM',
   REJECTED = 'REJECTED',
   ARCHIVED = 'ARCHIVED',
-  HIDDEN = 'HIDDEN',
-  SOLD = 'SOLD',
+}
+
+export enum ArtworkMintStatus {
+  UNMINTED = 'UNMINTED',
+  MINTED = 'MINTED',
+}
+
+export enum ArtworkListingType {
+  NOT_FOR_SALE = 'NOT_FOR_SALE',
+  FIXED_PRICE = 'FIXED_PRICE',
+  AUCTION = 'AUCTION',
+}
+
+export enum ArtworkVisibility {
+  PRIVATE = 'PRIVATE',
+  PUBLIC = 'PUBLIC',
+  FOLLOWERS = 'FOLLOWERS',
 }
 
 export enum PageStatus {
