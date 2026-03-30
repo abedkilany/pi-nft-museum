@@ -244,13 +244,11 @@ export async function getPermissionKeysForUserId(userId: number): Promise<Permis
     .map((entry) => entry.permission?.key)
     .filter((value): value is PermissionKey => Boolean(value));
 
-  const defaultPermissions = getDefaultPermissionsForRole(user.role.key);
-
   if (dbPermissions.length > 0) {
-    return Array.from(new Set([...defaultPermissions, ...dbPermissions]));
+    return Array.from(new Set(dbPermissions));
   }
 
-  return defaultPermissions;
+  return getDefaultPermissionsForRole(user.role.key);
 }
 
 export async function getAuthorizationSnapshot(user: SessionUser | null) {
