@@ -5,7 +5,6 @@ export const ROLE_KEYS = {
   superadmin: 'superadmin',
   admin: 'admin',
   moderator: 'moderator',
-  reviewer: 'reviewer',
   artistOrTrader: 'artist_or_trader',
   visitor: 'visitor',
 } as const;
@@ -15,38 +14,15 @@ export type RoleKey = (typeof ROLE_KEYS)[keyof typeof ROLE_KEYS];
 export const PERMISSIONS = {
   adminAccess: 'admin.access',
   usersView: 'users.view',
-  usersEdit: 'users.edit',
   usersManage: 'users.manage',
-  usersStatusManage: 'users.status.manage',
   userRolesManage: 'users.roles.manage',
-
-  artworksView: 'artworks.view',
   artworksModerate: 'artworks.moderate',
   artworksReview: 'artworks.review',
-  artworksPublish: 'artworks.publish',
-  artworksReject: 'artworks.reject',
-
-  reportsView: 'reports.view',
-  reportsResolve: 'reports.resolve',
-
-  communityModerate: 'community.moderate',
+  settingsManage: 'settings.manage',
+  logsView: 'logs.view',
   commentsModerate: 'comments.moderate',
   commentsEditAny: 'comments.edit.any',
   commentsDeleteAny: 'comments.delete.any',
-
-  pagesManage: 'pages.manage',
-  menuManage: 'menu.manage',
-  categoriesManage: 'categories.manage',
-  countriesManage: 'countries.manage',
-
-  settingsView: 'settings.view',
-  settingsUpdate: 'settings.update',
-  settingsManage: 'settings.manage',
-
-  logsView: 'logs.view',
-  auditView: 'audit.view',
-  staffManage: 'staff.manage',
-
   paymentsCreate: 'payments.create',
   paymentsCompleteAny: 'payments.complete.any',
 } as const;
@@ -149,30 +125,13 @@ export const PERMISSION_DEFINITIONS: Array<{
   },
 ];
 
+const ALL_PERMISSION_KEYS = PERMISSION_DEFINITIONS.map((item) => item.key);
+
 const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, PermissionKey[]> = {
-  [ROLE_KEYS.superadmin]: Object.values(PERMISSIONS),
-  [ROLE_KEYS.admin]: [
-    PERMISSIONS.adminAccess,
-    PERMISSIONS.usersView,
-    PERMISSIONS.artworksModerate,
-    PERMISSIONS.artworksReview,
-    PERMISSIONS.settingsManage,
-    PERMISSIONS.logsView,
-    PERMISSIONS.commentsModerate,
-    PERMISSIONS.commentsEditAny,
-    PERMISSIONS.commentsDeleteAny,
-    PERMISSIONS.paymentsCreate,
-    PERMISSIONS.paymentsCompleteAny,
-  ],
-  [ROLE_KEYS.moderator]: [
-    PERMISSIONS.adminAccess,
-    PERMISSIONS.artworksModerate,
-    PERMISSIONS.commentsModerate,
-    PERMISSIONS.commentsEditAny,
-    PERMISSIONS.commentsDeleteAny,
-  ],
-  [ROLE_KEYS.reviewer]: [PERMISSIONS.adminAccess, PERMISSIONS.artworksReview],
-  [ROLE_KEYS.artistOrTrader]: [PERMISSIONS.paymentsCreate],
+  [ROLE_KEYS.superadmin]: ALL_PERMISSION_KEYS,
+  [ROLE_KEYS.admin]: [],
+  [ROLE_KEYS.moderator]: [],
+  [ROLE_KEYS.artistOrTrader]: [],
   [ROLE_KEYS.visitor]: [],
 };
 
@@ -206,7 +165,7 @@ export function getDefaultPermissionsForRole(role?: string | null): PermissionKe
 }
 
 export function getAllPermissionKeys(): PermissionKey[] {
-  return PERMISSION_DEFINITIONS.map((item) => item.key);
+  return ALL_PERMISSION_KEYS;
 }
 
 export function getPermissionDefinition(permission: PermissionKey) {
@@ -242,7 +201,7 @@ export async function getPermissionKeysForUserId(userId: number): Promise<Permis
 
   const dbPermissions = user.role.permissions
     .map((entry) => entry.permission?.key)
-    .filter((value): value is PermissionKey => Boolean(value));
+    .filter((value): value is PermissionKey => Boolean(value && ALL_PERMISSION_KEYS.includes(value as PermissionKey)));
 
   if (dbPermissions.length > 0) {
     return Array.from(new Set(dbPermissions));

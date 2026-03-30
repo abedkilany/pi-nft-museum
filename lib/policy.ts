@@ -17,5 +17,5 @@ export async function canChangeRole(actor: SessionUser | null, targetRoleKey: st
   if (targetRoleKey === 'superadmin') {
     return userHasPermission(actor, PERMISSIONS.userRolesManage);
   }
-  return userHasPermission(actor, PERMISSIONS.staffManage) || userHasPermission(actor, PERMISSIONS.userRolesManage);
+  return userHasPermission(actor, PERMISSIONS.userRolesManage);
 }
