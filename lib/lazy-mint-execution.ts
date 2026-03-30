@@ -41,7 +41,7 @@ export async function performLazyMint({ artworkId, ownerUserId, ownerName, owner
       where: { id: artworkId },
       data: {
         status: ArtworkStatus.PUBLISHED,
-        mintStatus: ArtworkMintStatus.MINTED,
+        mintStatus: ArtworkMintStatus.LAZY_MINTED,
         listingType: ArtworkListingType.NOT_FOR_SALE,
         visibility: ArtworkVisibility.PUBLIC,
         currentOwnerUserId: ownerUserId,

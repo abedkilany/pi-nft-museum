@@ -6,6 +6,7 @@ import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
 import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
 import { GalleryAutoRefresh } from '@/components/gallery/GalleryAutoRefresh';
+import { getArtworkMintStatusLabel } from '@/lib/domains/artworks';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +84,7 @@ export default async function GalleryPage() {
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Artist: {artistName}</p>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Availability: {artwork.listingType === 'FIXED_PRICE' ? 'For sale' : artwork.listingType === 'AUCTION' ? 'Auction' : 'Not for sale'}</p>
-                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Chain: {artwork.mintStatus === 'MINTED' ? 'On chain' : 'Off chain'}</p>
+                  <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Chain: {getArtworkMintStatusLabel(artwork.mintStatus || 'UNMINTED')}</p>
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
                   <p style={{ margin: 0, color: 'var(--muted)' }}>{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>

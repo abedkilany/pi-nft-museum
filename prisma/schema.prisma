@@ -800,6 +800,7 @@ enum ArtworkStatus {
 
 enum ArtworkMintStatus {
   UNMINTED
+  LAZY_MINTED
   MINTED
 }
 

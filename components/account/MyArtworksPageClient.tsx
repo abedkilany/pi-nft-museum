@@ -1,12 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-
-import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
-import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
-
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { ArtworkStatusActions } from '@/components/account/ArtworkStatusActions';
+import { ArtworkManageModal } from '@/components/account/ArtworkManageModal';
+import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 import { ResubmitArtworkButton } from '@/components/account/ResubmitArtworkButton';
 import { MintArtworkButton } from '@/components/account/MintArtworkButton';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
@@ -43,8 +42,72 @@ type MyArtworksResponse = {
   artworks: MyArtworkItem[];
   reviewHours?: number;
   archiveMessage?: string;
-  user?: { username?: string | null } | null;
+  user?: { userId?: number | null; username?: string | null } | null;
 };
+
+function ManagedArtworkCard({
+  artwork,
+  mintWindowStatus,
+  reviewHours,
+  archiveMessage,
+  showMintButton,
+  canManage,
+  loadArtworks,
+}: {
+  artwork: MyArtworkItem;
+  mintWindowStatus: string;
+  reviewHours: number;
+  archiveMessage: string;
+  showMintButton: boolean;
+  canManage: boolean;
+  loadArtworks: () => Promise<void>;
+}) {
+  const [manageOpen, setManageOpen] = useState(false);
+
+  return (
+    <>
+      <div className="card my-artwork-item">
+        <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={800} height={600} unoptimized className="my-artwork-thumb" />
+        <div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Workflow: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Mint: <strong>{getArtworkMintStatusLabel(artwork.mintStatus || ArtworkMintStatus.UNMINTED)}</strong></p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Listing: <strong>{getArtworkListingLabel(artwork.listingType || ArtworkListingType.NOT_FOR_SALE)}</strong></p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Visibility: <strong>{getArtworkVisibilityLabel(artwork.visibility || ArtworkVisibility.PRIVATE)}</strong></p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number(artwork.basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p>
+          <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number(artwork.discountPercent ?? 0).toFixed(2)}%</p>
+          <p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
+          {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
+          {artwork.status === 'PUBLIC_REVIEW' ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
+        </div>
+        <div className="my-artwork-actions">
+          <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
+          {artwork.status === ArtworkStatus.DRAFT ? <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link> : null}
+          <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
+          {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
+          {showMintButton ? <MintArtworkButton artworkId={artwork.id} title={artwork.title} onMinted={loadArtworks} /> : null}
+          {canManage ? <button type="button" className="button secondary" onClick={() => setManageOpen(true)}>Manage</button> : null}
+          {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
+          {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
+          {artwork.status === 'PUBLISHED' && artwork.visibility === 'PUBLIC' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{artwork.listingType === 'FIXED_PRICE' ? 'This artwork is live for direct sale.' : artwork.listingType === 'AUCTION' ? 'This artwork is visible as an auction listing.' : 'This artwork is public but not for sale.'}</p></> : null}
+          {artwork.status === 'PREMIUM' && artwork.visibility === 'PUBLIC' ? <Link href="/premium" className="button primary">Open in premium</Link> : null}
+          {artwork.status === 'ARCHIVED' ? <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{archiveMessage}</p> : null}
+          <DeleteArtworkButton artworkId={artwork.id} title={artwork.title} archived={artwork.status === 'ARCHIVED'} />
+        </div>
+      </div>
+
+      {canManage ? (
+        <ArtworkManageModal
+          open={manageOpen}
+          onClose={() => setManageOpen(false)}
+          onSaved={loadArtworks}
+          artwork={artwork}
+        />
+      ) : null}
+    </>
+  );
+}
 
 export default function MyArtworksPageClient() {
   const { status } = usePiAuth();
@@ -88,6 +151,7 @@ export default function MyArtworksPageClient() {
   const reviewHours = data?.reviewHours || 48;
   const archiveMessage = data?.archiveMessage || '';
   const username = data?.user?.username || null;
+  const currentUserId = data?.user?.userId || null;
 
   return (
     <div className="page-stack">
@@ -98,41 +162,26 @@ export default function MyArtworksPageClient() {
         </div>
         <div className="card-actions">
           <Link href="/upload" className="button primary">Upload new artwork</Link>
-          <Link href={username ? `/profile/${username}` : "/account"} prefetch={false} className="button secondary">Open profile</Link>
+          <Link href={username ? `/profile/${username}` : '/account'} prefetch={false} className="button secondary">Open profile</Link>
         </div>
         {artworks.length === 0 ? <p>You have not submitted any artworks yet.</p> : (
           <div className="stack-md">
             {artworks.map((artwork) => {
               const mintWindowStatus = getMintWindowStatus(artwork);
               const showMintButton = mintWindowStatus === 'mint_open';
+              const ownerUserId = artwork.currentOwnerUserId ?? currentUserId;
+              const canManage = ownerUserId === currentUserId && [ArtworkStatus.PUBLISHED, ArtworkStatus.PREMIUM].includes(artwork.status as ArtworkStatus);
               return (
-                <div key={artwork.id} className="card my-artwork-item">
-                  <Image src={getDisplayImageUrl(artwork.imageUrl)} alt={artwork.title} width={800} height={600} unoptimized className="my-artwork-thumb" />
-                  <div>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}><h3 style={{ margin: 0 }}>{artwork.title}</h3>{artwork.status === 'PREMIUM' ? <PremiumBadge /> : null}</div>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Workflow: <strong>{getArtworkStatusLabel(artwork.status)}</strong></p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Chain: <strong>{getArtworkMintStatusLabel(artwork.mintStatus || ArtworkMintStatus.UNMINTED)}</strong></p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Listing: <strong>{getArtworkListingLabel(artwork.listingType || ArtworkListingType.NOT_FOR_SALE)}</strong></p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Visibility: <strong>{getArtworkVisibilityLabel(artwork.visibility || ArtworkVisibility.PRIVATE)}</strong></p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Category: {artwork.category?.name || 'General'}</p>
-                    <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Base price: {Number(artwork.basePrice ?? artwork.price).toFixed(2)} {artwork.currency}</p><p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>Discount: {Number(artwork.discountPercent ?? 0).toFixed(2)}%</p><p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>Final price: {Number(artwork.price).toFixed(2)} {artwork.currency}</p>
-                    {artwork.reviewNote ? <div className="card" style={{ padding: '12px', marginBottom: '10px' }}><strong>Review note</strong><p style={{ marginBottom: 0 }}>{artwork.reviewNote}</p></div> : null}
-                    {artwork.status === 'PUBLIC_REVIEW' ? <div className="card" style={{ padding: '12px' }}><strong>Review timeline</strong><p style={{ margin: '8px 0 4px' }}>Review started: {formatDateTime(artwork.publicReviewStartedAt)}</p><p style={{ margin: '0 0 4px' }}>Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}</p><p style={{ margin: 0 }}>Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}</p></div> : null}
-                  </div>
-                  <div className="my-artwork-actions">
-                    <Link href={`/artwork/${artwork.id}`} className="button secondary">View</Link>
-                    {artwork.status === ArtworkStatus.DRAFT ? <Link href={`/account/artworks/${artwork.id}/edit`} className="button secondary">Edit</Link> : null}
-                    <ArtworkStatusActions artworkId={artwork.id} status={artwork.status} />
-                    {artwork.status === ArtworkStatus.REJECTED ? <ResubmitArtworkButton artworkId={artwork.id} /> : null}
-                    {showMintButton ? <MintArtworkButton artworkId={artwork.id} title={artwork.title} onMinted={loadArtworks} /> : null}
-                    {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'reviewing' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy Mint opens after the {reviewHours}-hour public review period.</p> : null}
-                    {artwork.status === 'PUBLIC_REVIEW' && mintWindowStatus === 'expired' ? <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>Lazy mint window expired. This artwork will return to the configured fallback status.</p> : null}
-                    {artwork.status === 'PUBLISHED' && artwork.visibility === 'PUBLIC' ? <><Link href="/gallery" className="button primary">Open in gallery</Link><p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{artwork.listingType === 'FIXED_PRICE' ? 'This artwork is live for direct sale.' : artwork.listingType === 'AUCTION' ? 'This artwork is visible as an auction listing.' : 'This artwork is public but not for sale.'}</p></> : null}
-                    {artwork.status === 'PREMIUM' && artwork.visibility === 'PUBLIC' ? <Link href="/premium" className="button primary">Open in premium</Link> : null}
-                    {artwork.status === 'ARCHIVED' ? <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>{archiveMessage}</p> : null}
-                    <DeleteArtworkButton artworkId={artwork.id} title={artwork.title} archived={artwork.status === 'ARCHIVED'} />
-                  </div>
-                </div>
+                <ManagedArtworkCard
+                  key={artwork.id}
+                  artwork={artwork}
+                  mintWindowStatus={mintWindowStatus}
+                  reviewHours={reviewHours}
+                  archiveMessage={archiveMessage}
+                  showMintButton={showMintButton}
+                  canManage={canManage}
+                  loadArtworks={loadArtworks}
+                />
               );
             })}
           </div>

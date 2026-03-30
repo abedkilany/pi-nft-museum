@@ -174,7 +174,7 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
     !currentUser ||
     isOwner ||
     !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status)) ||
-    String(artwork.mintStatus ?? 'UNMINTED') !== 'MINTED' ||
+    !['LAZY_MINTED', 'MINTED'].includes(String(artwork.mintStatus ?? 'UNMINTED')) ||
     String(artwork.listingType ?? 'NOT_FOR_SALE') !== 'FIXED_PRICE' ||
     String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC' ||
     !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
@@ -186,8 +186,8 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
       ? 'You cannot buy your own artwork.'
       : !['PUBLISHED', 'PREMIUM'].includes(String(artwork.status))
         ? 'Only published or premium artworks can be paid for right now.'
-        : String(artwork.mintStatus ?? 'UNMINTED') !== 'MINTED'
-          ? 'This artwork is not on-chain yet.'
+        : !['LAZY_MINTED', 'MINTED'].includes(String(artwork.mintStatus ?? 'UNMINTED'))
+          ? 'This artwork must be lazy minted or minted before it can be purchased.'
           : String(artwork.listingType ?? 'NOT_FOR_SALE') !== 'FIXED_PRICE'
             ? 'This artwork is not currently listed for direct sale.'
             : String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC'

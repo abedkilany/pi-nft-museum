@@ -24,5 +24,5 @@ export async function GET() {
     include: { category: true },
   });
 
-  return NextResponse.json({ ok: true, artworks, reviewHours, archiveMessage, user: { username: currentUser.username } });
+  return NextResponse.json({ ok: true, artworks, reviewHours, archiveMessage, user: { userId: currentUser.userId, username: currentUser.username } });
 }

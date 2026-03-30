@@ -54,7 +54,7 @@ export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: n
               throw new Error(data.error || 'Server completion failed.');
             }
 
-            setMessage('Lazy mint fee paid successfully. The artwork is now published in the gallery.');
+            setMessage('Lazy Mint completed successfully. The artwork is now published as an off-chain item.');
             if (onMinted) {
               await onMinted();
             }

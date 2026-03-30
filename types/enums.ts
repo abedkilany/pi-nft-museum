@@ -19,6 +19,7 @@ export enum ArtworkStatus {
 
 export enum ArtworkMintStatus {
   UNMINTED = 'UNMINTED',
+  LAZY_MINTED = 'LAZY_MINTED',
   MINTED = 'MINTED',
 }
 

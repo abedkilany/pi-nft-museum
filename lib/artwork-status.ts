@@ -11,8 +11,9 @@ export const ARTWORK_STATUS_LABELS: Record<string, string> = {
 };
 
 export const ARTWORK_MINT_STATUS_LABELS: Record<string, string> = {
-  [ArtworkMintStatus.UNMINTED]: 'Off chain',
-  [ArtworkMintStatus.MINTED]: 'On chain',
+  [ArtworkMintStatus.UNMINTED]: 'Not minted yet',
+  [ArtworkMintStatus.LAZY_MINTED]: 'Off-chain',
+  [ArtworkMintStatus.MINTED]: 'On-chain',
 };
 
 export const ARTWORK_LISTING_LABELS: Record<string, string> = {
@@ -55,6 +56,6 @@ export function canReceiveRatings(artwork: { status: string; visibility?: string
 
 export function canReceiveReactions(artwork: { status: string; mintStatus?: string | null; visibility?: string | null }) {
   return [ArtworkStatus.PUBLISHED, ArtworkStatus.PREMIUM].includes(artwork.status as ArtworkStatus)
-    && (artwork.mintStatus || ArtworkMintStatus.UNMINTED) === ArtworkMintStatus.MINTED
+    && [ArtworkMintStatus.LAZY_MINTED, ArtworkMintStatus.MINTED].includes((artwork.mintStatus || ArtworkMintStatus.UNMINTED) as ArtworkMintStatus)
     && (artwork.visibility || ArtworkVisibility.PRIVATE) === ArtworkVisibility.PUBLIC;
 }

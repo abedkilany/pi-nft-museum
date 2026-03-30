@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/env';
+import { ArtworkMintStatus } from '@/types/enums';
 
 const PI_API_BASE = 'https://api.minepi.com/v2';
 
@@ -58,7 +59,7 @@ export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: 
   }
 
   if ((artwork.currentOwnerUserId ?? artwork.artistUserId) === buyerUserId) throw new Error('You cannot buy your own artwork.');
-  if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status) || artwork.mintStatus !== 'MINTED' || artwork.listingType !== 'FIXED_PRICE' || artwork.visibility !== 'PUBLIC') {
+  if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status) || ![ArtworkMintStatus.LAZY_MINTED, ArtworkMintStatus.MINTED].includes(artwork.mintStatus as ArtworkMintStatus) || artwork.listingType !== 'FIXED_PRICE' || artwork.visibility !== 'PUBLIC') {
     throw new Error('This artwork is not available for payment right now.');
   }
 

@@ -6,6 +6,7 @@ import { PiPaymentButton } from '@/components/artwork/PiPaymentButton';
 import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/domains/artworks';
 import Image from 'next/image';
 import { getDisplayImageUrl } from '@/lib/image-url';
+import { getArtworkMintStatusLabel, getArtworkListingLabel, getArtworkVisibilityLabel } from '@/lib/domains/artworks';
 
 export default function ArtworkDetailContent({
   artwork,
@@ -32,9 +33,9 @@ export default function ArtworkDetailContent({
             <p style={{ margin: 0 }}><strong>Discount:</strong> {artwork.discountPercent.toFixed(2)}%</p>
             <p style={{ margin: 0 }}><strong>Final price:</strong> {artwork.finalPrice.toFixed(2)} {artwork.currency}</p>
             <p style={{ margin: 0 }}><strong>Workflow:</strong> {artwork.status}</p>
-            <p style={{ margin: 0 }}><strong>Chain:</strong> {artwork.mintStatus === 'MINTED' ? 'On chain' : 'Off chain'}</p>
-            <p style={{ margin: 0 }}><strong>Listing:</strong> {artwork.listingType === 'FIXED_PRICE' ? 'For sale' : artwork.listingType === 'AUCTION' ? 'Auction' : 'Not for sale'}</p>
-            <p style={{ margin: 0 }}><strong>Visibility:</strong> {artwork.visibility}</p>
+            <p style={{ margin: 0 }}><strong>Chain:</strong> {getArtworkMintStatusLabel(artwork.mintStatus)}</p>
+            <p style={{ margin: 0 }}><strong>Listing:</strong> {getArtworkListingLabel(artwork.listingType)}</p>
+            <p style={{ margin: 0 }}><strong>Visibility:</strong> {getArtworkVisibilityLabel(artwork.visibility)}</p>
             <p style={{ margin: 0 }}><strong>Rating:</strong> {artwork.averageRating.toFixed(1)} ({artwork.ratingsCount} ratings)</p>
             <p style={{ margin: 0 }}><strong>Likes:</strong> {artwork.likesCount}</p>
             <p style={{ margin: 0 }}><strong>Dislikes:</strong> {artwork.dislikesCount}</p>

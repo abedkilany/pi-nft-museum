@@ -10,7 +10,7 @@ export function isArtworkPubliclyVisible(artwork: { visibility?: string | null }
 
 export function isArtworkPurchasable(artwork: { status: string; mintStatus?: string | null; listingType?: string | null; visibility?: string | null }) {
   return [ArtworkStatus.PUBLISHED, ArtworkStatus.PREMIUM].includes(artwork.status as ArtworkStatus)
-    && (artwork.mintStatus || ArtworkMintStatus.UNMINTED) === ArtworkMintStatus.MINTED
+    && [ArtworkMintStatus.LAZY_MINTED, ArtworkMintStatus.MINTED].includes((artwork.mintStatus || ArtworkMintStatus.UNMINTED) as ArtworkMintStatus)
     && (artwork.listingType || ArtworkListingType.NOT_FOR_SALE) === ArtworkListingType.FIXED_PRICE
     && isArtworkPubliclyVisible(artwork);
 }
