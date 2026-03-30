@@ -34,7 +34,7 @@ export function PiPaymentButton({
       setLoading(true);
       setMessage('Requesting Pi payment permissions...');
 
-      await authenticateWithPi();
+      await authenticateWithPi(['username', 'payments']);
 
       setMessage('Opening Pi payment window...');
 
