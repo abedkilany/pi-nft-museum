@@ -19,10 +19,39 @@ export async function GET() {
   const archiveMessage = await getArchiveMessage();
 
   const artworks = await prisma.artwork.findMany({
-    where: { artistUserId: currentUser.userId },
+    where: {
+      OR: [
+        { artistUserId: currentUser.userId },
+        { currentOwnerUserId: currentUser.userId },
+      ],
+    },
     orderBy: { createdAt: 'desc' },
-    include: { category: true },
+    include: {
+      category: true,
+      artist: {
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          artistProfile: { select: { displayName: true } },
+        },
+      },
+      currentOwner: {
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          artistProfile: { select: { displayName: true } },
+        },
+      },
+    },
   });
 
-  return NextResponse.json({ ok: true, artworks, reviewHours, archiveMessage, user: { userId: currentUser.userId, username: currentUser.username } });
+  return NextResponse.json({
+    ok: true,
+    artworks,
+    reviewHours,
+    archiveMessage,
+    user: { userId: currentUser.userId, username: currentUser.username },
+  });
 }
