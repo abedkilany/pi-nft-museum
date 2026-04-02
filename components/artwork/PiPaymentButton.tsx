@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { authenticateWithPi, createPiPayment } from '@/lib/domains/pi';
+import { createPiPayment } from '@/lib/domains/pi';
 import { piApiFetch } from '../../lib/pi-auth-client';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 type Props = {
   artworkId: number;
@@ -23,6 +24,7 @@ export function PiPaymentButton({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { ensureAuthenticated } = usePiAuth();
 
   const label = useMemo(
     () => `Pay ${amount.toFixed(2)} ${currency} on Testnet`,
@@ -32,9 +34,12 @@ export function PiPaymentButton({
   async function handlePayment() {
     try {
       setLoading(true);
-      setMessage('Requesting Pi payment permissions...');
+      setMessage('Checking your Pi session...');
 
-      await authenticateWithPi();
+      const authenticatedUser = await ensureAuthenticated();
+      if (!authenticatedUser) {
+        throw new Error('Please reconnect with Pi before starting this payment.');
+      }
 
       setMessage('Opening Pi payment window...');
 

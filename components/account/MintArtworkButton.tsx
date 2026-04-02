@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { authenticateWithPi, createPiPayment } from '@/lib/domains/pi';
+import { createPiPayment } from '@/lib/domains/pi';
 import { piApiFetch } from '../../lib/pi-auth-client';
+import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
 export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: number; title: string; onMinted?: () => void | Promise<void> }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const { ensureAuthenticated } = usePiAuth();
 
   async function handleMint() {
     const confirmed = window.confirm('Lazy Mint costs 1 Pi as a platform fee. After successful payment, the artwork will be published to the gallery. On-chain minting will become available later when Pi tooling is ready.');
@@ -16,8 +18,11 @@ export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: n
       setLoading(true);
       setMessage('');
 
-      setMessage('Requesting Pi payment permissions...');
-      await authenticateWithPi(['username', 'payments']);
+      setMessage('Checking your Pi session...');
+      const authenticatedUser = await ensureAuthenticated();
+      if (!authenticatedUser) {
+        throw new Error('Please reconnect with Pi before starting Lazy Mint.');
+      }
 
       setMessage('Opening Pi payment window...');
 
@@ -70,9 +75,9 @@ export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: n
           }
         }
       );
-    } catch {
+    } catch (error) {
       setLoading(false);
-      setMessage('Something went wrong while starting the lazy mint payment.');
+      setMessage(error instanceof Error ? error.message : 'Something went wrong while starting the lazy mint payment.');
     }
   }
 
