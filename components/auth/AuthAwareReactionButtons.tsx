@@ -23,7 +23,6 @@ export function AuthAwareReactionButtons({
   return (
     <ReactionButtons
       artworkId={artworkId}
-      authStatus={status}
       canReact={Boolean(user) && status === 'authenticated'}
       likesCount={likesCount}
       dislikesCount={dislikesCount}

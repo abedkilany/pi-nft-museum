@@ -9,11 +9,7 @@ function canUseSessionStorage() {
   return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
 }
 
-function canUseLocalStorage() {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
-function readSessionStorage(key: string) {
+function readStorage(key: string) {
   if (!canUseSessionStorage()) return null;
   try {
     return window.sessionStorage.getItem(key);
@@ -22,59 +18,18 @@ function readSessionStorage(key: string) {
   }
 }
 
-function writeSessionStorage(key: string, value: string) {
+function writeStorage(key: string, value: string) {
   if (!canUseSessionStorage()) return;
   try {
     window.sessionStorage.setItem(key, value);
   } catch {}
 }
 
-function removeSessionStorage(key: string) {
+function removeStorage(key: string) {
   if (!canUseSessionStorage()) return;
   try {
     window.sessionStorage.removeItem(key);
   } catch {}
-}
-
-function readLocalStorage(key: string) {
-  if (!canUseLocalStorage()) return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeLocalStorage(key: string, value: string) {
-  if (!canUseLocalStorage()) return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {}
-}
-
-function removeLocalStorage(key: string) {
-  if (!canUseLocalStorage()) return;
-  try {
-    window.localStorage.removeItem(key);
-  } catch {}
-}
-
-function readStorage(key: string) {
-  return readSessionStorage(key) || readLocalStorage(key);
-}
-
-function writeStorage(key: string, value: string, persist = false) {
-  writeSessionStorage(key, value);
-  if (persist) {
-    writeLocalStorage(key, value);
-  } else {
-    removeLocalStorage(key);
-  }
-}
-
-function removeStorage(key: string) {
-  removeSessionStorage(key);
-  removeLocalStorage(key);
 }
 
 export function getStoredPiSessionToken() {
@@ -102,22 +57,18 @@ export function getPiAuthToken() {
 
 export function setPiAuthToken(token: string) {
   if (!token || token === 'cookie-session') return;
-  const shouldPersist = getStoredAuthMode() === 'pi-browser-bearer-fallback';
-  writeStorage(APP_SESSION_STORAGE_KEY, token, shouldPersist);
+  writeStorage(APP_SESSION_STORAGE_KEY, token);
 }
 
 export function storePiBrowserAuth(input: { sessionToken?: string | null; refreshToken?: string | null; mode?: string | null }) {
-  const shouldPersist = input.mode === 'pi-browser-bearer-fallback'
-    || getStoredAuthMode() === 'pi-browser-bearer-fallback';
-
   if (input.mode === 'cookie-session' && !input.sessionToken && !input.refreshToken) {
     removeStorage(APP_SESSION_STORAGE_KEY);
     removeStorage(REFRESH_SESSION_STORAGE_KEY);
   }
 
-  if (input.sessionToken) writeStorage(APP_SESSION_STORAGE_KEY, input.sessionToken, shouldPersist);
-  if (input.refreshToken) writeStorage(REFRESH_SESSION_STORAGE_KEY, input.refreshToken, shouldPersist);
-  if (input.mode) writeStorage(AUTH_MODE_STORAGE_KEY, input.mode, shouldPersist);
+  if (input.sessionToken) writeStorage(APP_SESSION_STORAGE_KEY, input.sessionToken);
+  if (input.refreshToken) writeStorage(REFRESH_SESSION_STORAGE_KEY, input.refreshToken);
+  if (input.mode) writeStorage(AUTH_MODE_STORAGE_KEY, input.mode);
 }
 
 export function clearPiAuthToken() {
