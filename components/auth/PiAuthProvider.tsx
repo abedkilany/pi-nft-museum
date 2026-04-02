@@ -22,6 +22,7 @@ type PiAuthContextValue = {
   status: 'loading' | 'authenticated' | 'guest';
   error: string;
   ensureAuthenticated: (traceId?: string | null) => Promise<AuthUser | null>;
+  ensurePaymentScope: (traceId?: string | null) => Promise<AuthUser | null>;
   refreshUser: (traceId?: string | null) => Promise<AuthUser | null>;
   logout: () => Promise<void>;
 };
@@ -462,6 +463,15 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     return resolvedUser;
   }, [runAuthFlow, user]);
 
+  const ensurePaymentScope = useCallback(async (traceId?: string | null) => {
+    setStatus('loading');
+    const resolvedUser = await runAuthFlow(true, traceId);
+    if (!resolvedUser) {
+      setStatus('guest');
+    }
+    return resolvedUser;
+  }, [runAuthFlow]);
+
   const logout = useCallback(async () => {
     const traceId = consumeOrCreateTraceId();
     await pushClientAuthDebug('PI_AUTH_LOGOUT_START', {}, 'info', traceId);
@@ -495,9 +505,10 @@ export function PiAuthProvider({ children }: { children: React.ReactNode }) {
     status,
     error,
     ensureAuthenticated,
+    ensurePaymentScope,
     refreshUser,
     logout,
-  }), [ensureAuthenticated, error, logout, refreshUser, status, user]);
+  }), [ensureAuthenticated, ensurePaymentScope, error, logout, refreshUser, status, user]);
 
   return <PiAuthContext.Provider value={value}>{children}</PiAuthContext.Provider>;
 }

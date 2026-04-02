@@ -24,7 +24,7 @@ export function PiPaymentButton({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const { ensureAuthenticated } = usePiAuth();
+  const { ensurePaymentScope } = usePiAuth();
 
   const label = useMemo(
     () => `Pay ${amount.toFixed(2)} ${currency} on Testnet`,
@@ -34,9 +34,9 @@ export function PiPaymentButton({
   async function handlePayment() {
     try {
       setLoading(true);
-      setMessage('Checking your Pi session...');
+      setMessage('Refreshing Pi payment permissions...');
 
-      const authenticatedUser = await ensureAuthenticated();
+      const authenticatedUser = await ensurePaymentScope();
       if (!authenticatedUser) {
         throw new Error('Please reconnect with Pi before starting this payment.');
       }
