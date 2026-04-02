@@ -5,17 +5,20 @@ import { useEffect, useRef, useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 type ReactionType = 'LIKE' | 'DISLIKE' | null;
+type AuthStatus = 'loading' | 'authenticated' | 'guest';
 
 export function ReactionButtons({
   artworkId,
+  authStatus = 'guest',
   canReact,
   likesCount,
   dislikesCount,
   myReaction,
   isPremium = false,
-  premiumAllowDislike = false
+  premiumAllowDislike = false,
 }: {
   artworkId: number;
+  authStatus?: AuthStatus;
   canReact: boolean;
   likesCount: number;
   dislikesCount: number;
@@ -31,7 +34,8 @@ export function ReactionButtons({
   const [localLikesCount, setLocalLikesCount] = useState(likesCount);
   const [localDislikesCount, setLocalDislikesCount] = useState(dislikesCount);
   const [syncingState, setSyncingState] = useState(false);
-  const hasSyncedRef = useRef(false);
+  const syncAttemptKeyRef = useRef<string | null>(null);
+  const lastAuthStatusRef = useRef<AuthStatus>(authStatus);
 
   useEffect(() => {
     setResolvedCanReact(canReact);
@@ -39,7 +43,7 @@ export function ReactionButtons({
 
   useEffect(() => {
     setLocalReaction(myReaction);
-    hasSyncedRef.current = false;
+    syncAttemptKeyRef.current = null;
   }, [myReaction, artworkId]);
 
   useEffect(() => {
@@ -51,10 +55,30 @@ export function ReactionButtons({
   }, [dislikesCount]);
 
   useEffect(() => {
-    if (myReaction !== null || hasSyncedRef.current || syncingState) return;
+    const previousStatus = lastAuthStatusRef.current;
+    lastAuthStatusRef.current = authStatus;
+
+    if (previousStatus !== authStatus && authStatus === 'authenticated') {
+      syncAttemptKeyRef.current = null;
+    }
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+
+    const shouldSyncViewerState = authStatus === 'authenticated' && myReaction === null;
+    if (!shouldSyncViewerState) {
+      if (authStatus === 'guest') {
+        setResolvedCanReact(false);
+      }
+      return;
+    }
+
+    const syncKey = `${artworkId}:${authStatus}:${myReaction ?? 'null'}`;
+    if (syncAttemptKeyRef.current === syncKey || syncingState) return;
 
     let cancelled = false;
-    hasSyncedRef.current = true;
+    syncAttemptKeyRef.current = syncKey;
     setSyncingState(true);
 
     piApiFetch(`/api/reactions/viewer-state?artworkId=${artworkId}`, {
@@ -66,12 +90,12 @@ export function ReactionButtons({
         if (cancelled) return;
 
         if (response.status === 401) {
-          setResolvedCanReact(false);
+          syncAttemptKeyRef.current = null;
           return;
         }
 
         if (!response.ok || !data?.ok) {
-          hasSyncedRef.current = false;
+          syncAttemptKeyRef.current = null;
           return;
         }
 
@@ -81,7 +105,7 @@ export function ReactionButtons({
         if (typeof data.dislikesCount === 'number') setLocalDislikesCount(data.dislikesCount);
       })
       .catch(() => {
-        hasSyncedRef.current = false;
+        syncAttemptKeyRef.current = null;
       })
       .finally(() => {
         if (!cancelled) setSyncingState(false);
@@ -90,10 +114,11 @@ export function ReactionButtons({
     return () => {
       cancelled = true;
     };
-  }, [artworkId, myReaction, syncingState]);
+  }, [artworkId, authStatus, myReaction, syncingState]);
 
   async function ensureAuthenticated() {
     if (resolvedCanReact) return true;
+    if (authStatus === 'loading') return false;
 
     const response = await piApiFetch('/api/auth/me', {
       method: 'GET',
@@ -112,7 +137,7 @@ export function ReactionButtons({
   async function sendReaction(type: 'LIKE' | 'DISLIKE') {
     const authenticated = await ensureAuthenticated();
     if (!authenticated) {
-      setMessage('Please log in to react to artworks.');
+      setMessage(authStatus === 'loading' ? 'Authentication is still loading. Please try again.' : 'Please log in to react to artworks.');
       return;
     }
 
@@ -134,6 +159,7 @@ export function ReactionButtons({
         return;
       }
 
+      setResolvedCanReact(true);
       setLocalReaction((data.currentReaction ?? null) as ReactionType);
       if (typeof data.likesCount === 'number') {
         setLocalLikesCount(data.likesCount);
@@ -168,11 +194,11 @@ export function ReactionButtons({
         {isPremium ? 'Premium Reaction' : 'Public Reaction'}
       </p>
 
-      <div style={{ display: 'grid', gap: '10px' }} aria-busy={loading || syncingState}>
+      <div style={{ display: 'grid', gap: '10px' }} aria-busy={loading || syncingState || authStatus === 'loading'}>
         <button
           className="button secondary"
           type="button"
-          disabled={loading}
+          disabled={loading || authStatus === 'loading'}
           onClick={() => sendReaction('LIKE')}
           style={{
             borderColor: localReaction === 'LIKE' ? '#2ecc71' : undefined,
@@ -187,7 +213,7 @@ export function ReactionButtons({
           <button
             className="button secondary"
             type="button"
-            disabled={loading}
+            disabled={loading || authStatus === 'loading'}
             onClick={() => sendReaction('DISLIKE')}
             style={{
               borderColor: localReaction === 'DISLIKE' ? '#e74c3c' : undefined,
