@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { piApiFetch } from '../../lib/pi-auth-client';
 
 type ReactionType = 'LIKE' | 'DISLIKE' | null;
@@ -30,6 +30,8 @@ export function ReactionButtons({
   const [localReaction, setLocalReaction] = useState<ReactionType>(myReaction);
   const [localLikesCount, setLocalLikesCount] = useState(likesCount);
   const [localDislikesCount, setLocalDislikesCount] = useState(dislikesCount);
+  const [syncingState, setSyncingState] = useState(false);
+  const hasSyncedRef = useRef(false);
 
   useEffect(() => {
     setResolvedCanReact(canReact);
@@ -46,6 +48,37 @@ export function ReactionButtons({
   useEffect(() => {
     setLocalDislikesCount(dislikesCount);
   }, [dislikesCount]);
+
+  useEffect(() => {
+    if (!resolvedCanReact || myReaction !== null || hasSyncedRef.current || syncingState) return;
+
+    let cancelled = false;
+    hasSyncedRef.current = true;
+    setSyncingState(true);
+
+    piApiFetch(`/api/reactions/viewer-state?artworkId=${artworkId}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (cancelled || !response.ok || !data?.ok) return;
+        setResolvedCanReact(Boolean(data.authenticated));
+        setLocalReaction((data.currentReaction ?? null) as ReactionType);
+        if (typeof data.likesCount === 'number') setLocalLikesCount(data.likesCount);
+        if (typeof data.dislikesCount === 'number') setLocalDislikesCount(data.dislikesCount);
+      })
+      .catch(() => {
+        hasSyncedRef.current = false;
+      })
+      .finally(() => {
+        if (!cancelled) setSyncingState(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artworkId, myReaction, resolvedCanReact, syncingState]);
 
   async function ensureAuthenticated() {
     if (resolvedCanReact) return true;
@@ -123,14 +156,16 @@ export function ReactionButtons({
         {isPremium ? 'Premium Reaction' : 'Public Reaction'}
       </p>
 
-      <div style={{ display: 'grid', gap: '10px' }}>
+      <div style={{ display: 'grid', gap: '10px' }} aria-busy={loading || syncingState}>
         <button
           className="button secondary"
           type="button"
           disabled={loading}
           onClick={() => sendReaction('LIKE')}
           style={{
-            borderColor: localReaction === 'LIKE' ? '#2ecc71' : undefined
+            borderColor: localReaction === 'LIKE' ? '#2ecc71' : undefined,
+            color: localReaction === 'LIKE' ? '#2ecc71' : undefined,
+            background: localReaction === 'LIKE' ? 'rgba(46, 204, 113, 0.12)' : undefined
           }}
         >
           👍 {likeLabel} ({localLikesCount})
@@ -143,7 +178,9 @@ export function ReactionButtons({
             disabled={loading}
             onClick={() => sendReaction('DISLIKE')}
             style={{
-              borderColor: localReaction === 'DISLIKE' ? '#e74c3c' : undefined
+              borderColor: localReaction === 'DISLIKE' ? '#e74c3c' : undefined,
+              color: localReaction === 'DISLIKE' ? '#ff8f87' : undefined,
+              background: localReaction === 'DISLIKE' ? 'rgba(231, 76, 60, 0.12)' : undefined
             }}
           >
             👎 {dislikeLabel} ({localDislikesCount})

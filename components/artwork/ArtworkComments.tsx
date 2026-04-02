@@ -243,7 +243,7 @@ export function ArtworkComments({
       ? { commentId: editing.id, body, stanceType: editing.commentKind === 'FIRST_COMMENT' ? stanceType : undefined }
       : { artworkId, body, stanceType: currentUserFirstComment ? undefined : stanceType, parentId: null };
 
-    const response = await fetch(endpoint, {
+    const response = await piApiFetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
