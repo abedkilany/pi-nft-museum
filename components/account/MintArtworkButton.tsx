@@ -5,12 +5,29 @@ import { createPiPayment } from '@/lib/domains/pi';
 import { piApiFetch } from '../../lib/pi-auth-client';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
-export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: number; title: string; onMinted?: () => void | Promise<void> }) {
+export function MintArtworkButton({
+  artworkId,
+  title,
+  onMinted,
+  disabled = false,
+  disabledReason = null,
+}: {
+  artworkId: number;
+  title: string;
+  onMinted?: () => void | Promise<void>;
+  disabled?: boolean;
+  disabledReason?: string | null;
+}) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { ensurePaymentScope } = usePiAuth();
 
   async function handleMint() {
+    if (disabled) {
+      setMessage(disabledReason || 'You do not have permission to start this payment.');
+      return;
+    }
+
     const confirmed = window.confirm('Lazy Mint costs 1 Pi as a platform fee. After successful payment, the artwork will be published to the gallery. On-chain minting will become available later when Pi tooling is ready.');
     if (!confirmed) return;
 
@@ -87,7 +104,7 @@ export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: n
         className="button primary"
         type="button"
         onClick={handleMint}
-        disabled={loading}
+        disabled={disabled || loading}
       >
         {loading ? 'Opening Pi payment...' : 'Lazy Mint — 1 Pi'}
       </button>
@@ -104,6 +121,10 @@ export function MintArtworkButton({ artworkId, title, onMinted }: { artworkId: n
       <p style={{ margin: 0, fontSize: '13px', opacity: 0.8 }}>
         Lazy Mint charges a 1 Pi platform fee, then publishes the artwork on-platform. On-chain minting will be enabled later through Pi Network.
       </p>
+
+      {disabledReason ? (
+        <p style={{ margin: 0, fontSize: '14px', opacity: 0.85 }}>{disabledReason}</p>
+      ) : null}
 
       {message ? (
         <p style={{ margin: 0, fontSize: '14px', opacity: 0.85 }}>{message}</p>

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { buildArtworkViewerState } from '@/lib/domains/artworks';
+import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 
 async function loadArtwork(id: number) {
   return prisma.artwork.findUnique({
@@ -34,9 +35,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Artwork not found.' }, { status: 404 });
   }
 
-  const _commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
+  const [canCreatePayments, _commentsEnabled] = await Promise.all([
+    currentUser ? userHasPermission(currentUser, PERMISSIONS.paymentsCreate) : Promise.resolve(false),
+    Promise.resolve(getBooleanSetting(settings, 'comments_enabled', true)),
+  ]);
+
   return NextResponse.json({
     ok: true,
-    viewer: buildArtworkViewerState(artwork, currentUser, _commentsEnabled),
+    viewer: buildArtworkViewerState(artwork, currentUser, _commentsEnabled, canCreatePayments),
   });
 }

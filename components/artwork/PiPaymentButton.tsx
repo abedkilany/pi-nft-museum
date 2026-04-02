@@ -32,6 +32,11 @@ export function PiPaymentButton({
   );
 
   async function handlePayment() {
+    if (disabled) {
+      setMessage(disabledReason || 'Payment is not available for this account.');
+      return;
+    }
+
     try {
       setLoading(true);
       setMessage('Refreshing Pi payment permissions...');

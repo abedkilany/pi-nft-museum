@@ -45,10 +45,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Not allowed.' }, { status: 403 });
   }
 
-  const _commentsEnabled = getBooleanSetting(settings, 'comments_enabled', true);
+  const [canCreatePayments, _commentsEnabled] = await Promise.all([
+    userHasPermission(currentUser, PERMISSIONS.paymentsCreate),
+    Promise.resolve(getBooleanSetting(settings, 'comments_enabled', true)),
+  ]);
+
   return NextResponse.json({
     ok: true,
     artwork: serializeArtworkDetail(artwork, currentUser),
-    viewer: buildArtworkViewerState(artwork, currentUser, _commentsEnabled),
+    viewer: buildArtworkViewerState(artwork, currentUser, _commentsEnabled, canCreatePayments),
   });
 }

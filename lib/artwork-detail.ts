@@ -163,7 +163,12 @@ export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser
   };
 }
 
-export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "artistUserId" | "currentOwnerUserId" | "status" | "mintStatus" | "listingType" | "visibility">, currentUser: SessionUser | null, _commentsEnabled: boolean): ArtworkViewerStateDto {
+export function buildArtworkViewerState(
+  artwork: Pick<ArtworkDetailRecord, "artistUserId" | "currentOwnerUserId" | "status" | "mintStatus" | "listingType" | "visibility">,
+  currentUser: SessionUser | null,
+  _commentsEnabled: boolean,
+  canCreatePayments = false,
+): ArtworkViewerStateDto {
   const role = currentUser?.role || null;
   const ownerUserId = artwork.currentOwnerUserId ?? artwork.artistUserId;
   const isOwner = Boolean(currentUser && currentUser.userId === ownerUserId);
@@ -177,7 +182,7 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
     !['LAZY_MINTED', 'MINTED'].includes(String(artwork.mintStatus ?? 'UNMINTED')) ||
     String(artwork.listingType ?? 'NOT_FOR_SALE') !== 'FIXED_PRICE' ||
     String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC' ||
-    !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
+    !canCreatePayments
   );
 
   const paymentDisabledReason = !currentUser
@@ -192,7 +197,7 @@ export function buildArtworkViewerState(artwork: Pick<ArtworkDetailRecord, "arti
             ? 'This artwork is not currently listed for direct sale.'
             : String(artwork.visibility ?? 'PRIVATE') !== 'PUBLIC'
               ? 'This artwork is not publicly visible.'
-              : !['artist_or_trader', 'admin', 'superadmin'].includes(String(role || ''))
+              : !canCreatePayments
                 ? 'Your current role cannot make payments.'
                 : null;
 
