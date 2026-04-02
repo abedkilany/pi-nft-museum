@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { getPiAuthHeaders } from '@/lib/pi-auth-client';
+import { piApiFetch } from '@/lib/pi-auth-client';
 
 function submitAdminHandoff(url: string, grant: string) {
   const form = document.createElement('form');
@@ -32,15 +32,13 @@ export function AdminPageLink({ className = 'button secondary', children }: Prop
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/admin-entry', {
+      const response = await piApiFetch('/api/auth/admin-entry', {
         method: 'POST',
-        headers: getPiAuthHeaders({
+        headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-App-Request': 'pi-web',
-        }),
-        cache: 'no-store',
-        credentials: 'include',
+        },
       });
 
       const payload = await response.json().catch(() => null);
