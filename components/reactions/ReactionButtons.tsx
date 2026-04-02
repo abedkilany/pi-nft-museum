@@ -39,7 +39,8 @@ export function ReactionButtons({
 
   useEffect(() => {
     setLocalReaction(myReaction);
-  }, [myReaction]);
+    hasSyncedRef.current = false;
+  }, [myReaction, artworkId]);
 
   useEffect(() => {
     setLocalLikesCount(likesCount);
@@ -50,7 +51,7 @@ export function ReactionButtons({
   }, [dislikesCount]);
 
   useEffect(() => {
-    if (!resolvedCanReact || myReaction !== null || hasSyncedRef.current || syncingState) return;
+    if (myReaction !== null || hasSyncedRef.current || syncingState) return;
 
     let cancelled = false;
     hasSyncedRef.current = true;
@@ -62,7 +63,18 @@ export function ReactionButtons({
     })
       .then(async (response) => {
         const data = await response.json().catch(() => null);
-        if (cancelled || !response.ok || !data?.ok) return;
+        if (cancelled) return;
+
+        if (response.status === 401) {
+          setResolvedCanReact(false);
+          return;
+        }
+
+        if (!response.ok || !data?.ok) {
+          hasSyncedRef.current = false;
+          return;
+        }
+
         setResolvedCanReact(Boolean(data.authenticated));
         setLocalReaction((data.currentReaction ?? null) as ReactionType);
         if (typeof data.likesCount === 'number') setLocalLikesCount(data.likesCount);
@@ -78,7 +90,7 @@ export function ReactionButtons({
     return () => {
       cancelled = true;
     };
-  }, [artworkId, myReaction, resolvedCanReact, syncingState]);
+  }, [artworkId, myReaction, syncingState]);
 
   async function ensureAuthenticated() {
     if (resolvedCanReact) return true;
