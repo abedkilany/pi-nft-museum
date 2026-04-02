@@ -11,7 +11,7 @@ type Props = {
   isSelf?: boolean;
 };
 
-export function FollowButton({ targetUserId, isFollowing: initialFollowing, followsYou:  isSelf }: Props) {
+export function FollowButton({ targetUserId, isFollowing: initialFollowing, isSelf }: Props) {
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [busy, setBusy] = useState(false);

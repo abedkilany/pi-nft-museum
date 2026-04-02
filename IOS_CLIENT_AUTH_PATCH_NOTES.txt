@@ -1,0 +1,14 @@
+Patched for Pi Browser iOS client-auth first-load issue.
+
+What was changed:
+- gallery page no longer reads current user on server render.
+- premium page no longer reads current user on server render.
+- followers page no longer reads current user on server render.
+- following page no longer reads current user on server render.
+- AuthAwareReactionButtons now resolves the user's current reaction on the client after hydration.
+- Added /api/reactions/state to return the viewer reaction safely from the server.
+- Added FollowUserCardClient so follow state is resolved on the client after hydration.
+- Fixed an existing FollowButton prop bug that could break self detection.
+
+Important note:
+- Admin SSR protection was intentionally left unchanged in this patch because changing it safely requires a different access pattern to avoid exposing admin content before auth is verified.
