@@ -216,7 +216,7 @@ export async function syncAuctionState(auctionId: number, settings?: AuctionSett
 
     if (auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.paymentDueAt && auction.paymentDueAt <= now) {
       if (auction.winnerUserId) {
-        await applyAuctionFailurePenalty(tx, auction.winnerUserId, resolvedSettings);
+        await applyAuctionFailurePenalty(tx, auction.winnerUserId);
       }
       if (auction.winningBidId) {
         await tx.auctionBid.update({ where: { id: auction.winningBidId }, data: { status: AUCTION_BID_STATUS.DEFAULTED } }).catch(() => null);
