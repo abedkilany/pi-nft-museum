@@ -21,13 +21,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const paymentId = String(body.paymentId || '').trim();
     const artworkId = Number(body.artworkId || 0);
-    const purpose = body.purpose === 'LAZY_MINT_FEE' ? 'LAZY_MINT_FEE' : 'ARTWORK_PURCHASE';
+    const auctionId = Number(body.auctionId || 0) || undefined;
+    const purpose = body.purpose === 'LAZY_MINT_FEE' ? 'LAZY_MINT_FEE' : body.purpose === 'AUCTION_WIN' ? 'AUCTION_WIN' : 'ARTWORK_PURCHASE';
 
     if (!paymentId || !artworkId) {
       return NextResponse.json({ error: 'paymentId and artworkId are required.' }, { status: 400 });
     }
 
-    const { artwork } = await ensurePaymentRecord(paymentId, artworkId, currentUser.userId, purpose);
+    const { artwork, auction } = await ensurePaymentRecord(paymentId, artworkId, currentUser.userId, purpose, auctionId);
 
     const approved = await callPiPaymentApi(`/payments/${encodeURIComponent(paymentId)}/approve`, {
       method: 'POST',
@@ -42,22 +43,22 @@ export async function POST(request: Request) {
         artworkId,
         buyerUserId: currentUser.userId,
         sellerUserId: artwork.currentOwnerUserId ?? artwork.artistUserId,
-        amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : artwork.price)),
-        memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
+        amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : purpose === 'AUCTION_WIN' ? (auction?.winningAmount || artwork.price) : artwork.price)),
+        memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : purpose === 'AUCTION_WIN' ? `Auction payment #${auction?.id || 'unknown'} for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
         network: String(approved?.network || 'Pi Testnet'),
         status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? 'APPROVED' : 'CREATED',
-        rawPayload: { ...(approved && typeof approved === 'object' ? approved : {}), localPurpose: purpose }
+        rawPayload: { ...(approved && typeof approved === 'object' ? approved : {}), localPurpose: purpose, auctionId: auction?.id || auctionId || null }
       },
       create: {
         paymentIdentifier: paymentId,
         artworkId,
         buyerUserId: currentUser.userId,
         sellerUserId: artwork.currentOwnerUserId ?? artwork.artistUserId,
-        amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : artwork.price)),
-        memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
+        amount: Number(approved?.amount || (purpose === 'LAZY_MINT_FEE' ? 1 : purpose === 'AUCTION_WIN' ? (auction?.winningAmount || artwork.price) : artwork.price)),
+        memo: String(approved?.memo || (purpose === 'LAZY_MINT_FEE' ? `Lazy Mint fee for artwork #${artwork.id}` : purpose === 'AUCTION_WIN' ? `Auction payment #${auction?.id || 'unknown'} for artwork #${artwork.id}` : `Artwork purchase #${artwork.id}`)),
         network: String(approved?.network || 'Pi Testnet'),
         status: approved?.status?.developer_completed ? 'COMPLETED' : approved?.status?.developer_approved ? 'APPROVED' : 'CREATED',
-        rawPayload: { ...(approved && typeof approved === 'object' ? approved : {}), localPurpose: purpose }
+        rawPayload: { ...(approved && typeof approved === 'object' ? approved : {}), localPurpose: purpose, auctionId: auction?.id || auctionId || null }
       }
     });
 

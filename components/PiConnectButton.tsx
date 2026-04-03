@@ -3,7 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 import { buildObservabilityHeaders, consumeOrCreateTraceId } from '@/lib/observability-client';
-import { piApiFetch } from '@/lib/pi-auth-client';
+import { getPiAuthHeaders } from '@/lib/pi-auth-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
 function submitAdminHandoff(url: string, grant: string) {
@@ -110,9 +110,11 @@ export function PiConnectButton({ className = 'button primary', children, redire
       let adminHandoffGrant: string | null = null;
 
       if (!redirectTo && (user.role === 'admin' || user.role === 'superadmin')) {
-        const adminEntryResponse = await piApiFetch('/api/auth/admin-entry', {
+        const adminEntryResponse = await fetch('/api/auth/admin-entry', {
           method: 'POST',
-          headers,
+          headers: getPiAuthHeaders(headers),
+          cache: 'no-store',
+          credentials: 'include',
         }).catch(() => null);
         const adminEntryPayload = adminEntryResponse ? await adminEntryResponse.json().catch(() => null) : null;
         if (adminEntryResponse?.ok && adminEntryPayload?.ok && adminEntryPayload?.url && adminEntryPayload?.grant) {

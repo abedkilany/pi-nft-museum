@@ -42,7 +42,7 @@ export async function callPiPaymentApi(path: string, init?: RequestInit) {
   return payload;
 }
 
-export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number, purpose: 'ARTWORK_PURCHASE' | 'LAZY_MINT_FEE' = 'ARTWORK_PURCHASE') {
+export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number, purpose: 'ARTWORK_PURCHASE' | 'LAZY_MINT_FEE' | 'AUCTION_WIN' = 'ARTWORK_PURCHASE', auctionId?: number) {
   const artwork = await prisma.artwork.findUnique({
     where: { id: artworkId },
     select: { id: true, artistUserId: true, currentOwnerUserId: true, title: true, price: true, currency: true, status: true, mintStatus: true, listingType: true, visibility: true },
@@ -57,6 +57,26 @@ export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: 
     }
     return { artwork };
   }
+
+  if (purpose === 'AUCTION_WIN') {
+    const auction = await prisma.auction.findFirst({
+      where: {
+        ...(auctionId ? { id: auctionId } : {}),
+        artworkId,
+        winnerUserId: buyerUserId,
+        status: 'PAYMENT_PENDING',
+      },
+      select: { id: true, winningAmount: true, paymentDueAt: true, sellerUserId: true },
+    });
+    if (!auction) {
+      throw new Error('No payable auction win was found for this artwork.');
+    }
+    if (auction.paymentDueAt && auction.paymentDueAt <= new Date()) {
+      throw new Error('The payment window for this auction has already expired.');
+    }
+    return { artwork, auction };
+  }
+
 
   if ((artwork.currentOwnerUserId ?? artwork.artistUserId) === buyerUserId) throw new Error('You cannot buy your own artwork.');
   if (!['PUBLISHED', 'PREMIUM'].includes(artwork.status) || ![ArtworkMintStatus.LAZY_MINTED, ArtworkMintStatus.MINTED].includes(artwork.mintStatus as ArtworkMintStatus) || artwork.listingType !== 'FIXED_PRICE' || artwork.visibility !== 'PUBLIC') {

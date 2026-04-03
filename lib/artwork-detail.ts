@@ -43,6 +43,27 @@ export type ArtworkDetailDto = {
   dislikesCount: number;
   premiumScore: number;
   comments: ArtworkCommentDto[];
+  auction?: ArtworkAuctionDto | null;
+};
+
+
+export type ArtworkAuctionDto = {
+  id: number;
+  status: string;
+  startingPrice: number;
+  minIncrement: number;
+  currentBid: number | null;
+  nextMinimumBid: number;
+  bidsCount: number;
+  startsAt: string;
+  endsAt: string;
+  paymentDueAt: string | null;
+  winnerUserId: number | null;
+  winnerUsername: string | null;
+  winningAmount: number | null;
+  commissionPercent: number;
+  sellerUserId: number;
+  bidHistory: Array<{ id: number; amount: number; bidderUserId: number; bidderUsername: string; createdAt: string; status: string }>;
 };
 
 export type ArtworkViewerStateDto = {
@@ -117,7 +138,7 @@ type ArtworkDetailRecord = {
   comments?: ArtworkDetailCommentRecord[];
 };
 
-export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser: SessionUser | null): ArtworkDetailDto {
+export function serializeArtworkDetail(artwork: ArtworkDetailRecord & { auction?: ArtworkAuctionDto | null }, currentUser: SessionUser | null): ArtworkDetailDto {
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   return {
     id: artwork.id,
@@ -141,6 +162,7 @@ export function serializeArtworkDetail(artwork: ArtworkDetailRecord, currentUser
     likesCount: Number(artwork.likesCount ?? 0),
     dislikesCount: Number(artwork.dislikesCount ?? 0),
     premiumScore: Number(artwork.premiumScore ?? 0),
+    auction: artwork.auction || null,
     comments: (artwork.comments || []).map((comment) => ({
       id: comment.id,
       body: comment.body,

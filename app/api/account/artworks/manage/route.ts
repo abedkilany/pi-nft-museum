@@ -3,6 +3,7 @@ import { prisma } from '@/lib/domains/system';
 import { getCurrentUser } from '@/lib/domains/auth';
 import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 import { assertSameOrigin } from '@/lib/services/request';
+import { getAuctionSettings, AUCTION_STATUS } from '@/lib/auctions';
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
         currentOwnerUserId: true,
         status: true,
         mintStatus: true,
+        listingType: true,
+        currency: true,
       },
     });
 
@@ -84,23 +87,71 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Final price must stay above 0 when the artwork is listed for sale.' }, { status: 400 });
     }
 
-    const updated = await prisma.artwork.update({
-      where: { id: artworkId },
-      data: {
-        basePrice: safeBasePrice,
-        discountPercent: safeDiscount,
-        price: computedPrice,
-        listingType: canSell ? (listingType as ArtworkListingType) : ArtworkListingType.NOT_FOR_SALE,
-        visibility: visibility as ArtworkVisibility,
-      },
-      select: {
-        id: true,
-        basePrice: true,
-        discountPercent: true,
-        price: true,
-        listingType: true,
-        visibility: true,
-      },
+    const auctionSettings = await getAuctionSettings();
+    const now = new Date();
+    const latestAuction = await prisma.auction.findFirst({
+      where: { artworkId },
+      orderBy: [{ createdAt: 'desc' }],
+      include: { bids: true },
+    });
+
+    if (listingType !== ArtworkListingType.AUCTION && latestAuction && (latestAuction.status === AUCTION_STATUS.LIVE || latestAuction.status === AUCTION_STATUS.SCHEDULED || latestAuction.status === AUCTION_STATUS.PAYMENT_PENDING)) {
+      if (latestAuction.bids.length > 0 || latestAuction.status === AUCTION_STATUS.PAYMENT_PENDING) {
+        return NextResponse.json({ error: 'This artwork already has an auction with bids or a payment in progress. Finish that auction before changing the listing type.' }, { status: 400 });
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const artworkUpdate = await tx.artwork.update({
+        where: { id: artworkId },
+        data: {
+          basePrice: safeBasePrice,
+          discountPercent: safeDiscount,
+          price: computedPrice,
+          listingType: canSell ? (listingType as ArtworkListingType) : ArtworkListingType.NOT_FOR_SALE,
+          visibility: visibility as ArtworkVisibility,
+        },
+        select: {
+          id: true,
+          basePrice: true,
+          discountPercent: true,
+          price: true,
+          listingType: true,
+          visibility: true,
+        },
+      });
+
+      if (listingType === ArtworkListingType.AUCTION && canSell) {
+        if (!latestAuction || (latestAuction.status !== AUCTION_STATUS.LIVE && latestAuction.status !== AUCTION_STATUS.SCHEDULED && latestAuction.status !== AUCTION_STATUS.PAYMENT_PENDING)) {
+          await tx.auction.create({
+            data: {
+              artworkId,
+              sellerUserId: ownerUserId,
+              startingPrice: computedPrice,
+              minIncrement: auctionSettings.minIncrement,
+              status: AUCTION_STATUS.LIVE,
+              startsAt: now,
+              endsAt: new Date(now.getTime() + auctionSettings.defaultDurationHours * 60 * 60 * 1000),
+              commissionPercent: auctionSettings.commissionPercent,
+            },
+          });
+        } else if (latestAuction.bids.length === 0 && latestAuction.status !== AUCTION_STATUS.PAYMENT_PENDING) {
+          await tx.auction.update({
+            where: { id: latestAuction.id },
+            data: {
+              startingPrice: computedPrice,
+              minIncrement: auctionSettings.minIncrement,
+              commissionPercent: auctionSettings.commissionPercent,
+            },
+          });
+        }
+      }
+
+      if (listingType !== ArtworkListingType.AUCTION && latestAuction && (latestAuction.status === AUCTION_STATUS.LIVE || latestAuction.status === AUCTION_STATUS.SCHEDULED) && latestAuction.bids.length === 0) {
+        await tx.auction.update({ where: { id: latestAuction.id }, data: { status: AUCTION_STATUS.CANCELLED, cancelledAt: now } });
+      }
+
+      return artworkUpdate;
     });
 
     return NextResponse.json({ ok: true, artwork: updated });

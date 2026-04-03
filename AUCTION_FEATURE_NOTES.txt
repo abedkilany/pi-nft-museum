@@ -1,0 +1,1 @@
+Auction system added: English auction, pay later, payment window from admin settings, anti-sniping, second-bidder fallback, first failure 30-day suspension, second failure permanent ban.

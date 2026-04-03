@@ -183,9 +183,11 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
 
 async function fetchSessionDebug(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
-  const response = await piApiFetch('/api/auth/session-debug', {
+  const response = await fetch('/api/auth/session-debug', {
     method: 'GET',
     headers: buildObservabilityHeaders({ Accept: 'application/json' }, resolvedTraceId),
+    credentials: 'include',
+    cache: 'no-store',
   }).catch(() => null);
 
   if (!response) {

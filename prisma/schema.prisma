@@ -102,7 +102,13 @@ model User {
   ownershipHistoryFrom         ArtworkOwnershipHistory[] @relation("ArtworkOwnershipFromUser")
   ownershipHistoryTo           ArtworkOwnershipHistory[] @relation("ArtworkOwnershipToUser")
   sessions                     UserSession[]
+  auctions                     Auction[]
+  auctionBids                  AuctionBid[]
+  auctionWins                  Auction[]               @relation("AuctionWinningUser")
   role                         Role                   @relation(fields: [roleId], references: [id])
+  auctionFailedPaymentCount    Int                    @default(0)
+  auctionSuspendedUntil        DateTime?
+  auctionBanPermanent          Boolean                @default(false)
 }
 
 
@@ -243,6 +249,7 @@ model Artwork {
   lazyMintSnapshot       ArtworkMintSnapshot?
   ownership              ArtworkOwnership?
   ownershipHistory       ArtworkOwnershipHistory[]
+  auctions               Auction[]
 
   @@index([artistUserId])
   @@index([currentOwnerUserId])
@@ -313,6 +320,53 @@ model ArtworkOwnershipHistory {
   @@index([fromOwnerId])
   @@index([toOwnerId])
   @@index([eventType])
+}
+
+
+model Auction {
+  id                Int       @id @default(autoincrement())
+  artworkId         Int
+  sellerUserId      Int
+  winnerUserId      Int?
+  winningBidId      Int?
+  startingPrice     Decimal   @db.Decimal(12, 2)
+  minIncrement      Decimal   @db.Decimal(12, 2)
+  status            String    @default("LIVE")
+  startsAt          DateTime
+  endsAt            DateTime
+  paymentDueAt      DateTime?
+  winningAmount     Decimal?  @db.Decimal(12, 2)
+  commissionPercent Decimal?  @db.Decimal(5, 2)
+  extendedCount     Int       @default(0)
+  settledAt         DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  artwork           Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  seller            User      @relation(fields: [sellerUserId], references: [id], onDelete: Cascade)
+  winner            User?     @relation("AuctionWinningUser", fields: [winnerUserId], references: [id])
+  bids              AuctionBid[]
+
+  @@index([artworkId, status])
+  @@index([sellerUserId, status])
+  @@index([winnerUserId])
+  @@index([endsAt])
+}
+
+model AuctionBid {
+  id           Int      @id @default(autoincrement())
+  auctionId    Int
+  bidderUserId Int
+  amount       Decimal  @db.Decimal(12, 2)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  auction      Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidder       User     @relation(fields: [bidderUserId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId, createdAt])
+  @@index([auctionId, amount])
+  @@index([bidderUserId])
 }
 
 model PiPayment {

@@ -35,7 +35,9 @@ export async function POST(request: Request) {
 
     const paymentPurpose = existing.memo?.startsWith('Lazy Mint fee') || (existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'LAZY_MINT_FEE')
       ? 'LAZY_MINT_FEE'
-      : 'ARTWORK_PURCHASE';
+      : ((existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'AUCTION_WIN') || existing.memo?.startsWith('Auction payment'))
+        ? 'AUCTION_WIN'
+        : 'ARTWORK_PURCHASE';
 
     const canCompleteAnyPayment = await userHasPermission(currentUser, PERMISSIONS.paymentsCompleteAny);
     if (existing.buyerUserId !== currentUser.userId && !canCompleteAnyPayment) {
@@ -68,6 +70,26 @@ export async function POST(request: Request) {
           ownerName: currentUser.username,
           ownerWalletAddress: null,
         });
+      } else if (paymentPurpose === 'AUCTION_WIN') {
+        const rawPayload = existing.rawPayload && typeof existing.rawPayload === 'object' ? existing.rawPayload as Record<string, unknown> : {};
+        const auctionId = Number(rawPayload.auctionId || 0);
+        const auction = await prisma.auction.findUnique({ where: { id: auctionId }, include: { artwork: { include: { ownership: true } } } });
+        if (auction && auction.winnerUserId === currentUser.userId) {
+          const acquiredAt = new Date();
+          await prisma.$transaction(async (tx) => {
+            await tx.auction.update({ where: { id: auction.id }, data: { status: 'SETTLED', settledAt: acquiredAt, paymentDueAt: null, winningAmount: existing.amount } });
+            if (auction.winningBidId) {
+              await tx.auctionBid.update({ where: { id: auction.winningBidId }, data: { status: 'PAID' } }).catch(() => null);
+            }
+            await tx.artwork.update({ where: { id: existing.artworkId }, data: { currentOwnerUserId: currentUser.userId, listingType: ArtworkListingType.NOT_FOR_SALE, visibility: ArtworkVisibility.PUBLIC } });
+            if (auction.artwork.ownership) {
+              await tx.artworkOwnership.update({ where: { artworkId: existing.artworkId }, data: { currentOwnerId: currentUser.userId, currentOwnerName: currentUser.username, acquiredAt } });
+            } else {
+              await tx.artworkOwnership.create({ data: { artworkId: existing.artworkId, currentOwnerId: currentUser.userId, currentOwnerName: currentUser.username, acquiredAt } });
+            }
+            await tx.artworkOwnershipHistory.create({ data: { artworkId: existing.artworkId, fromOwnerId: auction.artwork.currentOwnerUserId ?? auction.artwork.artistUserId, fromOwnerName: auction.artwork.ownership?.currentOwnerName ?? null, toOwnerId: currentUser.userId, toOwnerName: currentUser.username, eventType: 'AUCTION_PURCHASE', price: existing.amount, createdAt: acquiredAt } });
+          });
+        }
       } else {
         const artwork = await prisma.artwork.findUnique({
           where: { id: existing.artworkId },
@@ -133,9 +155,10 @@ export async function POST(request: Request) {
       completed: Boolean(completed?.status?.developer_completed)
     });
 
-    if (completed?.status?.developer_completed && paymentPurpose === 'LAZY_MINT_FEE') {
+    if (completed?.status?.developer_completed) {
       revalidatePath('/review');
       revalidatePath('/gallery');
+      revalidatePath('/auction');
       revalidatePath('/account/artworks');
       revalidatePath(`/artwork/${existing.artworkId}`);
     }

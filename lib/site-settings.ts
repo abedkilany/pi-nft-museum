@@ -21,6 +21,7 @@ const DEFAULT_MENU = [
   { label: 'Premium', href: '/premium', visibility: 'public', enabled: true },
   { label: 'Review', href: '/review', visibility: 'public', enabled: true },
   { label: 'Upload', href: '/upload', visibility: 'auth', enabled: true },
+  { label: 'Auctions', href: '/auction', visibility: 'public', enabled: true },
   { label: 'Community', href: '/community', visibility: 'public', enabled: true }
 ];
 
@@ -63,6 +64,15 @@ export const SITE_SETTING_DEFINITIONS: SiteSettingDefinition[] = [
   { key: 'community_post_moderation', label: 'Moderate future posts', group: 'community', type: 'boolean', defaultValue: 'true' },
 
   { key: 'comments_enabled', label: 'Enable artwork comments', group: 'community', type: 'boolean', defaultValue: 'true' },
+
+  { key: 'auction_default_duration_hours', label: 'Default auction duration (hours)', group: 'auctions', type: 'number', defaultValue: '72', description: 'Used when an owner switches an artwork to Auction from the account screen.' },
+  { key: 'auction_payment_window_hours', label: 'Winner payment window (hours)', group: 'auctions', type: 'number', defaultValue: '24', description: 'How long the current winning bidder has to pay before the next bidder is promoted.' },
+  { key: 'auction_min_increment', label: 'Minimum bid increment', group: 'auctions', type: 'number', defaultValue: '1', description: 'Smallest increase allowed above the current highest bid.' },
+  { key: 'auction_commission_percent', label: 'Auction commission (%)', group: 'auctions', type: 'number', defaultValue: '5', description: 'Displayed in the auction summary and stored with new auctions.' },
+  { key: 'auction_anti_snipe_window_minutes', label: 'Anti-sniping window (minutes)', group: 'auctions', type: 'number', defaultValue: '2', description: 'If a bid arrives this close to the end, the auction is extended.' },
+  { key: 'auction_anti_snipe_extend_minutes', label: 'Anti-sniping extension (minutes)', group: 'auctions', type: 'number', defaultValue: '2', description: 'How much time is added when the anti-sniping rule triggers.' },
+  { key: 'auction_anti_snipe_max_extensions', label: 'Maximum extensions per auction', group: 'auctions', type: 'number', defaultValue: '10' },
+  { key: 'auction_second_bidder_fallback_enabled', label: 'Promote second bidder after non-payment', group: 'auctions', type: 'boolean', defaultValue: 'true' },
   { key: 'comment_edit_window_hours', label: 'Comment edit window (hours)', group: 'community', type: 'number', defaultValue: '12' },
   { key: 'comment_first_support_publish_weight', label: 'First comment: support publish', group: 'community', type: 'number', defaultValue: '2' },
   { key: 'comment_first_support_premium_weight', label: 'First comment: support premium', group: 'community', type: 'number', defaultValue: '4' },

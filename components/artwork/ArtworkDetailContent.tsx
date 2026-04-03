@@ -3,6 +3,7 @@ import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { ArtworkComments } from '@/components/artwork/ArtworkComments';
 import { ArtworkReportForm } from '@/components/artwork/ArtworkReportForm';
 import { PiPaymentButton } from '@/components/artwork/PiPaymentButton';
+import { AuctionPanel } from '@/components/artwork/AuctionPanel';
 import type { ArtworkDetailDto, ArtworkViewerStateDto } from '@/lib/domains/artworks';
 import Image from 'next/image';
 import { getDisplayImageUrl } from '@/lib/image-url';
@@ -45,7 +46,13 @@ export default function ArtworkDetailContent({
           <div className="card" style={{ padding: '16px', marginTop: '16px', display: 'grid', gap: '12px' }}>
             <strong>{artwork.listingType === 'AUCTION' ? 'Auction listing' : 'Pi payment (Testnet)'}</strong>
             {artwork.listingType === 'AUCTION' ? (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>Auction flow is reserved for the next update. This artwork is visible as an auction placeholder only.</p>
+              <AuctionPanel
+                artworkId={artwork.id}
+                title={artwork.title}
+                currency={artwork.currency}
+                initialAuction={artwork.auction || null}
+                viewer={viewer}
+              />
             ) : (
               <PiPaymentButton
                 artworkId={artwork.id}

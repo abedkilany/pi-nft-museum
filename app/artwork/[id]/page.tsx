@@ -4,6 +4,7 @@ import { getSiteSettingsMap } from '@/lib/site-settings';
 import { getReviewStatuses } from '@/lib/domains/artworks';
 import { ArtworkVisibility } from '@/types/enums';
 import { serializeArtworkDetail } from '@/lib/domains/artworks';
+import { getCurrentArtworkAuction, serializeAuction } from '@/lib/auctions';
 import ArtworkDetailClient from '@/components/artwork/ArtworkDetailClient';
 import ArtworkPrivateAccessClient from '@/components/artwork/ArtworkPrivateAccessClient';
 
@@ -40,7 +41,8 @@ export default async function ArtworkDetailPage({ params }: Props) {
     return <ArtworkPrivateAccessClient artworkId={artwork.id} />;
   }
 
-  const artworkData = serializeArtworkDetail(artwork, null);
+  const auction = await getCurrentArtworkAuction(artwork.id);
+  const artworkData = serializeArtworkDetail({ ...artwork, auction: serializeAuction(auction) }, null);
   const initialViewer = {
     authenticated: false,
     userId: null,
