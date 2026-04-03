@@ -64,6 +64,26 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
     setError('');
   }, [open, artwork]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyTouchAction = body.style.touchAction;
+
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.touchAction = 'none';
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.touchAction = previousBodyTouchAction;
+    };
+  }, [open]);
+
   const mintStatus = String(artwork.mintStatus || ArtworkMintStatus.UNMINTED);
   const canSell = [ArtworkMintStatus.LAZY_MINTED, ArtworkMintStatus.MINTED].includes(mintStatus as ArtworkMintStatus);
 
@@ -121,8 +141,39 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', zIndex: 3000, padding: 16 }} onClick={onClose}>
-      <div className="card" style={{ width: '100%', maxWidth: 520, padding: 20, display: 'grid', gap: 14 }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Manage ${artwork.title}`}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'grid',
+        placeItems: 'center',
+        zIndex: 3000,
+        padding: 16,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          maxHeight: 'calc(100dvh - 32px)',
+          padding: 20,
+          display: 'grid',
+          gap: 14,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Manage ${artwork.title}`}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
           <div>
             <h3 style={{ margin: '0 0 4px' }}>Manage artwork</h3>
