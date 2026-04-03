@@ -73,6 +73,8 @@ export const SITE_SETTING_DEFINITIONS: SiteSettingDefinition[] = [
   { key: 'auction_anti_snipe_extend_minutes', label: 'Anti-sniping extension (minutes)', group: 'auctions', type: 'number', defaultValue: '2', description: 'How much time is added when the anti-sniping rule triggers.' },
   { key: 'auction_anti_snipe_max_extensions', label: 'Maximum extensions per auction', group: 'auctions', type: 'number', defaultValue: '10' },
   { key: 'auction_second_bidder_fallback_enabled', label: 'Promote second bidder after non-payment', group: 'auctions', type: 'boolean', defaultValue: 'true' },
+  { key: 'auction_first_non_payment_ban_days', label: 'First non-payment suspension (days)', group: 'auctions', type: 'number', defaultValue: '30', description: 'How long a bidder is blocked after the first unpaid auction win.' },
+  { key: 'auction_permanent_ban_after_failures', label: 'Permanent ban after failed payments', group: 'auctions', type: 'number', defaultValue: '2', description: 'A bidder is permanently banned once their failed-payment count reaches this number.' },
   { key: 'comment_edit_window_hours', label: 'Comment edit window (hours)', group: 'community', type: 'number', defaultValue: '12' },
   { key: 'comment_first_support_publish_weight', label: 'First comment: support publish', group: 'community', type: 'number', defaultValue: '2' },
   { key: 'comment_first_support_premium_weight', label: 'First comment: support premium', group: 'community', type: 'number', defaultValue: '4' },

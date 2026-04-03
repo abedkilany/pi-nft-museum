@@ -31,6 +31,8 @@ export type AuctionSettings = {
   antiSnipeMaxExtensions: number;
   commissionPercent: number;
   allowSecondChance: boolean;
+  firstNonPaymentBanDays: number;
+  permanentBanAfterFailures: number;
 };
 
 export async function getAuctionSettings(settings?: SiteSettingsMap): Promise<AuctionSettings> {
@@ -44,6 +46,8 @@ export async function getAuctionSettings(settings?: SiteSettingsMap): Promise<Au
     antiSnipeMaxExtensions: Math.max(0, Math.floor(getNumberSetting(resolved, 'auction_anti_snipe_max_extensions', 10))),
     commissionPercent: Math.max(0, getNumberSetting(resolved, 'auction_commission_percent', 5)),
     allowSecondChance: getNumberSetting(resolved, 'auction_second_bidder_fallback_enabled', 1) !== 0,
+    firstNonPaymentBanDays: Math.max(1, Math.floor(getNumberSetting(resolved, 'auction_first_non_payment_ban_days', 30))),
+    permanentBanAfterFailures: Math.max(2, Math.floor(getNumberSetting(resolved, 'auction_permanent_ban_after_failures', 2))),
   };
 }
 

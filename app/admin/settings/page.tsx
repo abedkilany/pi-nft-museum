@@ -7,7 +7,8 @@ const GROUP_TITLES: Record<string, string> = {
   navigation: 'Navigation',
   business_rules: 'Business rules',
   security: 'Security',
-  community: 'Community groundwork'
+  community: 'Community groundwork',
+  auctions: 'Auctions'
 };
 
 export default async function AdminSettingsPage() {

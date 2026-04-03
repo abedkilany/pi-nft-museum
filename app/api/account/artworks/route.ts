@@ -44,12 +44,31 @@ export async function GET() {
           artistProfile: { select: { displayName: true } },
         },
       },
+      auctions: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          paymentDueAt: true,
+          startingPrice: true,
+          minIncrement: true,
+          commissionPercent: true,
+          winningAmount: true,
+          extendedCount: true,
+        },
+      },
     },
   });
 
   return NextResponse.json({
     ok: true,
-    artworks,
+    artworks: artworks.map((artwork) => ({
+      ...artwork,
+      auction: artwork.auctions[0] ?? null,
+    })),
     reviewHours,
     archiveMessage,
     user: { userId: currentUser.userId, username: currentUser.username },

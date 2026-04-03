@@ -25,6 +25,8 @@ export async function POST(request: Request) {
     const discountPercent = Number(body?.discountPercent);
     const listingType = String(body?.listingType || ArtworkListingType.NOT_FOR_SALE);
     const visibility = String(body?.visibility || ArtworkVisibility.PUBLIC);
+    const auctionDurationHours = Number(body?.auctionDurationHours);
+    const auctionMinIncrement = Number(body?.auctionMinIncrement);
 
     if (!Number.isInteger(artworkId) || artworkId <= 0) {
       return NextResponse.json({ error: 'Valid artworkId is required.' }, { status: 400 });
@@ -44,6 +46,15 @@ export async function POST(request: Request) {
 
     if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
       return NextResponse.json({ error: 'Discount must be between 0 and 100.' }, { status: 400 });
+    }
+
+    if (listingType === ArtworkListingType.AUCTION) {
+      if (!Number.isFinite(auctionDurationHours) || auctionDurationHours < 1) {
+        return NextResponse.json({ error: 'Auction duration must be at least 1 hour.' }, { status: 400 });
+      }
+      if (!Number.isFinite(auctionMinIncrement) || auctionMinIncrement < 0.01) {
+        return NextResponse.json({ error: 'Auction minimum increment must be at least 0.01.' }, { status: 400 });
+      }
     }
 
     const artwork = await prisma.artwork.findUnique({
@@ -89,6 +100,12 @@ export async function POST(request: Request) {
 
     const auctionSettings = await getAuctionSettings();
     const now = new Date();
+    const resolvedAuctionDurationHours = listingType === ArtworkListingType.AUCTION
+      ? Math.max(1, Math.floor(auctionDurationHours))
+      : auctionSettings.defaultDurationHours;
+    const resolvedAuctionMinIncrement = listingType === ArtworkListingType.AUCTION
+      ? Math.max(auctionSettings.minIncrement, roundCurrency(auctionMinIncrement))
+      : auctionSettings.minIncrement;
     const latestAuction = await prisma.auction.findFirst({
       where: { artworkId },
       orderBy: [{ createdAt: 'desc' }],
@@ -128,10 +145,10 @@ export async function POST(request: Request) {
               artworkId,
               sellerUserId: ownerUserId,
               startingPrice: computedPrice,
-              minIncrement: auctionSettings.minIncrement,
+              minIncrement: resolvedAuctionMinIncrement,
               status: AUCTION_STATUS.LIVE,
               startsAt: now,
-              endsAt: new Date(now.getTime() + auctionSettings.defaultDurationHours * 60 * 60 * 1000),
+              endsAt: new Date(now.getTime() + resolvedAuctionDurationHours * 60 * 60 * 1000),
               commissionPercent: auctionSettings.commissionPercent,
             },
           });
@@ -140,8 +157,10 @@ export async function POST(request: Request) {
             where: { id: latestAuction.id },
             data: {
               startingPrice: computedPrice,
-              minIncrement: auctionSettings.minIncrement,
+              minIncrement: resolvedAuctionMinIncrement,
               commissionPercent: auctionSettings.commissionPercent,
+              startsAt: now,
+              endsAt: new Date(now.getTime() + resolvedAuctionDurationHours * 60 * 60 * 1000),
             },
           });
         }

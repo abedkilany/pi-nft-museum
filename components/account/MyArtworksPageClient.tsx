@@ -55,6 +55,18 @@ type MyArtworkItem = {
   publicReviewStartedAt?: string | Date | null;
   mintWindowOpensAt?: string | Date | null;
   mintWindowEndsAt?: string | Date | null;
+  auction?: {
+    id: number;
+    status: string;
+    startsAt?: string | Date | null;
+    endsAt?: string | Date | null;
+    paymentDueAt?: string | Date | null;
+    startingPrice?: number | string | null;
+    minIncrement?: number | string | null;
+    commissionPercent?: number | string | null;
+    winningAmount?: number | string | null;
+    extendedCount?: number | null;
+  } | null;
 };
 
 type MyArtworksResponse = {

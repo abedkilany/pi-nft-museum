@@ -18,6 +18,18 @@ type Props = {
     listingType?: string | null;
     visibility?: string | null;
     mintStatus?: string | null;
+    auction?: {
+      id: number;
+      status: string;
+      startsAt?: string | Date | null;
+      endsAt?: string | Date | null;
+      paymentDueAt?: string | Date | null;
+      startingPrice?: number | string | null;
+      minIncrement?: number | string | null;
+      commissionPercent?: number | string | null;
+      winningAmount?: number | string | null;
+      extendedCount?: number | null;
+    } | null;
   };
 };
 
@@ -31,6 +43,8 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
   const [discountPercent, setDiscountPercent] = useState(String(toNumber(artwork.discountPercent, 0)));
   const [listingType, setListingType] = useState(String(artwork.listingType || ArtworkListingType.NOT_FOR_SALE));
   const [visibility, setVisibility] = useState(String(artwork.visibility || ArtworkVisibility.PUBLIC));
+  const [auctionDurationHours, setAuctionDurationHours] = useState('72');
+  const [auctionMinIncrement, setAuctionMinIncrement] = useState('1');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,6 +54,12 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
     setDiscountPercent(String(toNumber(artwork.discountPercent, 0)));
     setListingType(String(artwork.listingType || ArtworkListingType.NOT_FOR_SALE));
     setVisibility(String(artwork.visibility || ArtworkVisibility.PUBLIC));
+    const existingAuction = artwork.auction;
+    const existingDurationHours = existingAuction?.startsAt && existingAuction?.endsAt
+      ? Math.max(1, Math.round((new Date(existingAuction.endsAt).getTime() - new Date(existingAuction.startsAt).getTime()) / (1000 * 60 * 60)))
+      : 72;
+    setAuctionDurationHours(String(existingDurationHours));
+    setAuctionMinIncrement(String(toNumber(existingAuction?.minIncrement, 1)));
     setSaving(false);
     setError('');
   }, [open, artwork]);
@@ -60,6 +80,14 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
     return Number.isFinite(computed) ? Math.max(0, computed) : 0;
   }, [basePrice, discountPercent]);
 
+
+  const auctionEndsPreview = useMemo(() => {
+    const hours = Math.max(1, toNumber(auctionDurationHours, 72));
+    return new Date(Date.now() + hours * 60 * 60 * 1000);
+  }, [auctionDurationHours]);
+
+  const auctionIncrementValue = useMemo(() => Math.max(0.01, toNumber(auctionMinIncrement, 1)), [auctionMinIncrement]);
+
   if (!open) return null;
 
   async function handleSave() {
@@ -75,6 +103,8 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
           discountPercent,
           listingType,
           visibility,
+          auctionDurationHours,
+          auctionMinIncrement,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -130,6 +160,33 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
           </select>
           {!canSell ? <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Listing stays locked to Not for sale until Lazy Mint or Mint is completed.</p> : null}
         </label>
+
+
+        {listingType === ArtworkListingType.AUCTION ? (
+          <div className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
+            <strong>Auction setup</strong>
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              The final price above becomes the opening bid. Buyers place bids without payment, then only the winner pays within the admin-defined payment window.
+            </p>
+
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span>Auction duration (hours)</span>
+              <input className="input" type="number" min="1" step="1" value={auctionDurationHours} onChange={(event) => setAuctionDurationHours(event.target.value)} />
+            </label>
+
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span>Minimum bid increment ({artwork.currency})</span>
+              <input className="input" type="number" min="0.01" step="0.01" value={auctionMinIncrement} onChange={(event) => setAuctionMinIncrement(event.target.value)} />
+            </label>
+
+            <div style={{ display: 'grid', gap: 4, color: 'var(--muted)', fontSize: 14 }}>
+              <span>Opening bid: <strong style={{ color: 'var(--text)' }}>{finalPrice.toFixed(2)} {artwork.currency}</strong></span>
+              <span>Next minimum bid after the first bid: <strong style={{ color: 'var(--text)' }}>{(finalPrice + auctionIncrementValue).toFixed(2)} {artwork.currency}</strong></span>
+              <span>Expected end time: <strong style={{ color: 'var(--text)' }}>{auctionEndsPreview.toLocaleString()}</strong></span>
+              {artwork.auction ? <span>Current auction status: <strong style={{ color: 'var(--text)' }}>{artwork.auction.status}</strong></span> : null}
+            </div>
+          </div>
+        ) : null}
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span>Visibility</span>
