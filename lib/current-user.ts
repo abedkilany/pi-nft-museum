@@ -8,7 +8,6 @@ type HeaderReader = {
 
 export type CurrentUserOptions = {
   allowAdminBridge?: boolean;
-  allowBearerFallback?: boolean;
 };
 
 export async function getCurrentUserFromHeaders(
@@ -18,7 +17,6 @@ export async function getCurrentUserFromHeaders(
   try {
     const result = await resolveAuthenticatedUserFromHeaders(headerStore, {
       allowAdminBridge: options?.allowAdminBridge ?? false,
-      allowBearerFallback: options?.allowBearerFallback ?? true,
     });
     return result.user;
   } catch {
@@ -36,5 +34,5 @@ export async function getCurrentUser(options?: CurrentUserOptions): Promise<Sess
 }
 
 export async function getCurrentAdminContextUser(): Promise<SessionUser | null> {
-  return getCurrentUser({ allowAdminBridge: true, allowBearerFallback: false });
+  return getCurrentUser({ allowAdminBridge: true });
 }

@@ -7,10 +7,9 @@ function buildUnauthorizedResponse(reason: 'NO_SESSION_TOKEN' | 'INVALID_OR_EXPI
   return NextResponse.json({ ok: false, error: 'Authentication required.', reason }, { status: 401 });
 }
 
-export async function requireAuthenticatedRequest(request: Request, options?: { allowAdminBridge?: boolean; allowBearerFallback?: boolean }) {
+export async function requireAuthenticatedRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
   const user = await getCurrentUserFromHeaders(request.headers, {
     allowAdminBridge: options?.allowAdminBridge ?? false,
-    allowBearerFallback: options?.allowBearerFallback ?? true,
   });
 
   if (!user) {
@@ -23,7 +22,7 @@ export async function requireAuthenticatedRequest(request: Request, options?: { 
 export async function requirePermissionRequest(
   request: Request,
   permission: PermissionKey,
-  options?: { allowAdminBridge?: boolean; allowBearerFallback?: boolean }
+  options?: { allowAdminBridge?: boolean }
 ) {
   const auth = await requireAuthenticatedRequest(request, options);
   if ('error' in auth) return auth;
@@ -34,18 +33,11 @@ export async function requirePermissionRequest(
 }
 
 export async function requireAdminRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
-  return requirePermissionRequest(request, PERMISSIONS.adminAccess, {
-    allowAdminBridge: options?.allowAdminBridge,
-    allowBearerFallback: false,
-  });
+  return requirePermissionRequest(request, PERMISSIONS.adminAccess, options);
 }
 
-
 export async function requireSuperadminRequest(request: Request, options?: { allowAdminBridge?: boolean }) {
-  return requirePermissionRequest(request, PERMISSIONS.userRolesManage, {
-    allowAdminBridge: options?.allowAdminBridge,
-    allowBearerFallback: false,
-  });
+  return requirePermissionRequest(request, PERMISSIONS.userRolesManage, options);
 }
 
 export function requireDebugRoute() {

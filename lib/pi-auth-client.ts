@@ -1,5 +1,5 @@
 import { buildObservabilityHeaders } from '@/lib/observability-client';
-import { AUTH_TRANSPORT_BEARER_FALLBACK, AUTH_TRANSPORT_COOKIE, shouldPreferPiBrowserBearerFallback } from '@/lib/auth-transport';
+import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
 
 const APP_SESSION_STORAGE_KEY = 'pi_auth_session_token';
 const REFRESH_SESSION_STORAGE_KEY = 'pi_auth_refresh_token';
@@ -46,22 +46,22 @@ export function getStoredAuthMode() {
 
 export function shouldUseBearerFallbackClient() {
   const authMode = getStoredAuthMode();
-  if (authMode === AUTH_TRANSPORT_BEARER_FALLBACK) return true;
-  if (authMode === AUTH_TRANSPORT_COOKIE) return false;
+  if (authMode === 'pi-browser-bearer-fallback') return true;
+  if (authMode === 'cookie-session') return false;
   return shouldPreferPiBrowserBearerFallback();
 }
 
 export function getPiAuthToken() {
-  return getStoredPiSessionToken() || AUTH_TRANSPORT_COOKIE;
+  return getStoredPiSessionToken() || 'cookie-session';
 }
 
 export function setPiAuthToken(token: string) {
-  if (!token || token === AUTH_TRANSPORT_COOKIE) return;
+  if (!token || token === 'cookie-session') return;
   writeStorage(APP_SESSION_STORAGE_KEY, token);
 }
 
 export function storePiBrowserAuth(input: { sessionToken?: string | null; refreshToken?: string | null; mode?: string | null }) {
-  if (input.mode === AUTH_TRANSPORT_COOKIE && !input.sessionToken && !input.refreshToken) {
+  if (input.mode === 'cookie-session' && !input.sessionToken && !input.refreshToken) {
     removeStorage(APP_SESSION_STORAGE_KEY);
     removeStorage(REFRESH_SESSION_STORAGE_KEY);
   }

@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/domains/pi';
 import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
-import { AUTH_TRANSPORT_BEARER_FALLBACK, AUTH_TRANSPORT_COOKIE } from '@/lib/auth-transport';
 import { buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -274,7 +273,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'X-App-Request': 'pi-web',
-        'X-Auth-Mode': prefersBearerFallback ? AUTH_TRANSPORT_BEARER_FALLBACK : AUTH_TRANSPORT_COOKIE,
+        'X-Auth-Mode': prefersBearerFallback ? 'pi-browser-bearer-fallback' : 'cookie-session',
       },
       resolvedTraceId
     ),
@@ -304,9 +303,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
   const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
 
-  const resolvedTransport = typeof loginPayload?.session?.transport === 'string' ? loginPayload.session.transport : (prefersBearerFallback ? AUTH_TRANSPORT_BEARER_FALLBACK : AUTH_TRANSPORT_COOKIE);
-
-  if (resolvedTransport === AUTH_TRANSPORT_BEARER_FALLBACK) {
+  if (prefersBearerFallback) {
     if (!fallbackSessionToken || !fallbackRefreshToken) {
       await pushClientAuthDebug(
         'PI_AUTH_BEARER_FALLBACK_MISSING_TOKENS',
@@ -323,26 +320,26 @@ async function authenticateAndResolveUser(traceId?: string | null) {
     storePiBrowserAuth({
       sessionToken: fallbackSessionToken,
       refreshToken: fallbackRefreshToken,
-      mode: AUTH_TRANSPORT_BEARER_FALLBACK,
+      mode: 'pi-browser-bearer-fallback',
     });
     await pushClientAuthDebug(
       'PI_AUTH_BEARER_FALLBACK_ENABLED',
       {
         hasRefreshToken: true,
-        transport: resolvedTransport,
+        transport: loginPayload?.session?.transport ?? null,
       },
       'info',
       resolvedTraceId
     );
   } else {
-    storePiBrowserAuth({ mode: AUTH_TRANSPORT_COOKIE });
+    storePiBrowserAuth({ mode: 'cookie-session' });
   }
 
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {
     prefersBearerFallback,
     hasFallbackSessionToken: Boolean(fallbackSessionToken),
     hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
-    transport: resolvedTransport,
+    transport: loginPayload?.session?.transport ?? null,
   }, 'info', resolvedTraceId);
 
   const resolvedUser = await resolveUserAfterLogin(resolvedTraceId);
