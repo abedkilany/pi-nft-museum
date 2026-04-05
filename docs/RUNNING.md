@@ -34,10 +34,9 @@ npm run check:env
 npm run dev
 ```
 
-HTTPS local mode (if needed by the environment):
 
 ```bash
-npm run dev:https
+npm run dev
 ```
 
 ## Quality checks

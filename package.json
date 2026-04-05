@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.js",
-    "typecheck": "tsc --noEmit",
     "dev:https": "node server.js",
     "check": "npm run lint && tsc --noEmit && npm run build",
     "check:env": "node scripts/check-env.js",

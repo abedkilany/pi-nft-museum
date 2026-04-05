@@ -21,8 +21,8 @@ Copy `.env.example` to `.env` and fill the required values:
 
 - `DATABASE_URL`
 - `AUTH_SECRET`
-- `APP_URL=https://localhost:3000`
-- `NEXT_PUBLIC_APP_URL=https://localhost:3000`
+- `APP_URL=YOURDOMAIN`
+- `NEXT_PUBLIC_APP_URL=http://localhost:3000`
 - `NEXT_PUBLIC_PI_API_KEY`
 - `PI_SERVER_API_KEY` (recommended for payment approval/completion)
 - `NEXT_PUBLIC_PI_SANDBOX=true` for test mode
@@ -73,18 +73,17 @@ npx prisma db push
 npm run seed
 ```
 
-## Run locally with HTTPS
+## Run locally
 
-This project should be tested with local HTTPS for Pi login.
 
 ```bash
-npm run dev:https
+npm run dev
 ```
 
 Open:
 
 ```txt
-https://localhost:3000
+http://localhost:3000
 ```
 
 ## Testnet payment

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
 
-  const currentUser = await getCurrentUserFromHeaders(request.headers);
+  const currentUser = await getCurrentUserFromHeaders(request.headers, { allowBearerFallback: false });
   if (!currentUser) {
     return NextResponse.json({
       ok: false,

@@ -31,11 +31,12 @@ function normalizeHeaderValue(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export function readBearerToken(headers: HeaderReader): BearerTokenReadResult {
+export function readBearerToken(headers: HeaderReader, options?: { allowBearerFallback?: boolean }): BearerTokenReadResult {
+  const allowBearerFallback = options?.allowBearerFallback ?? true;
   const authorizationHeader = normalizeHeaderValue(headers.get('authorization'));
   const hasAuthorizationHeader = authorizationHeader.length > 0;
 
-  if (hasAuthorizationHeader) {
+  if (allowBearerFallback && hasAuthorizationHeader) {
     const token = extractBearerToken(authorizationHeader);
     return {
       token,
@@ -50,24 +51,34 @@ export function readBearerToken(headers: HeaderReader): BearerTokenReadResult {
     return {
       token: cookieToken,
       source: 'cookie',
-      hasAuthorizationHeader: false,
-      hasMalformedAuthorizationHeader: false,
+      hasAuthorizationHeader,
+      hasMalformedAuthorizationHeader: allowBearerFallback && hasAuthorizationHeader ? false : false,
+    };
+  }
+
+  if (allowBearerFallback && hasAuthorizationHeader) {
+    return {
+      token: null,
+      source: 'none',
+      hasAuthorizationHeader: true,
+      hasMalformedAuthorizationHeader: true,
     };
   }
 
   return {
     token: null,
     source: 'none',
-    hasAuthorizationHeader: false,
+    hasAuthorizationHeader,
     hasMalformedAuthorizationHeader: false,
   };
 }
 
 export async function resolveAuthenticatedUserFromHeaders(
   headers: HeaderReader,
-  options?: { allowAdminBridge?: boolean }
+  options?: { allowAdminBridge?: boolean; allowBearerFallback?: boolean }
 ): Promise<AuthenticatedRequestResult> {
-  const bearer = readBearerToken(headers);
+  const allowBearerFallback = options?.allowBearerFallback ?? true;
+  const bearer = readBearerToken(headers, { allowBearerFallback });
 
   if (bearer.token) {
     try {

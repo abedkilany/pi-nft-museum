@@ -5,7 +5,7 @@ import { logger } from '@/lib/domains/system';
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { applyRateLimit, assertSameOrigin } from '@/lib/services/request';
 import { APP_SESSION_COOKIE, REFRESH_SESSION_COOKIE, getRefreshCookieFromHeaders, setSessionCookies, clearSessionCookies } from '@/lib/auth-cookies';
-import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
+import { AUTH_TRANSPORT_BEARER_FALLBACK, resolveRequestedAuthTransport } from '@/lib/auth-transport';
 import type { AuthResponse } from '@/types/auth';
 import { issueAppSessionToken } from '@/lib/domains/auth';
 import { buildRefreshTokenValue, getActiveSessionByRefreshToken, rotateRefreshSession } from '@/lib/session-registry';
@@ -118,11 +118,12 @@ export async function POST(request: NextRequest) {
     headers: request.headers,
   });
 
-  const requestedAuthMode = request.headers.get('x-auth-mode');
-  const transport = requestedAuthMode === 'pi-browser-bearer-fallback' || requestedAuthMode === 'fallback' || shouldPreferPiBrowserBearerFallback(request.headers.get('user-agent'))
-    ? 'pi-browser-bearer-fallback'
-    : 'cookie-session';
-  const includeBearerFallbackTokens = transport === 'pi-browser-bearer-fallback';
+  const transport = resolveRequestedAuthTransport({
+    pathname: request.nextUrl.pathname,
+    requestedAuthMode: request.headers.get('x-auth-mode'),
+    userAgent: request.headers.get('user-agent'),
+  });
+  const includeBearerFallbackTokens = transport === AUTH_TRANSPORT_BEARER_FALLBACK;
 
   const responsePayload: AuthResponse = {
     ok: true,

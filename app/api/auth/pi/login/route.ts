@@ -16,25 +16,7 @@ import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/sessio
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { getOptionalBooleanField, getStringField, readJsonObject } from '@/lib/services/request';
 import type { AuthResponse, UserRole } from '@/types/auth';
-
-function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
-  if (!userAgent) return false;
-
-  const ua = userAgent.toLowerCase();
-
-  const isPiBrowser =
-    ua.includes('pibrowser') ||
-    ua.includes('pi browser') ||
-    ua.includes('minepi');
-
-  const isIOS =
-    ua.includes('iphone') ||
-    ua.includes('ipad') ||
-    ua.includes('ipod') ||
-    (ua.includes('ios') && !ua.includes('android'));
-
-  return isPiBrowser && isIOS;
-}
+import { AUTH_TRANSPORT_BEARER_FALLBACK, AUTH_TRANSPORT_COOKIE, resolveRequestedAuthTransport } from '@/lib/auth-transport';
 
 export async function POST(request: Request) {
   const ctx = getRequestContextFromHeaders(request.headers);
@@ -300,9 +282,15 @@ export async function POST(request: Request) {
     });
 
     const userAgent = request.headers.get('user-agent');
-    const prefersFallbackByUa = shouldPreferPiBrowserBearerFallback(userAgent);
-    const prefersFallbackByHeader = request.headers.get('x-auth-mode') === 'fallback';
-    const includeFallbackTokens = requiresFallbackAuth || prefersFallbackByHeader || prefersFallbackByUa;
+    const transport = resolveRequestedAuthTransport({
+      pathname: new URL(request.url).pathname,
+      requestedAuthMode: requiresFallbackAuth ? AUTH_TRANSPORT_BEARER_FALLBACK : request.headers.get('x-auth-mode'),
+      userAgent,
+    });
+    const includeFallbackTokens = transport === AUTH_TRANSPORT_BEARER_FALLBACK;
+    const requestedAuthModeHeader = request.headers.get('x-auth-mode');
+    const prefersFallbackByHeader = requestedAuthModeHeader === AUTH_TRANSPORT_BEARER_FALLBACK;
+    const prefersFallbackByUa = includeFallbackTokens && !prefersFallbackByHeader;
 
     const responseBody: AuthResponse = {
       ok: true,
@@ -316,10 +304,10 @@ export async function POST(request: Request) {
           ? {
               token: session.token,
               refreshToken,
-              transport: 'pi-browser-bearer-fallback' as const,
+              transport: AUTH_TRANSPORT_BEARER_FALLBACK,
             }
           : {
-              transport: 'cookie-session' as const,
+              transport: AUTH_TRANSPORT_COOKIE,
             }),
       },
       user: {
