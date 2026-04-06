@@ -248,21 +248,7 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   const resolvedTraceId = consumeOrCreateTraceId(traceId);
   await pushClientAuthDebug('PI_AUTH_SDK_START', {}, 'info', resolvedTraceId);
 
-  let auth: Awaited<ReturnType<typeof authenticateWithPi>>;
-  try {
-    auth = await authenticateWithPi(['username', 'payments']);
-  } catch (error) {
-    await pushClientAuthDebug(
-      'PI_AUTH_SDK_FAILED',
-      {
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      'warn',
-      resolvedTraceId
-    );
-    throw error;
-  }
-
+  const auth = await authenticateWithPi(['username', 'payments']);
   await pushClientAuthDebug(
     'PI_AUTH_SDK_SUCCESS',
     {

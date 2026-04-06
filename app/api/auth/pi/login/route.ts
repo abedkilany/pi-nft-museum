@@ -16,7 +16,25 @@ import { buildRefreshTokenValue, createSessionRegistryEntry } from '@/lib/sessio
 import { getRequestContextFromHeaders } from '@/lib/request-context';
 import { getOptionalBooleanField, getStringField, readJsonObject } from '@/lib/services/request';
 import type { AuthResponse, UserRole } from '@/types/auth';
-import { shouldPreferPiBrowserBearerFallback } from '@/lib/pi-browser-auth';
+
+function shouldPreferPiBrowserBearerFallback(userAgent: string | null | undefined) {
+  if (!userAgent) return false;
+
+  const ua = userAgent.toLowerCase();
+
+  const isPiBrowser =
+    ua.includes('pibrowser') ||
+    ua.includes('pi browser') ||
+    ua.includes('minepi');
+
+  const isIOS =
+    ua.includes('iphone') ||
+    ua.includes('ipad') ||
+    ua.includes('ipod') ||
+    (ua.includes('ios') && !ua.includes('android'));
+
+  return isPiBrowser && isIOS;
+}
 
 export async function POST(request: Request) {
   const ctx = getRequestContextFromHeaders(request.headers);
@@ -283,8 +301,7 @@ export async function POST(request: Request) {
 
     const userAgent = request.headers.get('user-agent');
     const prefersFallbackByUa = shouldPreferPiBrowserBearerFallback(userAgent);
-    const authModeHeader = request.headers.get('x-auth-mode')?.toLowerCase() || '';
-    const prefersFallbackByHeader = authModeHeader === 'pi-browser-bearer-fallback' || authModeHeader === 'fallback';
+    const prefersFallbackByHeader = request.headers.get('x-auth-mode') === 'fallback';
     const includeFallbackTokens = requiresFallbackAuth || prefersFallbackByHeader || prefersFallbackByUa;
 
     const responseBody: AuthResponse = {
