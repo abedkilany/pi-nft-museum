@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserFromHeaders } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
-import { getCurrentArtworkAuction, serializeAuction, getAuctionPenaltyState } from '@/lib/auctions';
+import { buildAuctionViewerState, getAuctionPenaltyState, getCurrentArtworkAuction, reconcileAuctionState, serializeAuction } from '@/lib/auctions';
 
 export async function GET(request: Request) {
   try {
@@ -11,22 +11,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: 'Valid artworkId is required.' }, { status: 400 });
     }
 
-    const auction = await getCurrentArtworkAuction(artworkId);
+    const currentAuction = await getCurrentArtworkAuction(artworkId);
+    if (!currentAuction) {
+      return NextResponse.json({ ok: false, error: 'Auction not found.' }, { status: 404 });
+    }
+
+    const auction = await reconcileAuctionState(currentAuction.id);
     if (!auction) {
       return NextResponse.json({ ok: false, error: 'Auction not found.' }, { status: 404 });
     }
 
+    const serializedAuction = serializeAuction(auction);
     const currentUser = await getCurrentUserFromHeaders(request.headers);
-    let myHighestBid: number | null = null;
     let penalty = null;
     if (currentUser) {
       const user = await prisma.user.findUnique({ where: { id: currentUser.userId }, select: { auctionBanPermanent: true, auctionSuspendedUntil: true, auctionFailedPaymentCount: true } });
       penalty = user ? getAuctionPenaltyState(user) : null;
-      const bid = auction.bids.find((item) => item.bidderUserId === currentUser.userId);
-      myHighestBid = bid ? Number(bid.amount) : null;
     }
 
-    return NextResponse.json({ ok: true, auction: serializeAuction(auction), myHighestBid, penalty });
+    const viewerState = buildAuctionViewerState(serializedAuction, currentUser, penalty);
+
+    return NextResponse.json({ ok: true, auction: serializedAuction, penalty, viewerState, myHighestBid: viewerState.myHighestBid });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }

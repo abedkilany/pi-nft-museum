@@ -63,6 +63,7 @@ export type ArtworkAuctionDto = {
   winningAmount: number | null;
   commissionPercent: number;
   sellerUserId: number;
+  extendedCount?: number;
   bidHistory: Array<{ id: number; amount: number; bidderUserId: number; bidderUsername: string; createdAt: string; status: string }>;
 };
 

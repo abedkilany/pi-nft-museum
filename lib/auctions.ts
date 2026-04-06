@@ -35,6 +35,48 @@ export type AuctionSettings = {
   permanentBanAfterFailures: number;
 };
 
+export type AuctionViewerState = {
+  canBid: boolean;
+  canPay: boolean;
+  reason: string | null;
+  myHighestBid: number | null;
+  isHighestBidder: boolean;
+  isOutbid: boolean;
+  isWinner: boolean;
+};
+
+const auctionInclude = {
+  artwork: {
+    select: {
+      id: true,
+      title: true,
+      imageUrl: true,
+      slug: true,
+      currency: true,
+      status: true,
+      mintStatus: true,
+      visibility: true,
+      listingType: true,
+      artistUserId: true,
+      currentOwnerUserId: true,
+    },
+  },
+  winner: { select: { id: true, username: true } },
+  bids: {
+    orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
+    include: {
+      bidder: {
+        select: {
+          id: true,
+          username: true,
+          auctionBanPermanent: true,
+          auctionSuspendedUntil: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.AuctionInclude;
+
 export async function getAuctionSettings(settings?: SiteSettingsMap): Promise<AuctionSettings> {
   const resolved = settings ?? await getSiteSettingsMap();
   return {
@@ -93,24 +135,26 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function nextMinimumBid(auction: { startingPrice: Prisma.Decimal | number | string; minIncrement: Prisma.Decimal | number | string; bids?: Array<{ amount: Prisma.Decimal | number | string }> }) {
-  const highest = auction.bids && auction.bids.length > 0
-    ? Math.max(...auction.bids.map((bid) => Number(bid.amount)))
-    : Number(auction.startingPrice);
-  const hasBids = Boolean(auction.bids && auction.bids.length > 0);
-  return hasBids ? roundCurrency(highest + Number(auction.minIncrement)) : roundCurrency(Number(auction.startingPrice));
+export function getHighestBidAmount(auction: { bids?: Array<{ amount: Prisma.Decimal | number | string }> }) {
+  if (!auction.bids?.length) return null;
+  return Math.max(...auction.bids.map((bid) => Number(bid.amount)));
 }
 
-export async function applyAuctionFailurePenalty(tx: Prisma.TransactionClient, userId: number) {
+function nextMinimumBid(auction: { startingPrice: Prisma.Decimal | number | string; minIncrement: Prisma.Decimal | number | string; bids?: Array<{ amount: Prisma.Decimal | number | string }> }) {
+  const highest = getHighestBidAmount(auction);
+  return highest == null ? roundCurrency(Number(auction.startingPrice)) : roundCurrency(highest + Number(auction.minIncrement));
+}
+
+export async function applyAuctionFailurePenalty(tx: Prisma.TransactionClient, userId: number, settings: AuctionSettings) {
   const user = await tx.user.findUnique({
     where: { id: userId },
-    select: { auctionFailedPaymentCount: true, auctionBanPermanent: true },
+    select: { auctionFailedPaymentCount: true },
   });
   if (!user) return;
   const nextCount = Number(user.auctionFailedPaymentCount ?? 0) + 1;
   await tx.user.update({
     where: { id: userId },
-    data: nextCount >= 2
+    data: nextCount >= settings.permanentBanAfterFailures
       ? {
           auctionFailedPaymentCount: nextCount,
           auctionBanPermanent: true,
@@ -118,13 +162,13 @@ export async function applyAuctionFailurePenalty(tx: Prisma.TransactionClient, u
         }
       : {
           auctionFailedPaymentCount: nextCount,
-          auctionSuspendedUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          auctionSuspendedUntil: new Date(Date.now() + settings.firstNonPaymentBanDays * 24 * 60 * 60 * 1000),
         },
   });
 }
 
 async function pickNextEligibleBid(tx: Prisma.TransactionClient, auctionId: number) {
-  return tx.auctionBid.findFirst({
+  const candidates = await tx.auctionBid.findMany({
     where: {
       auctionId,
       status: { in: [AUCTION_BID_STATUS.ACTIVE, AUCTION_BID_STATUS.OUTBID] },
@@ -141,147 +185,140 @@ async function pickNextEligibleBid(tx: Prisma.TransactionClient, auctionId: numb
       },
     },
   });
+
+  return candidates.find((candidate) => {
+    const penalty = getAuctionPenaltyState(candidate.bidder);
+    return !penalty.permanentlyBanned && !penalty.temporarilySuspended;
+  }) ?? null;
 }
 
-export async function syncAuctionState(auctionId: number, settings?: AuctionSettings) {
-  const resolvedSettings = settings ?? await getAuctionSettings();
-  const now = new Date();
-
-  return prisma.$transaction(async (tx) => {
-    const auction = await tx.auction.findUnique({
-      where: { id: auctionId },
-      include: {
-        artwork: {
-          select: {
-            id: true,
-            title: true,
-            listingType: true,
-            visibility: true,
-            status: true,
-            mintStatus: true,
-            artistUserId: true,
-            currentOwnerUserId: true,
-            imageUrl: true,
-            slug: true,
-            currency: true,
-          },
-        },
-        bids: {
-          orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
-          include: {
-            bidder: {
-              select: {
-                id: true,
-                username: true,
-                auctionBanPermanent: true,
-                auctionSuspendedUntil: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!auction) return null;
-
-    if (auction.status === AUCTION_STATUS.SCHEDULED && auction.startsAt <= now) {
-      await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.LIVE } });
-      auction.status = AUCTION_STATUS.LIVE;
-    }
-
-    if (auction.status === AUCTION_STATUS.LIVE && auction.endsAt <= now) {
-      const topBid = auction.bids.find((bid) => {
-        const penalty = getAuctionPenaltyState(bid.bidder);
-        return !penalty.permanentlyBanned && !penalty.temporarilySuspended;
-      });
-      if (!topBid) {
-        await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.ENDED_NO_BIDS, paymentDueAt: null, winnerUserId: null, winningBidId: null, winningAmount: null } });
-        auction.status = AUCTION_STATUS.ENDED_NO_BIDS;
-      } else {
-        await tx.auction.update({
-          where: { id: auction.id },
-          data: {
-            status: AUCTION_STATUS.PAYMENT_PENDING,
-            winnerUserId: topBid.bidderUserId,
-            winningBidId: topBid.id,
-            winningAmount: topBid.amount,
-            paymentDueAt: new Date(now.getTime() + resolvedSettings.paymentWindowHours * 60 * 60 * 1000),
-          },
-        });
-        await tx.auctionBid.updateMany({ where: { auctionId: auction.id }, data: { status: AUCTION_BID_STATUS.OUTBID } });
-        await tx.auctionBid.update({ where: { id: topBid.id }, data: { status: AUCTION_BID_STATUS.WON } });
-        auction.status = AUCTION_STATUS.PAYMENT_PENDING;
-      }
-    }
-
-    if (auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.paymentDueAt && auction.paymentDueAt <= now) {
-      if (auction.winnerUserId) {
-        await applyAuctionFailurePenalty(tx, auction.winnerUserId);
-      }
-      if (auction.winningBidId) {
-        await tx.auctionBid.update({ where: { id: auction.winningBidId }, data: { status: AUCTION_BID_STATUS.DEFAULTED } }).catch(() => null);
-      }
-
-      if (resolvedSettings.allowSecondChance) {
-        const nextBid = await pickNextEligibleBid(tx, auction.id);
-        if (nextBid) {
-          await tx.auction.update({
-            where: { id: auction.id },
-            data: {
-              status: AUCTION_STATUS.PAYMENT_PENDING,
-              winnerUserId: nextBid.bidderUserId,
-              winningBidId: nextBid.id,
-              winningAmount: nextBid.amount,
-              paymentDueAt: new Date(now.getTime() + resolvedSettings.paymentWindowHours * 60 * 60 * 1000),
-            },
-          });
-          await tx.auctionBid.update({ where: { id: nextBid.id }, data: { status: AUCTION_BID_STATUS.WON } });
-        } else {
-          await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.ENDED_UNPAID, paymentDueAt: null } });
-        }
-      } else {
-        await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.ENDED_UNPAID, paymentDueAt: null } });
-      }
-    }
-
-    return tx.auction.findUnique({
-      where: { id: auction.id },
-      include: {
-        artwork: {
-          select: {
-            id: true,
-            title: true,
-            imageUrl: true,
-            slug: true,
-            currency: true,
-            status: true,
-            mintStatus: true,
-            visibility: true,
-            listingType: true,
-          },
-        },
-        winner: { select: { id: true, username: true } },
-        bids: {
-          orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
-          include: { bidder: { select: { id: true, username: true } } },
-        },
-      },
-    });
+async function fetchAuctionById(tx: Prisma.TransactionClient | typeof prisma, auctionId: number) {
+  return tx.auction.findUnique({
+    where: { id: auctionId },
+    include: auctionInclude,
   });
 }
 
-export async function getCurrentArtworkAuction(artworkId: number) {
-  const auction = await prisma.auction.findFirst({
+async function fetchCurrentArtworkAuction(tx: Prisma.TransactionClient | typeof prisma, artworkId: number) {
+  return tx.auction.findFirst({
     where: { artworkId, status: { in: [AUCTION_STATUS.SCHEDULED, AUCTION_STATUS.LIVE, AUCTION_STATUS.PAYMENT_PENDING] } },
     orderBy: [{ createdAt: 'desc' }],
-    include: {
-      artwork: { select: { id: true, title: true, imageUrl: true, slug: true, currency: true, status: true, mintStatus: true, visibility: true, listingType: true } },
-      winner: { select: { id: true, username: true } },
-      bids: { orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }], include: { bidder: { select: { id: true, username: true } } } },
-    },
+    include: auctionInclude,
   });
+}
+
+async function advanceAuctionStateInTransaction(tx: Prisma.TransactionClient, auctionId: number, settings: AuctionSettings) {
+  await tx.$queryRaw`SELECT id FROM "Auction" WHERE id = ${auctionId} FOR UPDATE`;
+  const auction = await fetchAuctionById(tx, auctionId);
   if (!auction) return null;
-  return syncAuctionState(auction.id);
+
+  const now = new Date();
+
+  if (auction.status === AUCTION_STATUS.SCHEDULED && auction.startsAt <= now) {
+    await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.LIVE } });
+  }
+
+  const refreshedAfterStart = await fetchAuctionById(tx, auctionId);
+  if (!refreshedAfterStart) return null;
+
+  if (refreshedAfterStart.status === AUCTION_STATUS.LIVE && refreshedAfterStart.endsAt <= now) {
+    const topBid = refreshedAfterStart.bids.find((bid) => {
+      const penalty = getAuctionPenaltyState(bid.bidder);
+      return !penalty.permanentlyBanned && !penalty.temporarilySuspended;
+    });
+
+    if (!topBid) {
+      await tx.auction.update({
+        where: { id: refreshedAfterStart.id },
+        data: {
+          status: AUCTION_STATUS.ENDED_NO_BIDS,
+          paymentDueAt: null,
+          winnerUserId: null,
+          winningBidId: null,
+          winningAmount: null,
+        },
+      });
+    } else {
+      await tx.auction.update({
+        where: { id: refreshedAfterStart.id },
+        data: {
+          status: AUCTION_STATUS.PAYMENT_PENDING,
+          winnerUserId: topBid.bidderUserId,
+          winningBidId: topBid.id,
+          winningAmount: topBid.amount,
+          paymentDueAt: new Date(now.getTime() + settings.paymentWindowHours * 60 * 60 * 1000),
+        },
+      });
+      await tx.auctionBid.updateMany({ where: { auctionId: refreshedAfterStart.id }, data: { status: AUCTION_BID_STATUS.OUTBID } });
+      await tx.auctionBid.update({ where: { id: topBid.id }, data: { status: AUCTION_BID_STATUS.WON } });
+    }
+  }
+
+  const refreshedAfterEnd = await fetchAuctionById(tx, auctionId);
+  if (!refreshedAfterEnd) return null;
+
+  if (refreshedAfterEnd.status === AUCTION_STATUS.PAYMENT_PENDING && refreshedAfterEnd.paymentDueAt && refreshedAfterEnd.paymentDueAt <= now) {
+    if (refreshedAfterEnd.winnerUserId) {
+      await applyAuctionFailurePenalty(tx, refreshedAfterEnd.winnerUserId, settings);
+    }
+    if (refreshedAfterEnd.winningBidId) {
+      await tx.auctionBid.update({ where: { id: refreshedAfterEnd.winningBidId }, data: { status: AUCTION_BID_STATUS.DEFAULTED } }).catch(() => null);
+    }
+
+    if (settings.allowSecondChance) {
+      const nextBid = await pickNextEligibleBid(tx, refreshedAfterEnd.id);
+      if (nextBid) {
+        await tx.auction.update({
+          where: { id: refreshedAfterEnd.id },
+          data: {
+            status: AUCTION_STATUS.PAYMENT_PENDING,
+            winnerUserId: nextBid.bidderUserId,
+            winningBidId: nextBid.id,
+            winningAmount: nextBid.amount,
+            paymentDueAt: new Date(now.getTime() + settings.paymentWindowHours * 60 * 60 * 1000),
+          },
+        });
+        await tx.auctionBid.update({ where: { id: nextBid.id }, data: { status: AUCTION_BID_STATUS.WON } });
+      } else {
+        await tx.auction.update({ where: { id: refreshedAfterEnd.id }, data: { status: AUCTION_STATUS.ENDED_UNPAID, paymentDueAt: null, winnerUserId: null, winningBidId: null } });
+      }
+    } else {
+      await tx.auction.update({ where: { id: refreshedAfterEnd.id }, data: { status: AUCTION_STATUS.ENDED_UNPAID, paymentDueAt: null, winnerUserId: null, winningBidId: null } });
+    }
+  }
+
+  return fetchAuctionById(tx, auctionId);
+}
+
+export async function reconcileAuctionState(auctionId: number, settings?: AuctionSettings) {
+  const resolvedSettings = settings ?? await getAuctionSettings();
+  return prisma.$transaction((tx) => advanceAuctionStateInTransaction(tx, auctionId, resolvedSettings));
+}
+
+export async function reconcileEligibleAuctions(settings?: AuctionSettings, limit = 50) {
+  const resolvedSettings = settings ?? await getAuctionSettings();
+  const candidates = await prisma.auction.findMany({
+    where: { status: { in: [AUCTION_STATUS.SCHEDULED, AUCTION_STATUS.LIVE, AUCTION_STATUS.PAYMENT_PENDING] } },
+    select: { id: true },
+    orderBy: [{ endsAt: 'asc' }],
+    take: limit,
+  });
+
+  if (candidates.length === 0) return [];
+  return Promise.all(candidates.map((candidate) => reconcileAuctionState(candidate.id, resolvedSettings)));
+}
+
+export async function readCurrentArtworkAuction(artworkId: number) {
+  return fetchCurrentArtworkAuction(prisma, artworkId);
+}
+
+export async function getCurrentArtworkAuction(artworkId: number, options?: { reconcile?: boolean }) {
+  const auction = await fetchCurrentArtworkAuction(prisma, artworkId);
+  if (!auction) return null;
+  if (options?.reconcile) {
+    return reconcileAuctionState(auction.id);
+  }
+  return auction;
 }
 
 export type SerializedAuction = {
@@ -305,13 +342,14 @@ export type SerializedAuction = {
   winningAmount: number | null;
   commissionPercent: number;
   sellerUserId: number;
+  extendedCount: number;
   bidHistory: Array<{ id: number; amount: number; bidderUserId: number; bidderUsername: string; createdAt: string; status: string }>;
 };
 
-export function serializeAuction(auction: Awaited<ReturnType<typeof syncAuctionState>> | Awaited<ReturnType<typeof getCurrentArtworkAuction>>): SerializedAuction | null {
+export function serializeAuction(auction: Awaited<ReturnType<typeof reconcileAuctionState>> | Awaited<ReturnType<typeof getCurrentArtworkAuction>> | Awaited<ReturnType<typeof readCurrentArtworkAuction>>) {
   if (!auction) return null;
   const bids = auction.bids ?? [];
-  const currentBid = bids.length > 0 ? Number(bids[0].amount) : null;
+  const currentBid = getHighestBidAmount({ bids });
   return {
     id: auction.id,
     artworkId: auction.artworkId,
@@ -333,6 +371,7 @@ export function serializeAuction(auction: Awaited<ReturnType<typeof syncAuctionS
     winningAmount: auction.winningAmount == null ? null : Number(auction.winningAmount),
     commissionPercent: Number(auction.commissionPercent ?? 0),
     sellerUserId: auction.sellerUserId,
+    extendedCount: Number(auction.extendedCount ?? 0),
     bidHistory: bids.slice(0, 10).map((bid) => ({
       id: bid.id,
       amount: Number(bid.amount),
@@ -341,43 +380,59 @@ export function serializeAuction(auction: Awaited<ReturnType<typeof syncAuctionS
       createdAt: bid.createdAt.toISOString(),
       status: bid.status,
     })),
-  };
+  } satisfies SerializedAuction;
 }
 
-export function buildAuctionViewerState(auction: SerializedAuction | null, currentUser: SessionUser | null, penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null) {
+export function buildAuctionViewerState(auction: SerializedAuction | null, currentUser: SessionUser | null, penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null): AuctionViewerState {
   if (!auction) {
     return {
       canBid: false,
       canPay: false,
       reason: 'Auction is not available.',
-      myHighestBid: null as number | null,
+      myHighestBid: null,
+      isHighestBidder: false,
+      isOutbid: false,
+      isWinner: false,
     };
   }
+
+  const myHighestBid = currentUser
+    ? auction.bidHistory
+        .filter((bid) => bid.bidderUserId === currentUser.userId)
+        .reduce<number | null>((highest, bid) => (highest == null || bid.amount > highest ? bid.amount : highest), null)
+    : null;
+  const isHighestBidder = Boolean(currentUser && auction.currentBid != null && myHighestBid != null && Math.abs(myHighestBid - auction.currentBid) < 0.0001);
+  const isWinner = Boolean(currentUser && auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.winnerUserId === currentUser.userId);
+  const isOutbid = Boolean(currentUser && myHighestBid != null && !isHighestBidder && !isWinner && auction.currentBid != null && auction.currentBid > myHighestBid);
+
   if (!currentUser) {
     return {
       canBid: false,
       canPay: false,
       reason: 'Connect with Pi first to join the auction.',
-      myHighestBid: null as number | null,
+      myHighestBid,
+      isHighestBidder,
+      isOutbid,
+      isWinner,
     };
   }
   if (penalty?.permanentlyBanned) {
-    return { canBid: false, canPay: false, reason: 'Your account is permanently blocked from auctions because of repeated non-payment.', myHighestBid: null as number | null };
+    return { canBid: false, canPay: false, reason: 'Your account is permanently blocked from auctions because of repeated non-payment.', myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
   if (penalty?.temporarilySuspended) {
-    return { canBid: false, canPay: false, reason: `Auction access is suspended until ${penalty.suspendedUntil?.toLocaleString()}.`, myHighestBid: null as number | null };
+    return { canBid: false, canPay: false, reason: `Auction access is suspended until ${penalty.suspendedUntil?.toLocaleString()}.`, myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
   if (auction.sellerUserId === currentUser.userId) {
-    return { canBid: false, canPay: false, reason: 'You cannot bid on your own artwork.', myHighestBid: null as number | null };
+    return { canBid: false, canPay: false, reason: 'You cannot bid on your own artwork.', myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
   if (auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.winnerUserId === currentUser.userId) {
-    return { canBid: false, canPay: true, reason: null, myHighestBid: auction.winningAmount };
+    return { canBid: false, canPay: true, reason: 'You won this auction. Complete payment before the deadline.', myHighestBid: auction.winningAmount, isHighestBidder, isOutbid: false, isWinner: true };
   }
   if (auction.status !== AUCTION_STATUS.LIVE && auction.status !== AUCTION_STATUS.SCHEDULED) {
-    return { canBid: false, canPay: false, reason: 'This auction is no longer accepting bids.', myHighestBid: null as number | null };
+    return { canBid: false, canPay: false, reason: 'This auction is no longer accepting bids.', myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
   if (auction.status === AUCTION_STATUS.SCHEDULED) {
-    return { canBid: false, canPay: false, reason: 'This auction has not started yet.', myHighestBid: null as number | null };
+    return { canBid: false, canPay: false, reason: 'This auction has not started yet.', myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
-  return { canBid: true, canPay: false, reason: null, myHighestBid: null as number | null };
+  return { canBid: true, canPay: false, reason: null, myHighestBid, isHighestBidder, isOutbid, isWinner };
 }

@@ -1,30 +1,32 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
-import { serializeAuction, syncAuctionState, AUCTION_STATUS } from '@/lib/auctions';
+import { AUCTION_STATUS, reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AuctionPage() {
+  await reconcileEligibleAuctions();
+
   const openAuctions = await prisma.auction.findMany({
     where: { status: { in: [AUCTION_STATUS.SCHEDULED, AUCTION_STATUS.LIVE, AUCTION_STATUS.PAYMENT_PENDING] } },
-    orderBy: [{ endsAt: 'asc' }],
+    orderBy: [{ status: 'asc' }, { endsAt: 'asc' }],
     include: {
-      artwork: { select: { id: true, title: true, imageUrl: true, slug: true, currency: true } },
+      artwork: { select: { id: true, title: true, imageUrl: true, slug: true, currency: true, status: true, mintStatus: true, visibility: true, listingType: true, artistUserId: true, currentOwnerUserId: true } },
       winner: { select: { id: true, username: true } },
       bids: { orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }], include: { bidder: { select: { id: true, username: true } } } },
     },
   });
 
-  const items = (await Promise.all(openAuctions.map((auction) => syncAuctionState(auction.id)))).map(serializeAuction).filter(Boolean);
+  const items = openAuctions.map(serializeAuction).filter(Boolean);
 
   return (
     <div className="page-stack">
       <section className="card surface-section">
         <h1 style={{ margin: '0 0 8px' }}>Auctions</h1>
         <p style={{ margin: 0, color: 'var(--muted)' }}>
-          English auctions with pay-later settlement, anti-sniping extensions, and automatic promotion of the second-highest bidder if the winner does not pay.
+          Live and scheduled auctions with anti-sniping protection, winner payment windows, and automatic second-chance promotion when the first winner defaults.
         </p>
       </section>
 
@@ -43,6 +45,7 @@ export default async function AuctionPage() {
                 <p style={{ margin: 0 }}><strong>Current bid:</strong> {auction!.currentBid == null ? 'No bids yet' : `${auction!.currentBid.toFixed(2)} ${auction!.currency}`}</p>
                 <p style={{ margin: 0 }}><strong>Next bid:</strong> {auction!.nextMinimumBid.toFixed(2)} {auction!.currency}</p>
                 <p style={{ margin: 0 }}><strong>Bid count:</strong> {auction!.bidsCount}</p>
+                <p style={{ margin: 0 }}><strong>Extensions:</strong> {auction!.extendedCount}</p>
                 <div className="card-actions" style={{ marginTop: 8 }}>
                   <Link href={`/artwork/${auction!.artworkId}`} className="button primary">View auction</Link>
                 </div>

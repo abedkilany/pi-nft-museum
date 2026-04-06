@@ -41,7 +41,7 @@ export default async function ArtworkDetailPage({ params }: Props) {
     return <ArtworkPrivateAccessClient artworkId={artwork.id} />;
   }
 
-  const auction = await getCurrentArtworkAuction(artwork.id);
+  const auction = await getCurrentArtworkAuction(artwork.id, { reconcile: true });
   const artworkData = serializeArtworkDetail({ ...artwork, auction: serializeAuction(auction) }, null);
   const initialViewer = {
     authenticated: false,
