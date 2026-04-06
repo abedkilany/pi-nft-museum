@@ -7,26 +7,6 @@ export function PiScript() {
     <Script
       src="https://sdk.minepi.com/pi-sdk.js"
       strategy="afterInteractive"
-      onLoad={() => {
-        try {
-          type PiWindow = Window & {
-            Pi?: { init?: (options: Record<string, unknown>) => void };
-            __pi_initialized__?: boolean;
-          };
-          const w = window as PiWindow;
-
-          if (w.Pi && !w.__pi_initialized__) {
-            w.Pi.init({
-              version: '2.0',
-              sandbox: false,
-            });
-            w.__pi_initialized__ = true;
-            console.log('Pi SDK initialized');
-          }
-        } catch (error) {
-          console.error('Pi SDK init failed', error);
-        }
-      }}
     />
   );
 }

@@ -64,10 +64,11 @@ export function initializePi() {
       window.Pi.init({
         version: '2.0',
         sandbox: isSandboxMode(),
-        ...(getPiApiKey() ? { apiKey: getPiApiKey() } : {})
+        ...(getPiApiKey() ? { apiKey: getPiApiKey() } : {}),
       });
       window.__piSdkInitialized = true;
     }
+
     return true;
   } catch (error) {
     console.error('Pi init failed', error);
@@ -95,19 +96,27 @@ export async function authenticateWithPi(
   onIncompletePaymentFound?: (payment: unknown) => void
 ) {
   const ready = await waitForPiSdk();
+
   if (!ready || typeof window === 'undefined' || !window.Pi) {
     throw new Error('Pi SDK not available. Open the app from Pi Browser or Pi Sandbox and try again.');
+  }
+
+  if (typeof window.Pi.authenticate !== 'function') {
+    throw new Error('Pi SDK authenticate() is not available.');
   }
 
   return window.Pi.authenticate(scopes, onIncompletePaymentFound || (() => undefined));
 }
 
-export async function createPiPayment(paymentData: { amount: number; memo: string; metadata: Record<string, unknown> }, callbacks: {
-  onReadyForServerApproval: (paymentId: string) => void;
-  onReadyForServerCompletion: (paymentId: string, txid: string) => void;
-  onCancel: (paymentId: string) => void;
-  onError: (error: Error, payment?: unknown) => void;
-}) {
+export async function createPiPayment(
+  paymentData: { amount: number; memo: string; metadata: Record<string, unknown> },
+  callbacks: {
+    onReadyForServerApproval: (paymentId: string) => void;
+    onReadyForServerCompletion: (paymentId: string, txid: string) => void;
+    onCancel: (paymentId: string) => void;
+    onError: (error: Error, payment?: unknown) => void;
+  }
+) {
   const ready = await waitForPiSdk();
   if (!ready || typeof window === 'undefined' || !window.Pi?.createPayment) {
     throw new Error('Pi payment SDK not available. Open the app from Pi Browser or Pi Sandbox and try again.');

@@ -87,14 +87,18 @@ export function PiConnectButton({ className = 'button primary', children, redire
       await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_CLICKED', meta: { redirectTo: redirectTo || null, traceId } });
 
       await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 1, redirectTo: redirectTo || null });
+      await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_ENSURE_AUTH_START', meta: { traceId, attempt: 1 } });
       let user = await ensureAuthenticated(traceId);
+      await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_ENSURE_AUTH_DONE', meta: { traceId, attempt: 1, hasUser: Boolean(user) } });
       if (!user) {
         await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_NO_USER', level: 'warn', meta: { traceId, attempt: 1 } });
         await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_RETRY_SCHEDULED', 'WARNING', { reason: 'NO_USER', attempt: 1, retryDelayMs: 900 });
         await wait(900);
         await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_RETRYING_AFTER_NO_USER', meta: { traceId, attempt: 2 } });
         await emitEvent(headers, traceId, 'PI_CONNECT_BUTTON_AUTH_ATTEMPT', 'STARTED', { attempt: 2, redirectTo: redirectTo || null, retry: true });
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_ENSURE_AUTH_START', meta: { traceId, attempt: 2, retry: true } });
         user = await ensureAuthenticated(traceId);
+        await pushPiClientDebug(headers, { event: 'PI_CONNECT_BUTTON_ENSURE_AUTH_DONE', meta: { traceId, attempt: 2, retry: true, hasUser: Boolean(user) } });
       }
 
       if (!user) {
