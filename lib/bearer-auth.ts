@@ -1,11 +1,9 @@
-import { resolveAdminBridgeToken } from '@/lib/admin-bridge';
 import type { SessionUser } from '@/lib/auth';
-import { getAdminBridgeCookieFromHeaders, getSessionCookieFromHeaders } from '@/lib/auth-cookies';
-import { extractBearerToken, resolvePiSessionFromToken } from '@/lib/pi-session';
-
-type HeaderReader = {
-  get(name: string): string | null;
-};
+import {
+  resolveRequestViewerFromHeaders,
+  type HeaderReader,
+  type RequestViewerResult,
+} from '@/lib/request-viewer';
 
 export type BearerTokenReadResult = {
   token: string | null;
@@ -27,16 +25,22 @@ export type AuthenticatedRequestResult = {
   hasMalformedAuthorizationHeader: boolean;
 };
 
-function normalizeHeaderValue(value: string | null | undefined) {
-  return typeof value === 'string' ? value.trim() : '';
+function mapResult(result: RequestViewerResult): AuthenticatedRequestResult {
+  return {
+    user: result.user,
+    source: result.source,
+    reason: result.reason === 'missing_session' ? 'missing_bearer_token' : result.reason,
+    hasAuthorizationHeader: result.hasAuthorizationHeader,
+    hasMalformedAuthorizationHeader: result.hasMalformedAuthorizationHeader,
+  };
 }
 
 export function readBearerToken(headers: HeaderReader): BearerTokenReadResult {
-  const authorizationHeader = normalizeHeaderValue(headers.get('authorization'));
+  const authorizationHeader = headers.get('authorization')?.trim() || '';
   const hasAuthorizationHeader = authorizationHeader.length > 0;
 
-  if (hasAuthorizationHeader) {
-    const token = extractBearerToken(authorizationHeader);
+  if (hasAuthorizationHeader && authorizationHeader.startsWith('Bearer ')) {
+    const token = authorizationHeader.slice(7).trim() || null;
     return {
       token,
       source: token ? 'authorization' : 'none',
@@ -45,110 +49,22 @@ export function readBearerToken(headers: HeaderReader): BearerTokenReadResult {
     };
   }
 
-  const cookieToken = getSessionCookieFromHeaders(headers);
-  if (cookieToken) {
-    return {
-      token: cookieToken,
-      source: 'cookie',
-      hasAuthorizationHeader: false,
-      hasMalformedAuthorizationHeader: false,
-    };
-  }
-
   return {
     token: null,
     source: 'none',
-    hasAuthorizationHeader: false,
-    hasMalformedAuthorizationHeader: false,
+    hasAuthorizationHeader,
+    hasMalformedAuthorizationHeader: hasAuthorizationHeader,
   };
 }
 
 export async function resolveAuthenticatedUserFromHeaders(
   headers: HeaderReader,
-  options?: { allowAdminBridge?: boolean }
+  options?: { allowAdminBridge?: boolean; allowBearerFallback?: boolean },
 ): Promise<AuthenticatedRequestResult> {
-  const bearer = readBearerToken(headers);
+  const result = await resolveRequestViewerFromHeaders(headers, {
+    allowAdminBridge: options?.allowAdminBridge ?? false,
+    allowBearerFallback: options?.allowBearerFallback ?? true,
+  });
 
-  if (bearer.token) {
-    try {
-      const session = await resolvePiSessionFromToken(bearer.token);
-      if (session?.sessionUser) {
-        return {
-          user: session.sessionUser,
-          source: bearer.source === 'cookie' ? 'cookie' : 'bearer',
-          reason: 'ok',
-          hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-          hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-        };
-      }
-    } catch {
-      return {
-        user: null,
-        source: 'none',
-        reason: 'invalid_or_expired_session',
-        hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-        hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-      };
-    }
-
-    return {
-      user: null,
-      source: 'none',
-      reason: 'invalid_or_expired_session',
-      hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-      hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-    };
-  }
-
-  if (bearer.hasMalformedAuthorizationHeader) {
-    return {
-      user: null,
-      source: 'none',
-      reason: 'malformed_bearer_token',
-      hasAuthorizationHeader: true,
-      hasMalformedAuthorizationHeader: true,
-    };
-  }
-
-  if (options?.allowAdminBridge) {
-    const adminBridgeToken = getAdminBridgeCookieFromHeaders(headers) || '';
-    if (adminBridgeToken) {
-      try {
-        const user = await resolveAdminBridgeToken(adminBridgeToken);
-        if (user) {
-          return {
-            user,
-            source: 'admin-bridge',
-            reason: 'ok',
-            hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-            hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-          };
-        }
-      } catch {
-        return {
-          user: null,
-          source: 'none',
-          reason: 'invalid_admin_bridge',
-          hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-          hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-        };
-      }
-
-      return {
-        user: null,
-        source: 'none',
-        reason: 'invalid_admin_bridge',
-        hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-        hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-      };
-    }
-  }
-
-  return {
-    user: null,
-    source: 'none',
-    reason: 'missing_bearer_token',
-    hasAuthorizationHeader: bearer.hasAuthorizationHeader,
-    hasMalformedAuthorizationHeader: bearer.hasMalformedAuthorizationHeader,
-  };
+  return mapResult(result);
 }

@@ -77,23 +77,29 @@ export function clearPiAuthToken() {
   removeStorage(AUTH_MODE_STORAGE_KEY);
 }
 
+function shouldSendFallbackAuthHeaders() {
+  return getStoredAuthMode() === 'pi-browser-bearer-fallback';
+}
+
 export function getPiAuthHeaders(init?: HeadersInit): Headers {
   const headers = new Headers(init || {});
   headers.set('X-App-Request', 'pi-web');
 
-  const bearerToken = getStoredPiSessionToken();
-  if (bearerToken) {
-    headers.set('Authorization', `Bearer ${bearerToken}`);
-  }
-
-  const refreshToken = getStoredPiRefreshToken();
-  if (refreshToken) {
-    headers.set('X-Refresh-Token', refreshToken);
-  }
-
   const authMode = getStoredAuthMode();
   if (authMode) {
     headers.set('X-Auth-Mode', authMode);
+  }
+
+  if (shouldSendFallbackAuthHeaders()) {
+    const bearerToken = getStoredPiSessionToken();
+    if (bearerToken) {
+      headers.set('Authorization', `Bearer ${bearerToken}`);
+    }
+
+    const refreshToken = getStoredPiRefreshToken();
+    if (refreshToken) {
+      headers.set('X-Refresh-Token', refreshToken);
+    }
   }
 
   return headers;

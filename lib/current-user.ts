@@ -1,13 +1,9 @@
-import { headers } from 'next/headers';
 import type { SessionUser } from './auth';
-import { resolveAuthenticatedUserFromHeaders } from './bearer-auth';
-
-type HeaderReader = {
-  get(name: string): string | null;
-};
+import { resolveRequestViewer, resolveRequestViewerFromHeaders, type HeaderReader } from './request-viewer';
 
 export type CurrentUserOptions = {
   allowAdminBridge?: boolean;
+  allowBearerFallback?: boolean;
 };
 
 export async function getCurrentUserFromHeaders(
@@ -15,8 +11,9 @@ export async function getCurrentUserFromHeaders(
   options?: CurrentUserOptions,
 ): Promise<SessionUser | null> {
   try {
-    const result = await resolveAuthenticatedUserFromHeaders(headerStore, {
+    const result = await resolveRequestViewerFromHeaders(headerStore, {
       allowAdminBridge: options?.allowAdminBridge ?? false,
+      allowBearerFallback: options?.allowBearerFallback ?? true,
     });
     return result.user;
   } catch {
@@ -26,13 +23,16 @@ export async function getCurrentUserFromHeaders(
 
 export async function getCurrentUser(options?: CurrentUserOptions): Promise<SessionUser | null> {
   try {
-    const headerStore = await headers();
-    return getCurrentUserFromHeaders(headerStore, options);
+    const result = await resolveRequestViewer({
+      allowAdminBridge: options?.allowAdminBridge ?? false,
+      allowBearerFallback: options?.allowBearerFallback ?? true,
+    });
+    return result.user;
   } catch {
     return null;
   }
 }
 
 export async function getCurrentAdminContextUser(): Promise<SessionUser | null> {
-  return getCurrentUser({ allowAdminBridge: true });
+  return getCurrentUser({ allowAdminBridge: true, allowBearerFallback: true });
 }
