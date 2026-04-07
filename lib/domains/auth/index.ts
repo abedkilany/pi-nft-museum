@@ -5,4 +5,3 @@ export * from '../../bearer-auth';
 export * from '../../current-user';
 export * from '../../pi-browser-auth';
 export * from '../../session-registry';
-export * from '../../request-viewer';

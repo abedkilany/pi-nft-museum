@@ -1,14 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/domains/system';
-import { getCurrentUser } from '@/lib/domains/auth';
-import { FollowUserCard } from '@/components/community/FollowUserCard';
+import { FollowUserListClient } from '@/components/community/FollowUserListClient';
 
 export default async function FollowersPage({ params }: { params: { username: string } }) {
-  const [profileUser, currentUser] = await Promise.all([
-    prisma.user.findUnique({ where: { username: params.username }, select: { id: true, username: true, fullName: true } }),
-    getCurrentUser(),
-  ]);
+  const profileUser = await prisma.user.findUnique({ where: { username: params.username }, select: { id: true, username: true, fullName: true } });
 
   if (!profileUser) notFound();
 
@@ -28,24 +24,7 @@ export default async function FollowersPage({ params }: { params: { username: st
     },
   });
 
-  const targetIds = followers.map((item) => item.follower.id);
-  let followingSet = new Set<number>();
-  let reverseSet = new Set<number>();
-
-  if (currentUser) {
-    const [mine, reverse] = await Promise.all([
-      prisma.follow.findMany({
-        where: { followerId: currentUser.userId, followingId: { in: targetIds } },
-        select: { followingId: true },
-      }),
-      prisma.follow.findMany({
-        where: { followerId: { in: targetIds }, followingId: currentUser.userId },
-        select: { followerId: true },
-      }),
-    ]);
-    followingSet = new Set(mine.map((item) => item.followingId));
-    reverseSet = new Set(reverse.map((item) => item.followerId));
-  }
+  const followerUsers = followers.map((item) => item.follower);
 
   return (
     <div style={{ paddingTop: '30px', display: 'grid', gap: '24px' }}>
@@ -63,17 +42,7 @@ export default async function FollowersPage({ params }: { params: { username: st
         {followers.length === 0 ? (
           <p style={{ margin: 0 }}>No followers yet.</p>
         ) : (
-          <div style={{ display: 'grid', gap: '12px' }}>
-            {followers.map((entry) => (
-              <FollowUserCard
-                key={entry.id}
-                user={entry.follower}
-                isFollowing={followingSet.has(entry.follower.id)}
-                followsYou={reverseSet.has(entry.follower.id)}
-                isSelf={currentUser?.userId === entry.follower.id}
-              />
-            ))}
-          </div>
+          <FollowUserListClient users={followerUsers} />
         )}
       </section>
     </div>

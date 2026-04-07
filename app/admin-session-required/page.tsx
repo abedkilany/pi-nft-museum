@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { AdminSessionBootstrap } from '@/components/admin/AdminSessionBootstrap';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 const REASONS: Record<string, { title: string; description: string }> = {
   secure_session_failed: {
@@ -41,6 +43,9 @@ export default async function AdminSessionRequiredPage({
           Secure admin session required
         </div>
         <h1 style={{ fontSize: '2rem', lineHeight: 1.2, margin: '0 0 12px' }}>{reason.title}</h1>
+        <Suspense fallback={null}>
+          <AdminSessionBootstrap />
+        </Suspense>
         <p style={{ fontSize: '1.05rem', lineHeight: 1.8, color: '#d1d5db', margin: '0 0 14px' }}>{reason.description}</p>
         <p style={{ fontSize: '1.05rem', lineHeight: 1.8, color: '#d1d5db', margin: '0 0 24px' }}>
           This usually happens when the current browser does not reliably send the cookies needed for the protected admin session, and we were not able to complete the fallback securely.

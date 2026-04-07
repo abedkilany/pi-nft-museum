@@ -302,7 +302,7 @@ export async function POST(request: Request) {
     const userAgent = request.headers.get('user-agent');
     const prefersFallbackByUa = shouldPreferPiBrowserBearerFallback(userAgent);
     const prefersFallbackByHeader = request.headers.get('x-auth-mode') === 'fallback';
-    const includeFallbackTokens = true;
+    const includeFallbackTokens = requiresFallbackAuth || prefersFallbackByHeader || prefersFallbackByUa;
 
     const responseBody: AuthResponse = {
       ok: true,
@@ -312,11 +312,15 @@ export async function POST(request: Request) {
         expiresInSeconds: session.expiresInSeconds,
         expiresAt: session.expiresAt,
         refreshExpiresAt: refreshExpiresAt.toISOString(),
-        token: session.token,
-        refreshToken,
-        transport: includeFallbackTokens && (requiresFallbackAuth || prefersFallbackByHeader || prefersFallbackByUa)
-          ? 'pi-browser-bearer-fallback' as const
-          : 'cookie-session' as const,
+        ...(includeFallbackTokens
+          ? {
+              token: session.token,
+              refreshToken,
+              transport: 'pi-browser-bearer-fallback' as const,
+            }
+          : {
+              transport: 'cookie-session' as const,
+            }),
       },
       user: {
         id: user.id,

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticateWithPi } from '@/lib/domains/pi';
-import { clearPiAuthToken, getPiAuthHeaders, getStoredAuthMode, getStoredPiRefreshToken, getStoredPiSessionToken, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
+import { clearPiAuthToken, getPiAuthHeaders, piApiFetch, shouldUseBearerFallbackClient, storePiBrowserAuth } from '@/lib/pi-auth-client';
 import { buildObservabilityHeaders, consumeOrCreateTraceId, getClientSessionId } from '@/lib/observability-client';
 import { isPiDebugEnabled } from '@/lib/debug-flags';
 
@@ -58,40 +58,6 @@ async function pushClientAuthDebug(
 type FetchCurrentUserResult =
   | { ok: true; user: AuthUser }
   | { ok: false; reason: 'unauthorized' | 'network' | 'server' };
-
-
-async function retryWithStoredFallback(traceId?: string | null): Promise<FetchCurrentUserResult> {
-  const sessionToken = getStoredPiSessionToken();
-  const refreshToken = getStoredPiRefreshToken();
-  if (!sessionToken || !refreshToken) {
-    return { ok: false, reason: 'unauthorized' };
-  }
-
-  storePiBrowserAuth({
-    sessionToken,
-    refreshToken,
-    mode: 'pi-browser-bearer-fallback',
-  });
-
-  await pushClientAuthDebug('PI_AUTH_COOKIE_RESTORE_SWITCHED_TO_FALLBACK', {}, 'warn', traceId);
-
-  const retryResponse = await piApiFetch('/api/auth/me', {
-    method: 'GET',
-    headers: buildObservabilityHeaders(undefined, traceId),
-    cache: 'no-store',
-  }).catch(() => null);
-
-  if (!retryResponse) {
-    return { ok: false, reason: 'network' };
-  }
-
-  const retryPayload = await retryResponse.json().catch(() => null);
-  if (retryResponse.ok && retryPayload?.authenticated && retryPayload?.user) {
-    return { ok: true, user: retryPayload.user as AuthUser };
-  }
-
-  return { ok: false, reason: retryResponse.status === 401 ? 'unauthorized' : 'server' };
-}
 
 async function pushPostAuthEvent(
   name: string,
@@ -208,13 +174,6 @@ async function fetchCurrentUser(traceId?: string | null): Promise<FetchCurrentUs
   });
 
   if (response.status === 401) {
-    if (getStoredAuthMode() !== 'pi-browser-bearer-fallback' && getStoredPiSessionToken() && getStoredPiRefreshToken()) {
-      const fallbackRetry = await retryWithStoredFallback(resolvedTraceId);
-      if (fallbackRetry.ok) {
-        return fallbackRetry;
-      }
-    }
-
     return { ok: false, reason: 'unauthorized' };
   }
 
@@ -344,26 +303,25 @@ async function authenticateAndResolveUser(traceId?: string | null) {
   const fallbackSessionToken = typeof loginPayload?.session?.token === 'string' ? loginPayload.session.token : null;
   const fallbackRefreshToken = typeof loginPayload?.session?.refreshToken === 'string' ? loginPayload.session.refreshToken : null;
 
-  if (!fallbackSessionToken || !fallbackRefreshToken) {
-    await pushClientAuthDebug(
-      'PI_AUTH_FALLBACK_TOKENS_MISSING',
-      {
-        hasFallbackSessionToken: Boolean(fallbackSessionToken),
-        hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
-      },
-      'warn',
-      resolvedTraceId
-    );
-    throw new Error('Server login succeeded, but the fallback session credentials were missing.');
-  }
-
-  storePiBrowserAuth({
-    sessionToken: fallbackSessionToken,
-    refreshToken: fallbackRefreshToken,
-    mode: prefersBearerFallback ? 'pi-browser-bearer-fallback' : 'cookie-session',
-  });
-
   if (prefersBearerFallback) {
+    if (!fallbackSessionToken || !fallbackRefreshToken) {
+      await pushClientAuthDebug(
+        'PI_AUTH_BEARER_FALLBACK_MISSING_TOKENS',
+        {
+          hasFallbackSessionToken: Boolean(fallbackSessionToken),
+          hasFallbackRefreshToken: Boolean(fallbackRefreshToken),
+        },
+        'warn',
+        resolvedTraceId
+      );
+      throw new Error('Pi Browser on iOS needs fallback auth tokens, but the login response did not include them.');
+    }
+
+    storePiBrowserAuth({
+      sessionToken: fallbackSessionToken,
+      refreshToken: fallbackRefreshToken,
+      mode: 'pi-browser-bearer-fallback',
+    });
     await pushClientAuthDebug(
       'PI_AUTH_BEARER_FALLBACK_ENABLED',
       {
@@ -373,6 +331,8 @@ async function authenticateAndResolveUser(traceId?: string | null) {
       'info',
       resolvedTraceId
     );
+  } else {
+    storePiBrowserAuth({ mode: 'cookie-session' });
   }
 
   await pushClientAuthDebug('PI_AUTH_SESSION_TOKEN_STORED', {

@@ -8,7 +8,7 @@ export const ADMIN_DEVICE_REQUIRED_PATH = '/admin-session-required';
 export async function requireAdminPage(permission: PermissionKey = PERMISSIONS.adminAccess) {
   const user = await getCurrentAdminContextUser();
   if (!user) {
-    redirect(`${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed`);
+    redirect(`${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed&returnTo=/admin`);
   }
   if (!(await userHasPermission(user, permission))) redirect('/account');
   return user;
@@ -22,7 +22,7 @@ export async function requireAdminApi(permission: PermissionKey = PERMISSIONS.ad
         {
           error: 'Secure admin session could not be established.',
           reason: 'SECURE_SESSION_FAILED',
-          redirectUrl: `${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed`,
+          redirectUrl: `${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed&returnTo=/admin`,
         },
         { status: 401 },
       ),
@@ -42,7 +42,7 @@ export async function requireSuperadminApi() {
         {
           error: 'Secure admin session could not be established.',
           reason: 'SECURE_SESSION_FAILED',
-          redirectUrl: `${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed`,
+          redirectUrl: `${ADMIN_DEVICE_REQUIRED_PATH}?reason=secure_session_failed&returnTo=/admin`,
         },
         { status: 401 },
       ),
