@@ -9,8 +9,6 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-const LOCKED_AUCTION_STATUSES = [AUCTION_STATUS.SCHEDULED, AUCTION_STATUS.LIVE, AUCTION_STATUS.PAYMENT_PENDING] as const;
-
 export async function POST(request: Request) {
   const csrfError = assertSameOrigin(request);
   if (csrfError) return csrfError;
@@ -29,6 +27,8 @@ export async function POST(request: Request) {
     const visibility = String(body?.visibility || ArtworkVisibility.PUBLIC);
     const auctionDurationHours = Number(body?.auctionDurationHours);
     const auctionMinIncrement = Number(body?.auctionMinIncrement);
+    const auctionStartMode = String(body?.auctionStartMode || 'NOW');
+    const auctionStartsAtRaw = typeof body?.auctionStartsAt === 'string' ? body.auctionStartsAt : null;
 
     if (!Number.isInteger(artworkId) || artworkId <= 0) {
       return NextResponse.json({ error: 'Valid artworkId is required.' }, { status: 400 });
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Discount must be between 0 and 100.' }, { status: 400 });
     }
 
+    let scheduledStartsAt: Date | null = null;
     if (listingType === ArtworkListingType.AUCTION) {
       if (!Number.isFinite(auctionDurationHours) || auctionDurationHours < 1) {
         return NextResponse.json({ error: 'Auction duration must be at least 1 hour.' }, { status: 400 });
@@ -57,8 +58,20 @@ export async function POST(request: Request) {
       if (!Number.isFinite(auctionMinIncrement) || auctionMinIncrement < 0.01) {
         return NextResponse.json({ error: 'Auction minimum increment must be at least 0.01.' }, { status: 400 });
       }
-      if (visibility !== ArtworkVisibility.PUBLIC) {
-        return NextResponse.json({ error: 'Auction artworks must be publicly visible.' }, { status: 400 });
+      if (auctionStartMode !== 'NOW' && auctionStartMode !== 'SCHEDULED') {
+        return NextResponse.json({ error: 'Invalid auction start mode.' }, { status: 400 });
+      }
+      if (auctionStartMode === 'SCHEDULED') {
+        if (!auctionStartsAtRaw) {
+          return NextResponse.json({ error: 'Scheduled auctions require a start time.' }, { status: 400 });
+        }
+        scheduledStartsAt = new Date(auctionStartsAtRaw);
+        if (Number.isNaN(scheduledStartsAt.getTime())) {
+          return NextResponse.json({ error: 'Invalid scheduled start time.' }, { status: 400 });
+        }
+        if (scheduledStartsAt.getTime() <= Date.now() + 5 * 60 * 1000) {
+          return NextResponse.json({ error: 'Scheduled auctions must start at least 5 minutes in the future.' }, { status: 400 });
+        }
       }
     }
 
@@ -72,6 +85,8 @@ export async function POST(request: Request) {
         mintStatus: true,
         listingType: true,
         visibility: true,
+        basePrice: true,
+        discountPercent: true,
         currency: true,
       },
     });
@@ -99,6 +114,7 @@ export async function POST(request: Request) {
     const safeBasePrice = roundCurrency(basePrice);
     const safeDiscount = roundCurrency(discountPercent);
     const computedPrice = roundCurrency(Math.max(0, safeBasePrice - (safeBasePrice * safeDiscount / 100)));
+    const effectiveVisibility = listingType === ArtworkListingType.AUCTION ? ArtworkVisibility.PUBLIC : (visibility as ArtworkVisibility);
 
     if (listingType !== ArtworkListingType.NOT_FOR_SALE && computedPrice <= 0) {
       return NextResponse.json({ error: 'Final price must stay above 0 when the artwork is listed for sale.' }, { status: 400 });
@@ -106,6 +122,8 @@ export async function POST(request: Request) {
 
     const auctionSettings = await getAuctionSettings();
     const now = new Date();
+    const effectiveStartsAt = listingType === ArtworkListingType.AUCTION ? (scheduledStartsAt ?? now) : now;
+    const effectiveAuctionStatus = listingType === ArtworkListingType.AUCTION && scheduledStartsAt && scheduledStartsAt > now ? AUCTION_STATUS.SCHEDULED : AUCTION_STATUS.LIVE;
     const resolvedAuctionDurationHours = listingType === ArtworkListingType.AUCTION
       ? Math.max(1, Math.floor(auctionDurationHours))
       : auctionSettings.defaultDurationHours;
@@ -118,18 +136,11 @@ export async function POST(request: Request) {
       include: { bids: true },
     });
 
-    const hasLockedAuction = Boolean(latestAuction && LOCKED_AUCTION_STATUSES.includes(latestAuction.status as typeof LOCKED_AUCTION_STATUSES[number]));
-
-    if (hasLockedAuction) {
-      if (listingType !== ArtworkListingType.AUCTION) {
-        return NextResponse.json({ error: 'This artwork already has an active auction. Keep it listed as Auction until that auction ends.' }, { status: 400 });
-      }
-      if (visibility !== ArtworkVisibility.PUBLIC) {
-        return NextResponse.json({ error: 'Visibility stays Public while an auction is active or awaiting payment.' }, { status: 400 });
-      }
+    if (listingType === ArtworkListingType.AUCTION && latestAuction && (latestAuction.status === AUCTION_STATUS.LIVE || latestAuction.status === AUCTION_STATUS.PAYMENT_PENDING)) {
+      return NextResponse.json({ error: 'Live auctions and auctions waiting for payment cannot be edited from Manage artwork.' }, { status: 400 });
     }
 
-    if (listingType !== ArtworkListingType.AUCTION && latestAuction && LOCKED_AUCTION_STATUSES.includes(latestAuction.status as typeof LOCKED_AUCTION_STATUSES[number])) {
+    if (listingType !== ArtworkListingType.AUCTION && latestAuction && (latestAuction.status === AUCTION_STATUS.LIVE || latestAuction.status === AUCTION_STATUS.SCHEDULED || latestAuction.status === AUCTION_STATUS.PAYMENT_PENDING)) {
       if (latestAuction.bids.length > 0 || latestAuction.status === AUCTION_STATUS.PAYMENT_PENDING) {
         return NextResponse.json({ error: 'This artwork already has an auction with bids or a payment in progress. Finish that auction before changing the listing type.' }, { status: 400 });
       }
@@ -143,7 +154,7 @@ export async function POST(request: Request) {
           discountPercent: safeDiscount,
           price: computedPrice,
           listingType: canSell ? (listingType as ArtworkListingType) : ArtworkListingType.NOT_FOR_SALE,
-          visibility: listingType === ArtworkListingType.AUCTION ? ArtworkVisibility.PUBLIC : (visibility as ArtworkVisibility),
+          visibility: effectiveVisibility,
         },
         select: {
           id: true,
@@ -156,16 +167,16 @@ export async function POST(request: Request) {
       });
 
       if (listingType === ArtworkListingType.AUCTION && canSell) {
-        if (!latestAuction || !LOCKED_AUCTION_STATUSES.includes(latestAuction.status as typeof LOCKED_AUCTION_STATUSES[number])) {
+        if (!latestAuction || (latestAuction.status !== AUCTION_STATUS.LIVE && latestAuction.status !== AUCTION_STATUS.SCHEDULED && latestAuction.status !== AUCTION_STATUS.PAYMENT_PENDING)) {
           await tx.auction.create({
             data: {
               artworkId,
               sellerUserId: ownerUserId,
               startingPrice: computedPrice,
               minIncrement: resolvedAuctionMinIncrement,
-              status: AUCTION_STATUS.LIVE,
-              startsAt: now,
-              endsAt: new Date(now.getTime() + resolvedAuctionDurationHours * 60 * 60 * 1000),
+              status: effectiveAuctionStatus,
+              startsAt: effectiveStartsAt,
+              endsAt: new Date(effectiveStartsAt.getTime() + resolvedAuctionDurationHours * 60 * 60 * 1000),
               commissionPercent: auctionSettings.commissionPercent,
             },
           });
@@ -176,6 +187,9 @@ export async function POST(request: Request) {
               startingPrice: computedPrice,
               minIncrement: resolvedAuctionMinIncrement,
               commissionPercent: auctionSettings.commissionPercent,
+              status: effectiveAuctionStatus,
+              startsAt: effectiveStartsAt,
+              endsAt: new Date(effectiveStartsAt.getTime() + resolvedAuctionDurationHours * 60 * 60 * 1000),
             },
           });
         }

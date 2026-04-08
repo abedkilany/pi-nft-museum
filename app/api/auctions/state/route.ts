@@ -24,20 +24,15 @@ export async function GET(request: Request) {
     const serializedAuction = serializeAuction(auction);
     const currentUser = await getCurrentUserFromHeaders(request.headers);
     let penalty = null;
-    let myHighestBid: number | null = null;
-
     if (currentUser) {
-      const [user, highestBid] = await Promise.all([
-        prisma.user.findUnique({ where: { id: currentUser.userId }, select: { auctionBanPermanent: true, auctionSuspendedUntil: true, auctionFailedPaymentCount: true } }),
-        getUserHighestBidAmount(auction.id, currentUser.userId),
-      ]);
+      const user = await prisma.user.findUnique({ where: { id: currentUser.userId }, select: { auctionBanPermanent: true, auctionSuspendedUntil: true, auctionFailedPaymentCount: true } });
       penalty = user ? getAuctionPenaltyState(user) : null;
-      myHighestBid = highestBid;
     }
 
-    const viewerState = buildAuctionViewerState(serializedAuction, currentUser, penalty, myHighestBid);
+    const myHighestBid = currentUser && serializedAuction ? await getUserHighestBidAmount(serializedAuction.id, currentUser.userId) : null;
+    const viewerState = buildAuctionViewerState(serializedAuction, currentUser, penalty, { myHighestBid });
 
-    return NextResponse.json({ ok: true, auction: serializedAuction, penalty, viewerState, myHighestBid: viewerState.myHighestBid });
+    return NextResponse.json({ ok: true, auction: serializedAuction, penalty, viewerState, myHighestBid: viewerState.myHighestBid, serverTime: new Date().toISOString() });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown server error' }, { status: 500 });
   }

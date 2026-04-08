@@ -1,5 +1,6 @@
 import { SITE_SETTING_DEFINITIONS, getSiteSettingsMap } from '@/lib/site-settings';
 
+
 const GROUP_TITLES: Record<string, string> = {
   general: 'General',
   homepage: 'Homepage',
@@ -10,20 +11,13 @@ const GROUP_TITLES: Record<string, string> = {
   auctions: 'Auctions'
 };
 
-type SettingsSearchParams = Promise<{ error?: string | string[] }>;
-
-export default async function AdminSettingsPage({ searchParams }: { searchParams?: SettingsSearchParams }) {
-  const [settings, rawParams] = await Promise.all([
-    getSiteSettingsMap(),
-    searchParams ?? Promise.resolve({} as Awaited<SettingsSearchParams>),
-  ]);
+export default async function AdminSettingsPage() {
+  const settings = await getSiteSettingsMap();
   const groups = SITE_SETTING_DEFINITIONS.reduce<Record<string, typeof SITE_SETTING_DEFINITIONS>>((acc, definition) => {
     acc[definition.group] ||= [];
     acc[definition.group].push(definition);
     return acc;
   }, {});
-
-  const error = typeof rawParams.error === 'string' ? rawParams.error : null;
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
@@ -36,12 +30,6 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           <p>Control homepage content, countries, business rules, and future community groundwork without touching code.</p>
         </div>
       </section>
-
-      {error ? (
-        <section className="card" style={{ padding: '16px', border: '1px solid rgba(255,138,138,0.35)' }}>
-          <p style={{ margin: 0, color: '#ff8a8a' }}><strong>Settings were not saved:</strong> {error}</p>
-        </section>
-      ) : null}
 
       <form action="/api/admin/settings/update" method="POST" style={{ display: 'grid', gap: '18px' }}>
         {Object.entries(groups).map(([groupKey, definitions]) => (

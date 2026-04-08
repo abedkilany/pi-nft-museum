@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export const FOLLOW_NOTIFY_MODES = ['ALL', 'ARTWORKS', 'PREMIUM', 'COMMENTS', 'MUTE'] as const;
 export type FollowNotifyMode = (typeof FOLLOW_NOTIFY_MODES)[number];
 
-type CreateNotificationInput = {
+export type CreateNotificationInput = {
   userId: number;
   type: string;
   title: string;
@@ -13,6 +13,23 @@ type CreateNotificationInput = {
 
 export async function createNotification(input: CreateNotificationInput) {
   return prisma.notification.create({ data: input });
+}
+
+export async function createUniqueNotification(input: CreateNotificationInput, options?: { dedupeHours?: number }) {
+  const dedupeHours = Math.max(1, Number(options?.dedupeHours ?? 24));
+  const since = new Date(Date.now() - dedupeHours * 60 * 60 * 1000);
+  const existing = await prisma.notification.findFirst({
+    where: {
+      userId: input.userId,
+      type: input.type,
+      title: input.title,
+      linkUrl: input.linkUrl ?? null,
+      createdAt: { gte: since },
+    },
+    select: { id: true },
+  });
+  if (existing) return existing;
+  return createNotification(input);
 }
 
 export async function getUnreadNotificationCount(userId: number) {

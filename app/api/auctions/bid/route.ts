@@ -3,6 +3,7 @@ import { requireAuthenticatedRequest } from '@/lib/api-guards';
 import { assertSameOrigin } from '@/lib/security';
 import { prisma } from '@/lib/prisma';
 import { AUCTION_BID_STATUS, AUCTION_STATUS, getAuctionEligibilityReason, getAuctionPenaltyState, getAuctionSettings, getCurrentArtworkAuction, reconcileAuctionState, serializeAuction } from '@/lib/auctions';
+import { createUniqueNotification } from '@/lib/notifications';
 import { checkMultiRateLimit, createRateLimitResponse, getRequestIp } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
@@ -84,7 +85,8 @@ export async function POST(request: Request) {
         throw new Error('This auction has already ended. Refresh the page to see the final state.');
       }
 
-      const currentHighest = auction.bids.length > 0 ? Number(auction.bids[0].amount) : null;
+      const previousLeader = auction.bids.length > 0 ? auction.bids[0] : null;
+      const currentHighest = previousLeader ? Number(previousLeader.amount) : null;
       const minimum = currentHighest == null ? Number(auction.startingPrice) : Number(auction.bids[0].amount) + Number(auction.minIncrement);
       if (amount < minimum) {
         throw new Error(`Bid must be at least ${minimum.toFixed(2)} ${auction.artwork.currency}.`);
@@ -99,6 +101,16 @@ export async function POST(request: Request) {
         data: { status: AUCTION_BID_STATUS.OUTBID },
       });
       await tx.auctionBid.create({ data: { auctionId: auction.id, bidderUserId: auth.user.userId, amount, status: AUCTION_BID_STATUS.ACTIVE } });
+
+      if (previousLeader && previousLeader.bidderUserId !== auth.user.userId) {
+        void createUniqueNotification({
+          userId: previousLeader.bidderUserId,
+          type: 'AUCTION_OUTBID',
+          title: 'You were outbid',
+          message: `Another bidder placed a higher offer on ${auction.artwork.title}.`,
+          linkUrl: `/artwork/${auction.artwork.id}`,
+        }, { dedupeHours: 2 });
+      }
 
       const msRemaining = auction.endsAt.getTime() - Date.now();
       if (

@@ -105,6 +105,7 @@ export default function AccountPage() {
           <Link href="#edit-public-profile" className="button primary">Edit public profile</Link>
           <Link href="/notifications" className="button secondary">Notifications</Link>
           <Link href="/account/artworks" prefetch={false} className="button secondary">My artworks</Link>
+          <Link href="/account/auctions" prefetch={false} className="button secondary">Auction dashboard</Link>
           <Link href="/upload" className="button secondary">Upload artwork</Link>
           {isAdmin ? <AdminPageLink className="button secondary">Admin panel</AdminPageLink> : null}
         </div>

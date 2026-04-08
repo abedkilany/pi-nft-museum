@@ -1,16 +1,11 @@
+import { requireAdminApi } from '@/lib/domains/admin';
 import { NextResponse } from 'next/server';
 import { reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
-import { requireAdminApi, PERMISSIONS } from '@/lib/domains/admin';
-import { assertSameOrigin } from '@/lib/services/request';
 
-export async function POST(request: Request) {
-  const csrfError = assertSameOrigin(request);
-  if (csrfError) return csrfError;
-
-  const admin = await requireAdminApi(PERMISSIONS.settingsManage);
-  if ('error' in admin) return admin.error;
-
+export async function POST() {
   try {
+    const admin = await requireAdminApi();
+    if ('error' in admin) return admin.error;
     const auctions = await reconcileEligibleAuctions();
     return NextResponse.json({ ok: true, processed: auctions.length, auctions: auctions.map(serializeAuction) });
   } catch (error) {

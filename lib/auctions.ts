@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 import { getNumberSetting, getSiteSettingsMap, type SiteSettingsMap } from '@/lib/site-settings';
 import type { SessionUser } from '@/lib/auth';
+import { createUniqueNotification } from '@/lib/notifications';
 
 export const AUCTION_STATUS = {
   SCHEDULED: 'SCHEDULED',
@@ -207,12 +208,81 @@ async function fetchCurrentArtworkAuction(tx: Prisma.TransactionClient | typeof 
   });
 }
 
+
+async function notifyAuctionLive(auction: Awaited<ReturnType<typeof fetchAuctionById>>) {
+  if (!auction) return;
+  await createUniqueNotification({
+    userId: auction.sellerUserId,
+    type: 'AUCTION_LIVE',
+    title: 'Auction is now live',
+    message: `${auction.artwork?.title || 'Your artwork'} is now accepting bids.`,
+    linkUrl: `/artwork/${auction.artworkId}`,
+  }, { dedupeHours: 6 });
+}
+
+async function notifyAuctionStartSoon(auction: Awaited<ReturnType<typeof fetchAuctionById>>) {
+  if (!auction) return;
+  await createUniqueNotification({
+    userId: auction.sellerUserId,
+    type: 'AUCTION_START_SOON',
+    title: 'Scheduled auction starts soon',
+    message: `${auction.artwork?.title || 'Your artwork'} will go live at ${auction.startsAt.toLocaleString()}.`,
+    linkUrl: `/artwork/${auction.artworkId}`,
+  }, { dedupeHours: 12 });
+}
+
+async function notifyAuctionWon(auction: Awaited<ReturnType<typeof fetchAuctionById>>) {
+  if (!auction || !auction.winnerUserId || !auction.winningAmount) return;
+  const amount = Number(auction.winningAmount).toFixed(2);
+  await Promise.all([
+    createUniqueNotification({
+      userId: auction.winnerUserId,
+      type: 'AUCTION_WON',
+      title: 'You won an auction',
+      message: `You won ${auction.artwork?.title || 'an artwork'} for ${amount} ${auction.artwork?.currency || 'PI'}. Complete payment before the deadline.`,
+      linkUrl: `/artwork/${auction.artworkId}`,
+    }, { dedupeHours: 24 }),
+    createUniqueNotification({
+      userId: auction.sellerUserId,
+      type: 'AUCTION_ENDED_PENDING_PAYMENT',
+      title: 'Auction ended with a winner',
+      message: `${auction.winner?.username || 'The winner'} must complete payment for ${auction.artwork?.title || 'your artwork'}.`,
+      linkUrl: `/artwork/${auction.artworkId}`,
+    }, { dedupeHours: 24 }),
+  ]);
+}
+
+async function notifyPaymentReminder(auction: Awaited<ReturnType<typeof fetchAuctionById>>) {
+  if (!auction || !auction.winnerUserId || !auction.paymentDueAt || auction.status !== AUCTION_STATUS.PAYMENT_PENDING) return;
+  await createUniqueNotification({
+    userId: auction.winnerUserId,
+    type: 'AUCTION_PAYMENT_REMINDER',
+    title: 'Auction payment reminder',
+    message: `Complete payment for ${auction.artwork?.title || 'your winning artwork'} before ${auction.paymentDueAt.toLocaleString()}.`,
+    linkUrl: `/artwork/${auction.artworkId}`,
+  }, { dedupeHours: 6 });
+}
+
+async function notifyAuctionEndedUnpaid(auction: Awaited<ReturnType<typeof fetchAuctionById>>) {
+  if (!auction) return;
+  await createUniqueNotification({
+    userId: auction.sellerUserId,
+    type: 'AUCTION_ENDED_UNPAID',
+    title: 'Auction ended unpaid',
+    message: `${auction.artwork?.title || 'Your artwork'} ended without a completed payment.`,
+    linkUrl: `/artwork/${auction.artworkId}`,
+  }, { dedupeHours: 24 });
+}
+
 async function advanceAuctionStateInTransaction(tx: Prisma.TransactionClient, auctionId: number, settings: AuctionSettings) {
   await tx.$queryRaw`SELECT id FROM "Auction" WHERE id = ${auctionId} FOR UPDATE`;
   const auction = await fetchAuctionById(tx, auctionId);
   if (!auction) return null;
 
   const now = new Date();
+  const wasScheduled = auction.status === AUCTION_STATUS.SCHEDULED;
+  const wasLive = auction.status === AUCTION_STATUS.LIVE;
+  const wasPaymentPending = auction.status === AUCTION_STATUS.PAYMENT_PENDING;
 
   if (auction.status === AUCTION_STATUS.SCHEDULED && auction.startsAt <= now) {
     await tx.auction.update({ where: { id: auction.id }, data: { status: AUCTION_STATUS.LIVE } });
@@ -220,6 +290,10 @@ async function advanceAuctionStateInTransaction(tx: Prisma.TransactionClient, au
 
   const refreshedAfterStart = await fetchAuctionById(tx, auctionId);
   if (!refreshedAfterStart) return null;
+
+  if (wasScheduled && refreshedAfterStart.status === AUCTION_STATUS.LIVE) {
+    await notifyAuctionLive(refreshedAfterStart);
+  }
 
   if (refreshedAfterStart.status === AUCTION_STATUS.LIVE && refreshedAfterStart.endsAt <= now) {
     const topBid = refreshedAfterStart.bids.find((bid) => {
@@ -257,6 +331,17 @@ async function advanceAuctionStateInTransaction(tx: Prisma.TransactionClient, au
   const refreshedAfterEnd = await fetchAuctionById(tx, auctionId);
   if (!refreshedAfterEnd) return null;
 
+  if ((wasLive || wasScheduled) && refreshedAfterEnd.status === AUCTION_STATUS.PAYMENT_PENDING) {
+    await notifyAuctionWon(refreshedAfterEnd);
+  }
+
+  if (refreshedAfterEnd.status === AUCTION_STATUS.PAYMENT_PENDING && refreshedAfterEnd.paymentDueAt) {
+    const msUntilPaymentDue = refreshedAfterEnd.paymentDueAt.getTime() - now.getTime();
+    if (msUntilPaymentDue > 0 && msUntilPaymentDue <= 60 * 60 * 1000) {
+      await notifyPaymentReminder(refreshedAfterEnd);
+    }
+  }
+
   if (refreshedAfterEnd.status === AUCTION_STATUS.PAYMENT_PENDING && refreshedAfterEnd.paymentDueAt && refreshedAfterEnd.paymentDueAt <= now) {
     if (refreshedAfterEnd.winnerUserId) {
       await applyAuctionFailurePenalty(tx, refreshedAfterEnd.winnerUserId, settings);
@@ -287,7 +372,11 @@ async function advanceAuctionStateInTransaction(tx: Prisma.TransactionClient, au
     }
   }
 
-  return fetchAuctionById(tx, auctionId);
+  const finalAuction = await fetchAuctionById(tx, auctionId);
+  if (finalAuction?.status === AUCTION_STATUS.ENDED_UNPAID && wasPaymentPending) {
+    await notifyAuctionEndedUnpaid(finalAuction);
+  }
+  return finalAuction;
 }
 
 export async function reconcileAuctionState(auctionId: number, settings?: AuctionSettings) {
@@ -299,27 +388,23 @@ export async function reconcileEligibleAuctions(settings?: AuctionSettings, limi
   const resolvedSettings = settings ?? await getAuctionSettings();
   const candidates = await prisma.auction.findMany({
     where: { status: { in: [AUCTION_STATUS.SCHEDULED, AUCTION_STATUS.LIVE, AUCTION_STATUS.PAYMENT_PENDING] } },
-    select: { id: true },
+    select: { id: true, startsAt: true, status: true },
     orderBy: [{ endsAt: 'asc' }],
     take: limit,
   });
 
   if (candidates.length === 0) return [];
+  const now = Date.now();
+  await Promise.all(
+    candidates
+      .filter((candidate) => candidate.status === AUCTION_STATUS.SCHEDULED && candidate.startsAt.getTime() > now && candidate.startsAt.getTime() - now <= 30 * 60 * 1000)
+      .map((candidate) => prisma.auction.findUnique({ where: { id: candidate.id }, include: auctionInclude }).then((auction) => notifyAuctionStartSoon(auction))),
+  );
   return Promise.all(candidates.map((candidate) => reconcileAuctionState(candidate.id, resolvedSettings)));
 }
 
 export async function readCurrentArtworkAuction(artworkId: number) {
   return fetchCurrentArtworkAuction(prisma, artworkId);
-}
-
-export async function getUserHighestBidAmount(auctionId: number, userId: number) {
-  const topBid = await prisma.auctionBid.findFirst({
-    where: { auctionId, bidderUserId: userId },
-    orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
-    select: { amount: true },
-  });
-
-  return topBid ? Number(topBid.amount) : null;
 }
 
 export async function getCurrentArtworkAuction(artworkId: number, options?: { reconcile?: boolean }) {
@@ -354,6 +439,9 @@ export type SerializedAuction = {
   sellerUserId: number;
   extendedCount: number;
   bidHistory: Array<{ id: number; amount: number; bidderUserId: number; bidderUsername: string; createdAt: string; status: string }>;
+  uniqueBiddersCount: number;
+  topBidderUsername: string | null;
+  started: boolean;
 };
 
 export function serializeAuction(auction: Awaited<ReturnType<typeof reconcileAuctionState>> | Awaited<ReturnType<typeof getCurrentArtworkAuction>> | Awaited<ReturnType<typeof readCurrentArtworkAuction>>) {
@@ -390,15 +478,13 @@ export function serializeAuction(auction: Awaited<ReturnType<typeof reconcileAuc
       createdAt: bid.createdAt.toISOString(),
       status: bid.status,
     })),
+    uniqueBiddersCount: new Set(bids.map((bid) => bid.bidderUserId)).size,
+    topBidderUsername: bids[0]?.bidder?.username ?? null,
+    started: auction.startsAt.getTime() <= Date.now(),
   } satisfies SerializedAuction;
 }
 
-export function buildAuctionViewerState(
-  auction: SerializedAuction | null,
-  currentUser: SessionUser | null,
-  penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null,
-  explicitMyHighestBid: number | null = null,
-): AuctionViewerState {
+export function buildAuctionViewerState(auction: SerializedAuction | null, currentUser: SessionUser | null, penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null, overrides?: { myHighestBid?: number | null }): AuctionViewerState {
   if (!auction) {
     return {
       canBid: false,
@@ -411,13 +497,7 @@ export function buildAuctionViewerState(
     };
   }
 
-  const myHighestBid = explicitMyHighestBid != null
-    ? explicitMyHighestBid
-    : currentUser
-      ? auction.bidHistory
-          .filter((bid) => bid.bidderUserId === currentUser.userId)
-          .reduce<number | null>((highest, bid) => (highest == null || bid.amount > highest ? bid.amount : highest), null)
-      : null;
+  const myHighestBid = currentUser ? (overrides?.myHighestBid ?? auction.bidHistory.filter((bid) => bid.bidderUserId === currentUser.userId).reduce<number | null>((highest, bid) => (highest == null || bid.amount > highest ? bid.amount : highest), null)) : null;
   const isHighestBidder = Boolean(currentUser && auction.currentBid != null && myHighestBid != null && Math.abs(myHighestBid - auction.currentBid) < 0.0001);
   const isWinner = Boolean(currentUser && auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.winnerUserId === currentUser.userId);
   const isOutbid = Boolean(currentUser && myHighestBid != null && !isHighestBidder && !isWinner && auction.currentBid != null && auction.currentBid > myHighestBid);
@@ -452,4 +532,36 @@ export function buildAuctionViewerState(
     return { canBid: false, canPay: false, reason: 'This auction has not started yet.', myHighestBid, isHighestBidder, isOutbid, isWinner };
   }
   return { canBid: true, canPay: false, reason: null, myHighestBid, isHighestBidder, isOutbid, isWinner };
+}
+
+export async function getUserHighestBidAmount(auctionId: number, userId: number) {
+  const bid = await prisma.auctionBid.findFirst({
+    where: { auctionId, bidderUserId: userId },
+    orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
+    select: { amount: true },
+  });
+  return bid ? Number(bid.amount) : null;
+}
+
+export async function getAuctionAnalyticsForUser(userId: number) {
+  const auctions = await prisma.auction.findMany({
+    where: { sellerUserId: userId },
+    orderBy: [{ createdAt: 'desc' }],
+    include: auctionInclude,
+    take: 50,
+  });
+  const items = auctions.map((auction) => serializeAuction(auction)).filter(Boolean);
+  return {
+    summary: {
+      totalAuctions: items.length,
+      live: items.filter((item) => item && item.status === AUCTION_STATUS.LIVE).length,
+      scheduled: items.filter((item) => item && item.status === AUCTION_STATUS.SCHEDULED).length,
+      paymentPending: items.filter((item) => item && item.status === AUCTION_STATUS.PAYMENT_PENDING).length,
+      sold: items.filter((item) => item && item.status === AUCTION_STATUS.SETTLED).length,
+      unpaid: items.filter((item) => item && item.status === AUCTION_STATUS.ENDED_UNPAID).length,
+      totalBids: items.reduce((sum, item) => sum + (item?.bidsCount ?? 0), 0),
+      totalUniqueBidders: new Set(items.flatMap((item) => item?.bidHistory.map((bid) => bid.bidderUserId) ?? [])).size,
+    },
+    items,
+  };
 }

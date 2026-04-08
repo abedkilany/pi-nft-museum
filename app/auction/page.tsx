@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
-import { AUCTION_STATUS, getAuctionEligibilityReason, reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
+import { AUCTION_STATUS, reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
@@ -19,10 +19,7 @@ export default async function AuctionPage() {
     },
   });
 
-  const items = openAuctions
-    .filter((auction) => !getAuctionEligibilityReason(auction.artwork))
-    .map(serializeAuction)
-    .filter(Boolean);
+  const items = openAuctions.map(serializeAuction).filter(Boolean);
 
   return (
     <div className="page-stack">
@@ -44,10 +41,11 @@ export default async function AuctionPage() {
               <Image src={getDisplayImageUrl(auction!.artworkImageUrl)} alt={auction!.artworkTitle} width={800} height={600} unoptimized style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
               <div className="surface-section" style={{ display: 'grid', gap: 8 }}>
                 <h2 style={{ margin: 0, fontSize: 22 }}>{auction!.artworkTitle}</h2>
-                <p style={{ margin: 0, color: 'var(--muted)' }}>Status: {auction!.status}</p>
+                <p style={{ margin: 0, color: 'var(--muted)' }}>Status: {auction!.status}{auction!.status === 'SCHEDULED' ? ` · Starts ${new Date(auction!.startsAt).toLocaleString()}` : ''}</p>
                 <p style={{ margin: 0 }}><strong>Current bid:</strong> {auction!.currentBid == null ? 'No bids yet' : `${auction!.currentBid.toFixed(2)} ${auction!.currency}`}</p>
                 <p style={{ margin: 0 }}><strong>Next bid:</strong> {auction!.nextMinimumBid.toFixed(2)} {auction!.currency}</p>
                 <p style={{ margin: 0 }}><strong>Bid count:</strong> {auction!.bidsCount}</p>
+                <p style={{ margin: 0 }}><strong>Unique bidders:</strong> {auction!.uniqueBiddersCount}</p>
                 <p style={{ margin: 0 }}><strong>Extensions:</strong> {auction!.extendedCount}</p>
                 <div className="card-actions" style={{ marginTop: 8 }}>
                   <Link href={`/artwork/${auction!.artworkId}`} className="button primary">View auction</Link>

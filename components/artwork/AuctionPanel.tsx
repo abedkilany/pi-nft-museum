@@ -64,6 +64,7 @@ export function AuctionPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   const refreshState = useCallback(async (keepMessage = false) => {
     const response = await piApiFetch(`/api/auctions/state?artworkId=${artworkId}`, { method: 'GET', cache: 'no-store' }).catch(() => null);
@@ -72,6 +73,7 @@ export function AuctionPanel({
       setAuction(payload.auction as ArtworkAuctionDto);
       setAuctionViewerState((payload.viewerState as AuctionViewerApiState | null) ?? defaultViewerAuctionState);
       setBidAmount(String(Number(payload.auction.nextMinimumBid || 0).toFixed(2)));
+      setLastUpdatedAt(payload?.serverTime || new Date().toISOString());
       if (!keepMessage) setMessage(null);
     }
   }, [artworkId]);
@@ -87,11 +89,21 @@ export function AuctionPanel({
 
   useEffect(() => {
     if (!auction) return;
+    const remainingMs = Math.max(0, new Date(auction.endsAt).getTime() - now);
+    const intervalMs = auction.status === 'PAYMENT_PENDING' ? 10000 : remainingMs <= 2 * 60 * 1000 ? 3000 : remainingMs <= 10 * 60 * 1000 ? 5000 : 12000;
     const refreshTimer = window.setInterval(() => {
-      void refreshState(true);
-    }, 15000);
+      if (document.visibilityState === 'visible') void refreshState(true);
+    }, intervalMs);
     return () => window.clearInterval(refreshTimer);
-  }, [auction, refreshState]);
+  }, [auction, now, refreshState]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshState(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refreshState]);
 
   const statusBadge = useMemo(() => {
     if (auctionViewerState.isWinner) return 'You won';
@@ -186,10 +198,12 @@ export function AuctionPanel({
         <p style={{ margin: 0 }}><strong>Next minimum bid:</strong> {auction.nextMinimumBid.toFixed(2)} {currency}</p>
         <p style={{ margin: 0 }}><strong>Your highest bid:</strong> {auctionViewerState.myHighestBid == null ? '—' : `${auctionViewerState.myHighestBid.toFixed(2)} ${currency}`}</p>
         <p style={{ margin: 0 }}><strong>Total bids:</strong> {auction.bidsCount}</p>
-        <p style={{ margin: 0 }}><strong>Auction ends in:</strong> {formatRemaining(auction.endsAt, now)}</p>
+        <p style={{ margin: 0 }}><strong>{auction.status === 'SCHEDULED' ? 'Auction starts in:' : 'Auction ends in:'}</strong> {formatRemaining(auction.status === 'SCHEDULED' ? auction.startsAt : auction.endsAt, now)}</p>
+        <p style={{ margin: 0, color: 'var(--muted)' }}><strong>Starts at:</strong> {formatDateTime(auction.startsAt)}</p>
         <p style={{ margin: 0, color: 'var(--muted)' }}><strong>Ends at:</strong> {formatDateTime(auction.endsAt)}</p>
         {auction.paymentDueAt ? <p style={{ margin: 0 }}><strong>Payment deadline:</strong> {formatRemaining(auction.paymentDueAt, now)} ({formatDateTime(auction.paymentDueAt)})</p> : null}
-        <p style={{ margin: 0, color: 'var(--muted)' }}>Commission: {auction.commissionPercent.toFixed(2)}% · Extensions used: {auction.extendedCount || 0}</p>
+        <p style={{ margin: 0, color: 'var(--muted)' }}>Commission: {auction.commissionPercent.toFixed(2)}% · Extensions used: {auction.extendedCount || 0} · Unique bidders: {auction.uniqueBiddersCount || 0}</p>
+        {lastUpdatedAt ? <p style={{ margin: 0, color: 'var(--muted)', fontSize: 12 }}>Live refresh active · Last sync {formatDateTime(lastUpdatedAt)}</p> : null}
       </div>
 
       {auctionViewerState.canBid ? (

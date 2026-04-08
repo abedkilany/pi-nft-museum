@@ -65,6 +65,9 @@ export type ArtworkAuctionDto = {
   sellerUserId: number;
   extendedCount?: number;
   bidHistory: Array<{ id: number; amount: number; bidderUserId: number; bidderUsername: string; createdAt: string; status: string }>;
+  uniqueBiddersCount?: number;
+  topBidderUsername?: string | null;
+  started?: boolean;
 };
 
 export type ArtworkViewerStateDto = {
