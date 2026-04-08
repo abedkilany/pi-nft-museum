@@ -44,7 +44,13 @@ export default function ArtworkDetailContent({
           </div>
 
           <div className="card" style={{ padding: '16px', marginTop: '16px', display: 'grid', gap: '12px' }}>
-            <strong>{artwork.listingType === 'AUCTION' ? 'Auction listing' : 'Pi payment (Testnet)'}</strong>
+            <strong>
+              {artwork.listingType === 'AUCTION'
+                ? 'Auction listing'
+                : artwork.listingType === 'FIXED_PRICE'
+                  ? 'Pi payment (Testnet)'
+                  : 'Sale status'}
+            </strong>
             {artwork.listingType === 'AUCTION' ? (
               <AuctionPanel
                 artworkId={artwork.id}
@@ -53,7 +59,7 @@ export default function ArtworkDetailContent({
                 initialAuction={artwork.auction || null}
                 viewer={viewer}
               />
-            ) : (
+            ) : artwork.listingType === 'FIXED_PRICE' ? (
               <PiPaymentButton
                 artworkId={artwork.id}
                 title={artwork.title}
@@ -62,6 +68,8 @@ export default function ArtworkDetailContent({
                 disabled={viewer.paymentDisabled}
                 disabledReason={viewer.paymentDisabledReason}
               />
+            ) : (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>This artwork is not currently for sale.</p>
             )}
           </div>
         </div>

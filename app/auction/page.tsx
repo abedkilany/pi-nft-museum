@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
-import { AUCTION_STATUS, reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
+import { AUCTION_STATUS, getAuctionEligibilityReason, reconcileEligibleAuctions, serializeAuction } from '@/lib/auctions';
 import { getDisplayImageUrl } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,10 @@ export default async function AuctionPage() {
     },
   });
 
-  const items = openAuctions.map(serializeAuction).filter(Boolean);
+  const items = openAuctions
+    .filter((auction) => !getAuctionEligibilityReason(auction.artwork))
+    .map(serializeAuction)
+    .filter(Boolean);
 
   return (
     <div className="page-stack">

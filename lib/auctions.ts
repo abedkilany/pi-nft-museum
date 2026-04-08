@@ -312,6 +312,16 @@ export async function readCurrentArtworkAuction(artworkId: number) {
   return fetchCurrentArtworkAuction(prisma, artworkId);
 }
 
+export async function getUserHighestBidAmount(auctionId: number, userId: number) {
+  const topBid = await prisma.auctionBid.findFirst({
+    where: { auctionId, bidderUserId: userId },
+    orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }],
+    select: { amount: true },
+  });
+
+  return topBid ? Number(topBid.amount) : null;
+}
+
 export async function getCurrentArtworkAuction(artworkId: number, options?: { reconcile?: boolean }) {
   const auction = await fetchCurrentArtworkAuction(prisma, artworkId);
   if (!auction) return null;
@@ -383,7 +393,12 @@ export function serializeAuction(auction: Awaited<ReturnType<typeof reconcileAuc
   } satisfies SerializedAuction;
 }
 
-export function buildAuctionViewerState(auction: SerializedAuction | null, currentUser: SessionUser | null, penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null): AuctionViewerState {
+export function buildAuctionViewerState(
+  auction: SerializedAuction | null,
+  currentUser: SessionUser | null,
+  penalty: { permanentlyBanned: boolean; temporarilySuspended: boolean; suspendedUntil: Date | null } | null,
+  explicitMyHighestBid: number | null = null,
+): AuctionViewerState {
   if (!auction) {
     return {
       canBid: false,
@@ -396,11 +411,13 @@ export function buildAuctionViewerState(auction: SerializedAuction | null, curre
     };
   }
 
-  const myHighestBid = currentUser
-    ? auction.bidHistory
-        .filter((bid) => bid.bidderUserId === currentUser.userId)
-        .reduce<number | null>((highest, bid) => (highest == null || bid.amount > highest ? bid.amount : highest), null)
-    : null;
+  const myHighestBid = explicitMyHighestBid != null
+    ? explicitMyHighestBid
+    : currentUser
+      ? auction.bidHistory
+          .filter((bid) => bid.bidderUserId === currentUser.userId)
+          .reduce<number | null>((highest, bid) => (highest == null || bid.amount > highest ? bid.amount : highest), null)
+      : null;
   const isHighestBidder = Boolean(currentUser && auction.currentBid != null && myHighestBid != null && Math.abs(myHighestBid - auction.currentBid) < 0.0001);
   const isWinner = Boolean(currentUser && auction.status === AUCTION_STATUS.PAYMENT_PENDING && auction.winnerUserId === currentUser.userId);
   const isOutbid = Boolean(currentUser && myHighestBid != null && !isHighestBidder && !isWinner && auction.currentBid != null && auction.currentBid > myHighestBid);

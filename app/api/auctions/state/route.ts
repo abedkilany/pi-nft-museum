@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserFromHeaders } from '@/lib/current-user';
 import { prisma } from '@/lib/prisma';
-import { buildAuctionViewerState, getAuctionPenaltyState, getCurrentArtworkAuction, reconcileAuctionState, serializeAuction } from '@/lib/auctions';
+import { buildAuctionViewerState, getAuctionPenaltyState, getCurrentArtworkAuction, getUserHighestBidAmount, reconcileAuctionState, serializeAuction } from '@/lib/auctions';
 
 export async function GET(request: Request) {
   try {
@@ -24,12 +24,18 @@ export async function GET(request: Request) {
     const serializedAuction = serializeAuction(auction);
     const currentUser = await getCurrentUserFromHeaders(request.headers);
     let penalty = null;
+    let myHighestBid: number | null = null;
+
     if (currentUser) {
-      const user = await prisma.user.findUnique({ where: { id: currentUser.userId }, select: { auctionBanPermanent: true, auctionSuspendedUntil: true, auctionFailedPaymentCount: true } });
+      const [user, highestBid] = await Promise.all([
+        prisma.user.findUnique({ where: { id: currentUser.userId }, select: { auctionBanPermanent: true, auctionSuspendedUntil: true, auctionFailedPaymentCount: true } }),
+        getUserHighestBidAmount(auction.id, currentUser.userId),
+      ]);
       penalty = user ? getAuctionPenaltyState(user) : null;
+      myHighestBid = highestBid;
     }
 
-    const viewerState = buildAuctionViewerState(serializedAuction, currentUser, penalty);
+    const viewerState = buildAuctionViewerState(serializedAuction, currentUser, penalty, myHighestBid);
 
     return NextResponse.json({ ok: true, auction: serializedAuction, penalty, viewerState, myHighestBid: viewerState.myHighestBid });
   } catch (error) {

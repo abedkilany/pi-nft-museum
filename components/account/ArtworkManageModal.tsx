@@ -38,6 +38,8 @@ function toNumber(value: number | string | null | undefined, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const LOCKED_AUCTION_STATUSES = new Set(['SCHEDULED', 'LIVE', 'PAYMENT_PENDING']);
+
 export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
   const [basePrice, setBasePrice] = useState(String(toNumber(artwork.basePrice, 0)));
   const [discountPercent, setDiscountPercent] = useState(String(toNumber(artwork.discountPercent, 0)));
@@ -47,6 +49,8 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
   const [auctionMinIncrement, setAuctionMinIncrement] = useState('1');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const hasLockedAuction = Boolean(artwork.auction?.status && LOCKED_AUCTION_STATUSES.has(String(artwork.auction.status)));
 
   useEffect(() => {
     if (!open) return;
@@ -93,13 +97,21 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
     }
   }, [canSell]);
 
+  useEffect(() => {
+    if (listingType === ArtworkListingType.AUCTION || hasLockedAuction) {
+      setVisibility(ArtworkVisibility.PUBLIC);
+    }
+    if (hasLockedAuction) {
+      setListingType(ArtworkListingType.AUCTION);
+    }
+  }, [hasLockedAuction, listingType]);
+
   const finalPrice = useMemo(() => {
     const base = Math.max(0, toNumber(basePrice, 0));
     const discount = Math.min(100, Math.max(0, toNumber(discountPercent, 0)));
     const computed = base - (base * discount / 100);
     return Number.isFinite(computed) ? Math.max(0, computed) : 0;
   }, [basePrice, discountPercent]);
-
 
   const auctionEndsPreview = useMemo(() => {
     const hours = Math.max(1, toNumber(auctionDurationHours, 72));
@@ -185,6 +197,11 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
         <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
           <p style={{ margin: 0 }}><strong>Mint status:</strong> {getArtworkMintStatusLabel(mintStatus)}</p>
           <p style={{ margin: 0, color: 'var(--muted)' }}>Lazy Mint is currently the live off-chain path. On-chain Mint will be enabled later when Pi Network tooling is ready.</p>
+          {hasLockedAuction ? (
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              This artwork already has an active auction. Listing type stays locked to Auction and visibility stays Public until the auction fully ends.
+            </p>
+          ) : null}
         </div>
 
         <label style={{ display: 'grid', gap: 6 }}>
@@ -204,14 +221,14 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span>Listing type</span>
-          <select className="input" value={listingType} onChange={(event) => setListingType(event.target.value)} disabled={!canSell}>
+          <select className="input" value={listingType} onChange={(event) => setListingType(event.target.value)} disabled={!canSell || hasLockedAuction}>
             <option value={ArtworkListingType.NOT_FOR_SALE}>{getArtworkListingLabel(ArtworkListingType.NOT_FOR_SALE)}</option>
             <option value={ArtworkListingType.FIXED_PRICE}>{getArtworkListingLabel(ArtworkListingType.FIXED_PRICE)}</option>
             <option value={ArtworkListingType.AUCTION}>{getArtworkListingLabel(ArtworkListingType.AUCTION)}</option>
           </select>
           {!canSell ? <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Listing stays locked to Not for sale until Lazy Mint or Mint is completed.</p> : null}
+          {hasLockedAuction ? <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>You cannot switch this artwork back to Not for sale or Fixed price while an auction is running or waiting for winner payment.</p> : null}
         </label>
-
 
         {listingType === ArtworkListingType.AUCTION ? (
           <div className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
@@ -234,6 +251,7 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
               <span>Opening bid: <strong style={{ color: 'var(--text)' }}>{finalPrice.toFixed(2)} {artwork.currency}</strong></span>
               <span>Next minimum bid after the first bid: <strong style={{ color: 'var(--text)' }}>{(finalPrice + auctionIncrementValue).toFixed(2)} {artwork.currency}</strong></span>
               <span>Expected end time: <strong style={{ color: 'var(--text)' }}>{auctionEndsPreview.toLocaleString()}</strong></span>
+              <span>Visibility while listed as auction: <strong style={{ color: 'var(--text)' }}>{getArtworkVisibilityLabel(ArtworkVisibility.PUBLIC)}</strong></span>
               {artwork.auction ? <span>Current auction status: <strong style={{ color: 'var(--text)' }}>{artwork.auction.status}</strong></span> : null}
             </div>
           </div>
@@ -241,11 +259,14 @@ export function ArtworkManageModal({ open, onClose, onSaved, artwork }: Props) {
 
         <label style={{ display: 'grid', gap: 6 }}>
           <span>Visibility</span>
-          <select className="input" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
+          <select className="input" value={visibility} onChange={(event) => setVisibility(event.target.value)} disabled={listingType === ArtworkListingType.AUCTION || hasLockedAuction}>
             <option value={ArtworkVisibility.PRIVATE}>{getArtworkVisibilityLabel(ArtworkVisibility.PRIVATE)}</option>
             <option value={ArtworkVisibility.PUBLIC}>{getArtworkVisibilityLabel(ArtworkVisibility.PUBLIC)}</option>
             <option value={ArtworkVisibility.FOLLOWERS}>{getArtworkVisibilityLabel(ArtworkVisibility.FOLLOWERS)}</option>
           </select>
+          {listingType === ArtworkListingType.AUCTION ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Auction artworks are always forced to Public so buyers can discover and bid on them.</p>
+          ) : null}
         </label>
 
         {error ? <p style={{ margin: 0, color: '#ff8a8a' }}>{error}</p> : null}
