@@ -1,12 +1,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { prisma } from '@/lib/domains/system';
-import { getCurrentUser } from '@/lib/domains/auth';
 import { ReactionFilterBar } from '@/components/gallery/ReactionFilterBar';
-import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { getDisplayImageUrl } from '@/lib/image-url';
 import { GalleryAutoRefresh } from '@/components/gallery/GalleryAutoRefresh';
 import { getArtworkMintStatusLabel } from '@/lib/domains/artworks';
+import { GalleryReactionButtons } from '@/components/gallery/GalleryPageClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,29 +37,7 @@ async function getGalleryArtworks() {
 }
 
 export default async function GalleryPage() {
-  const [artworks, currentUser] = await Promise.all([
-    getGalleryArtworks(),
-    getCurrentUser(),
-  ]);
-
-  const reactionMap = new Map<number, 'LIKE' | 'DISLIKE'>();
-
-  if (currentUser && artworks.length > 0) {
-    const reactions = await prisma.artworkReaction.findMany({
-      where: {
-        userId: currentUser.userId,
-        artworkId: { in: artworks.map((artwork) => artwork.id) },
-      },
-      select: {
-        artworkId: true,
-        type: true,
-      },
-    });
-
-    for (const reaction of reactions) {
-      reactionMap.set(reaction.artworkId, reaction.type);
-    }
-  }
+  const artworks = await getGalleryArtworks();
 
   return (
     <div className="page-stack">
@@ -93,7 +70,7 @@ export default async function GalleryPage() {
                   <p className="gallery-description">{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
                 </div>
-                <div className="split-list-side"><AuthAwareReactionButtons artworkId={artwork.id} likesCount={artwork.likesCount} dislikesCount={artwork.dislikesCount} myReaction={reactionMap.get(artwork.id) ?? null} /></div>
+                <div className="split-list-side"><GalleryReactionButtons artwork={artwork} /></div>
               </article>
             );
           })}

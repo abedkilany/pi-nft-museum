@@ -2,12 +2,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/domains/system';
-import { getCurrentUser } from '@/lib/domains/auth';
 import { timeToPremium } from '@/lib/timeToPremium';
-import { AuthAwareReactionButtons } from '@/components/auth/AuthAwareReactionButtons';
 import { PremiumBadge } from '@/components/shared/PremiumBadge';
 import { getBooleanSetting, getSiteSettingsMap } from '@/lib/site-settings';
 import { getDisplayImageUrl } from '@/lib/image-url';
+import { PremiumReactionButtons } from '@/components/premium/PremiumReactionButtons';
 
 const getPremiumArtworks = unstable_cache(
   async () => prisma.artwork.findMany({
@@ -41,30 +40,7 @@ const getPremiumArtworks = unstable_cache(
 export default async function PremiumPage() {
   const settings = await getSiteSettingsMap();
   const premiumAllowDislike = getBooleanSetting(settings, 'premium_allow_dislike', false);
-
-  const [artworks, currentUser] = await Promise.all([
-    getPremiumArtworks(),
-    getCurrentUser(),
-  ]);
-
-  const reactionMap = new Map<number, 'LIKE' | 'DISLIKE'>();
-
-  if (currentUser && artworks.length > 0) {
-    const reactions = await prisma.artworkReaction.findMany({
-      where: {
-        userId: currentUser.userId,
-        artworkId: { in: artworks.map((artwork) => artwork.id) },
-      },
-      select: {
-        artworkId: true,
-        type: true,
-      },
-    });
-
-    for (const reaction of reactions) {
-      reactionMap.set(reaction.artworkId, reaction.type);
-    }
-  }
+  const artworks = await getPremiumArtworks();
 
   return (
     <div className="container" style={{ paddingTop: '40px' }}>
@@ -130,12 +106,10 @@ export default async function PremiumPage() {
                 </div>
 
                 <div style={{ minWidth: '240px' }}>
-                  <AuthAwareReactionButtons
+                  <PremiumReactionButtons
                     artworkId={art.id}
                     likesCount={art.likesCount}
                     dislikesCount={art.dislikesCount}
-                    myReaction={reactionMap.get(art.id) ?? null}
-                    isPremium={true}
                     premiumAllowDislike={premiumAllowDislike}
                   />
                 </div>
