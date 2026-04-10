@@ -7,8 +7,9 @@ const DEFAULT_NETWORK = 'Pi Testnet';
 const DEFAULT_CONTRACT = 'pi-testnet-prototype-contract';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
 type RelayBody = Record<string, unknown>;
+
+type RelayConfig = ReturnType<typeof getRelayConfig>;
 
 function getBearerToken(request: Request) {
   const header = request.headers.get('authorization')?.trim() || '';
@@ -49,13 +50,21 @@ function getRelayConfig() {
     rpcUrl: getEnv('PI_TESTNET_RPC_URL', DEFAULT_RPC_URL),
     checkRpc: getBooleanEnv('PI_TESTNET_PROTOTYPE_RELAY_CHECK_RPC', true),
     realSubmitMethod: getEnv('PI_TESTNET_PROTOTYPE_REAL_SUBMIT_METHOD', 'sendTransaction'),
-    realSubmitParamsJson: getEnv('PI_TESTNET_PROTOTYPE_REAL_SUBMIT_PARAMS_JSON', '["{{SIGNED_TRANSACTION}}"]'),
+    realSubmitParamsJson: getEnv('PI_TESTNET_PROTOTYPE_REAL_SUBMIT_PARAMS_JSON', '{"transaction":"{{SIGNED_TRANSACTION}}"}'),
     realSignedTx: getEnv('PI_TESTNET_PROTOTYPE_REAL_SIGNED_TX'),
-    realStatusMethod: getEnv('PI_TESTNET_PROTOTYPE_REAL_STATUS_METHOD'),
-    realStatusParamsJson: getEnv('PI_TESTNET_PROTOTYPE_REAL_STATUS_PARAMS_JSON', '["{{TX_HASH}}"]'),
-    realConfirmAttempts: Number(getEnv('PI_TESTNET_PROTOTYPE_REAL_CONFIRM_ATTEMPTS', '1') || 1),
+    realStatusMethod: getEnv('PI_TESTNET_PROTOTYPE_REAL_STATUS_METHOD', 'getTransaction'),
+    realStatusParamsJson: getEnv('PI_TESTNET_PROTOTYPE_REAL_STATUS_PARAMS_JSON', '{"hash":"{{TX_HASH}}"}'),
+    realConfirmAttempts: Number(getEnv('PI_TESTNET_PROTOTYPE_REAL_CONFIRM_ATTEMPTS', '8') || 8),
     realConfirmDelayMs: Number(getEnv('PI_TESTNET_PROTOTYPE_REAL_CONFIRM_DELAY_MS', '2500') || 2500),
     realTokenId: getEnv('PI_TESTNET_PROTOTYPE_REAL_TOKEN_ID'),
+    realTxMode: getEnv('PI_TESTNET_PROTOTYPE_REAL_TX_MODE', 'signed_xdr'),
+    realNetworkPassphrase: getEnv('PI_TESTNET_PROTOTYPE_REAL_NETWORK_PASSPHRASE'),
+    realSourceSecret: getEnv('PI_TESTNET_PROTOTYPE_REAL_SOURCE_SECRET'),
+    realDestination: getEnv('PI_TESTNET_PROTOTYPE_REAL_DESTINATION'),
+    realAmount: getEnv('PI_TESTNET_PROTOTYPE_REAL_AMOUNT', '0.0000001'),
+    realMemoPrefix: getEnv('PI_TESTNET_PROTOTYPE_REAL_MEMO_PREFIX', 'PiNFT'),
+    realTimeoutSeconds: Number(getEnv('PI_TESTNET_PROTOTYPE_REAL_TIMEOUT_SECONDS', '180') || 180),
+    realBaseFee: getEnv('PI_TESTNET_PROTOTYPE_REAL_BASE_FEE', '100'),
   };
 }
 
@@ -136,20 +145,22 @@ function extractTokenId(input: unknown): string {
   return '';
 }
 
-function isConfirmedStatus(input: unknown): boolean {
-  const status = extractFirstString(input, [
+function extractStatus(input: unknown): string {
+  return extractFirstString(input, [
     'result.status',
     'result.state',
     'status',
     'state',
     'result.txStatus',
     'txStatus',
-  ]).toLowerCase();
-
-  return ['success', 'succeeded', 'confirmed', 'accepted', 'applied'].includes(status);
+  ]).toUpperCase();
 }
 
-function buildTemplateContext(body: RelayBody, config: ReturnType<typeof getRelayConfig>, txHash?: string) {
+function isConfirmedStatus(input: unknown): boolean {
+  return ['SUCCESS', 'SUCCEEDED', 'CONFIRMED', 'ACCEPTED', 'APPLIED'].includes(extractStatus(input));
+}
+
+function buildTemplateContext(body: RelayBody, config: RelayConfig, txHash?: string) {
   return {
     SIGNED_TRANSACTION: readString(body.signedTransaction) || config.realSignedTx,
     PAYMENT_IDENTIFIER: readString(body.paymentIdentifier),
@@ -198,10 +209,22 @@ async function callRpc(rpcUrl: string, method: string, params: JsonValue) {
   return data;
 }
 
-async function runRealRpcMint(body: RelayBody, config: ReturnType<typeof getRelayConfig>) {
+async function getNetworkPassphrase(rpcUrl: string, fallback: string) {
+  try {
+    const network = await callRpc(rpcUrl, 'getNetwork', {});
+    return (
+      extractFirstString(network, ['result.passphrase', 'result.networkPassphrase', 'passphrase', 'networkPassphrase']) ||
+      fallback
+    );
+  } catch {
+    return fallback;
+  }
+}
+
+async function runSignedXdrMint(body: RelayBody, config: RelayConfig) {
   const artworkId = Number(body.artworkId || 0);
   const submittedAt = new Date();
-  const template = parseJsonTemplate(config.realSubmitParamsJson, ['{{SIGNED_TRANSACTION}}']);
+  const template = parseJsonTemplate(config.realSubmitParamsJson, { transaction: '{{SIGNED_TRANSACTION}}' });
   const context = buildTemplateContext(body, config);
   const submitParams = substituteTemplate(template, context);
   const submitResult = await callRpc(config.rpcUrl, config.realSubmitMethod, submitParams);
@@ -214,7 +237,7 @@ async function runRealRpcMint(body: RelayBody, config: ReturnType<typeof getRela
     const attempts = Math.max(1, config.realConfirmAttempts);
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       if (attempt > 0) await sleep(Math.max(0, config.realConfirmDelayMs));
-      const statusTemplate = parseJsonTemplate(config.realStatusParamsJson, ['{{TX_HASH}}']);
+      const statusTemplate = parseJsonTemplate(config.realStatusParamsJson, { hash: '{{TX_HASH}}' });
       const statusParams = substituteTemplate(statusTemplate, buildTemplateContext(body, config, txHash));
       const statusResult = await callRpc(config.rpcUrl, config.realStatusMethod, statusParams);
       finalResult = statusResult;
@@ -242,8 +265,97 @@ async function runRealRpcMint(body: RelayBody, config: ReturnType<typeof getRela
     confirmedAt: confirmedAt.toISOString(),
     provider: 'vercel-relay-rpc',
     rpc: {
+      realTxMode: config.realTxMode,
       submitMethod: config.realSubmitMethod,
       statusMethod: config.realStatusMethod || null,
+      submitResult,
+      finalResult,
+    },
+  };
+}
+
+async function runPaymentProbe(body: RelayBody, config: RelayConfig) {
+  const sdk = await import('@stellar/stellar-sdk');
+  const sourceSecret = config.realSourceSecret;
+  if (!sourceSecret) {
+    throw new Error('Payment probe mode requires PI_TESTNET_PROTOTYPE_REAL_SOURCE_SECRET.');
+  }
+
+  const Keypair = sdk.Keypair;
+  const TransactionBuilder = sdk.TransactionBuilder;
+  const Operation = sdk.Operation;
+  const Asset = sdk.Asset;
+  const Memo = sdk.Memo;
+  const Networks = sdk.Networks;
+  const BASE_FEE = sdk.BASE_FEE;
+
+  const sourceKeypair = Keypair.fromSecret(sourceSecret);
+  const sourcePublicKey = sourceKeypair.publicKey();
+  const destination = config.realDestination || sourcePublicKey;
+  const networkPassphrase = await getNetworkPassphrase(config.rpcUrl, config.realNetworkPassphrase || Networks.TESTNET);
+
+  const rpcServer = new sdk.rpc.Server(config.rpcUrl);
+  const sourceAccount = await rpcServer.getAccount(sourcePublicKey);
+  const memoText = `${config.realMemoPrefix}:${Number(body.artworkId || 0)}`.slice(0, 28);
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: String(config.realBaseFee || BASE_FEE),
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.payment({
+        destination,
+        asset: Asset.native(),
+        amount: config.realAmount,
+      })
+    )
+    .addMemo(Memo.text(memoText))
+    .setTimeout(Math.max(30, config.realTimeoutSeconds))
+    .build();
+
+  transaction.sign(sourceKeypair);
+  const transactionXdr = transaction.toXDR();
+  const simulated = await callRpc(config.rpcUrl, 'simulateTransaction', { transaction: transactionXdr }).catch((error) => ({ error: error instanceof Error ? error.message : 'simulate_failed' }));
+  const submitResult = await callRpc(config.rpcUrl, 'sendTransaction', { transaction: transactionXdr });
+  const txHash = extractTxHash(submitResult);
+  if (!txHash) {
+    throw new Error('Pi RPC did not return a transaction hash for the payment probe.');
+  }
+
+  let finalResult: unknown = submitResult;
+  let confirmedAt = new Date();
+  const attempts = Math.max(1, config.realConfirmAttempts);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (attempt > 0) await sleep(Math.max(0, config.realConfirmDelayMs));
+    const statusResult = await callRpc(config.rpcUrl, 'getTransaction', { hash: txHash });
+    finalResult = statusResult;
+    const status = extractStatus(statusResult);
+    if (status === 'FAILED') {
+      throw new Error(`Payment probe transaction failed: ${JSON.stringify(statusResult)}`);
+    }
+    if (isConfirmedStatus(statusResult)) {
+      confirmedAt = new Date();
+      break;
+    }
+  }
+
+  const artworkId = Number(body.artworkId || 0);
+  return {
+    network: config.network,
+    contractAddress: 'stellar-native-payment-probe',
+    tokenId: `payment-probe-${artworkId}-${txHash.slice(0, 12)}`,
+    txHash,
+    mintReference: readString(body.paymentIdentifier) || `payment-probe-${artworkId}-${Date.now()}`,
+    submittedAt: new Date().toISOString(),
+    confirmedAt: confirmedAt.toISOString(),
+    provider: 'vercel-relay-payment-probe',
+    rpc: {
+      realTxMode: config.realTxMode,
+      sourcePublicKey,
+      destination,
+      networkPassphrase,
+      transactionXdr,
+      simulated,
       submitResult,
       finalResult,
     },
@@ -269,9 +381,12 @@ export async function GET() {
     relayContractAddress: config.contractAddress,
     relayRpcUrl: config.rpcUrl,
     appRelayUrl: `${getAppBaseUrl()}/api/pi/testnet-relay`,
+    realTxMode: config.realTxMode,
     realSubmitMethod: config.realSubmitMethod,
     realStatusMethod: config.realStatusMethod || null,
     hasRealSignedTransaction: Boolean(config.realSignedTx),
+    hasRealSourceSecret: Boolean(config.realSourceSecret),
+    realDestination: config.realDestination || null,
     rpc,
     timestamp: new Date().toISOString(),
   });
@@ -304,27 +419,32 @@ export async function POST(request: Request) {
     }
 
     if (config.mode === 'real') {
+      if (config.realTxMode === 'payment_probe') {
+        const result = await runPaymentProbe(body, config);
+        return NextResponse.json({ ...result, rpcHealth: rpc });
+      }
+
       const signedTransaction = readString(body.signedTransaction) || config.realSignedTx;
       if (!signedTransaction) {
         return NextResponse.json(
           {
             error:
-              'Relay real mode requires a signed transaction. Set PI_TESTNET_PROTOTYPE_REAL_SIGNED_TX or send signedTransaction in the request body.',
+              'Relay real mode requires a signed transaction. Set PI_TESTNET_PROTOTYPE_REAL_SIGNED_TX or send signedTransaction in the request body. Alternatively, set PI_TESTNET_PROTOTYPE_REAL_TX_MODE=payment_probe and configure a testnet secret key to send a real payment probe.',
             rpc,
           },
           { status: 400 }
         );
       }
 
-      const result = await runRealRpcMint(body, config);
-      return NextResponse.json(result);
+      const result = await runSignedXdrMint(body, config);
+      return NextResponse.json({ ...result, rpcHealth: rpc });
     }
 
     if (config.mode === 'manual') {
       return NextResponse.json(
         {
           error:
-            'Relay is in manual mode. Switch PI_TESTNET_PROTOTYPE_RELAY_MODE=mock to test the app flow, or set PI_TESTNET_PROTOTYPE_RELAY_MODE=real with signed transaction settings to attempt a real RPC call.',
+            'Relay is in manual mode. Switch PI_TESTNET_PROTOTYPE_RELAY_MODE=mock to test the app flow, or set PI_TESTNET_PROTOTYPE_RELAY_MODE=real with PI_TESTNET_PROTOTYPE_REAL_TX_MODE=signed_xdr or payment_probe to attempt a real RPC call.',
           rpc,
         },
         { status: 501 }
