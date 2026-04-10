@@ -30,7 +30,7 @@ export async function performTestnetMint({ artworkId, ownerUserId, ownerName, ow
   if (await hasAnyMintSnapshot(artworkId)) throw new Error('This artwork was already finalized.');
 
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
-  const metadataSnapshot: Prisma.InputJsonObject = {
+  const metadataSnapshot: Prisma.InputJsonValue = {
     artworkId: artwork.id,
     title: artwork.title,
     description: artwork.description,
@@ -91,7 +91,7 @@ export async function performTestnetMint({ artworkId, ownerUserId, ownerName, ow
           tokenId: result.tokenId,
           txHash: result.txHash,
           mintReference: result.mintReference,
-          metadataSnapshot: { ...metadataSnapshot, provider: result.provider } as Prisma.InputJsonObject,
+          metadataSnapshot: { ...metadataSnapshot, provider: result.provider },
           confirmedAt: result.confirmedAt,
           submittedAt: result.submittedAt,
           errorMessage: null,

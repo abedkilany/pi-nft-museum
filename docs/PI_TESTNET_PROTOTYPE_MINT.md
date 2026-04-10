@@ -49,3 +49,41 @@ PI_TESTNET_PROTOTYPE_ALLOW_MOCK=true
 ```
 
 That fallback is **not** a blockchain mint. It only preserves the legacy simulation behavior for development.
+
+
+## Local relay
+
+This repository now includes a small local relay under `relay/`.
+
+Start it with:
+
+```bash
+node relay/server.mjs
+```
+
+Then set in the main app `.env`:
+
+```env
+PI_TESTNET_PROTOTYPE_RELAY_URL=http://localhost:4010/mint
+PI_TESTNET_PROTOTYPE_API_KEY=change-me
+PI_TESTNET_PROTOTYPE_ALLOW_MOCK=false
+```
+
+The relay has two useful endpoints:
+
+- `GET /health` to verify the relay and Pi Testnet RPC are reachable
+- `POST /mint` for the app
+
+Current behavior:
+- checks `https://rpc.testnet.minepi.com` using `getHealth`
+- returns prototype mint data in relay `mock` mode
+- keeps the app honest when relay is missing or disabled
+
+
+## Vercel deployment
+
+For Vercel deployments, use the built-in relay route instead of a local relay process:
+
+- Relay URL: `/api/pi/testnet-relay`
+- Health check: `/api/pi/testnet-relay`
+- Recommended base URL: `https://pi-nft-museum.vercel.app`

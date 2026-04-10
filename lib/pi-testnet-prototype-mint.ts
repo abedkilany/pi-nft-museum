@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
-import { Prisma } from '@prisma/client';
-import { getBooleanEnv, getEnv } from '@/lib/env';
+import { getAppBaseUrl, getBooleanEnv, getEnv } from '@/lib/env';
 
 export type PrototypeMintPayload = {
   artworkId: number;
@@ -9,7 +8,7 @@ export type PrototypeMintPayload = {
   ownerWalletAddress?: string | null;
   paymentIdentifier?: string | null;
   paymentTxid?: string | null;
-  metadataSnapshot: Prisma.InputJsonObject;
+  metadataSnapshot: Record<string, unknown>;
 };
 
 export type PrototypeMintResult = {
@@ -40,7 +39,7 @@ function buildTxHash(artworkId: number) {
 
 function getPrototypeConfig() {
   return {
-    relayUrl: getEnv('PI_TESTNET_PROTOTYPE_RELAY_URL'),
+    relayUrl: getEnv('PI_TESTNET_PROTOTYPE_RELAY_URL') || `${getAppBaseUrl()}/api/pi/testnet-relay`,
     contractAddress: getEnv('PI_TESTNET_PROTOTYPE_CONTRACT_ADDRESS', 'pi-testnet-prototype-contract'),
     network: getEnv('PI_TESTNET_PROTOTYPE_NETWORK', DEFAULT_NETWORK),
     allowMock: getBooleanEnv('PI_TESTNET_PROTOTYPE_ALLOW_MOCK', false),
