@@ -1,12 +1,15 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/domains/system';
 import { canLazyMintNow, hasLazyMintSnapshot } from '@/lib/lazy-mint';
 import { ArtworkListingType, ArtworkMintStatus, ArtworkStatus, ArtworkVisibility } from '@/types/enums';
 
-export async function performLazyMint({ artworkId, ownerUserId, ownerName, ownerWalletAddress = null }: {
+export async function performLazyMint({ artworkId, ownerUserId, ownerName, ownerWalletAddress = null, paymentIdentifier = null, paymentTxid = null }: {
   artworkId: number;
   ownerUserId: number;
   ownerName: string;
   ownerWalletAddress?: string | null;
+  paymentIdentifier?: string | null;
+  paymentTxid?: string | null;
 }) {
   const artwork = await prisma.artwork.findUnique({
     where: { id: artworkId },
@@ -36,7 +39,7 @@ export async function performLazyMint({ artworkId, ownerUserId, ownerName, owner
   const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
   const mintedAt = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const updatedArtwork = await tx.artwork.update({
       where: { id: artworkId },
       data: {
@@ -64,11 +67,48 @@ export async function performLazyMint({ artworkId, ownerUserId, ownerName, owner
         finalRating: artwork.averageRating,
         totalVotes: artwork.ratingsCount,
         mintedAt,
+        network: 'Off-chain',
+        txHash: paymentTxid,
+        mintReference: paymentIdentifier,
       }
     });
 
-    const ownership = await tx.artworkOwnership.create({
-      data: {
+    await tx.artworkMintExecution.upsert({
+      where: paymentIdentifier ? { paymentIdentifier } : { paymentIdentifier: `lazy-${artwork.id}-${mintedAt.getTime()}` },
+      update: {
+        status: 'CONFIRMED',
+        network: 'Off-chain',
+        txHash: paymentTxid,
+        mintReference: paymentIdentifier,
+        confirmedAt: mintedAt,
+        submittedAt: mintedAt,
+        metadataSnapshot: { artworkId: artwork.id, title: artwork.title, finalRating: Number(artwork.averageRating || 0), totalVotes: artwork.ratingsCount || 0, mintType: 'LAZY' },
+        errorMessage: null,
+      },
+      create: {
+        artworkId: artwork.id,
+        initiatedByUserId: ownerUserId,
+        paymentIdentifier: paymentIdentifier || `lazy-${artwork.id}-${mintedAt.getTime()}`,
+        executionType: 'LAZY',
+        status: 'CONFIRMED',
+        network: 'Off-chain',
+        txHash: paymentTxid,
+        mintReference: paymentIdentifier,
+        submittedAt: mintedAt,
+        confirmedAt: mintedAt,
+        metadataSnapshot: { artworkId: artwork.id, title: artwork.title, finalRating: Number(artwork.averageRating || 0), totalVotes: artwork.ratingsCount || 0, mintType: 'LAZY' },
+      }
+    });
+
+    const ownership = await tx.artworkOwnership.upsert({
+      where: { artworkId: artwork.id },
+      update: {
+        currentOwnerId: ownerUserId,
+        currentOwnerName: ownerName,
+        currentWalletAddress: ownerWalletAddress,
+        acquiredAt: mintedAt,
+      },
+      create: {
         artworkId: artwork.id,
         currentOwnerId: ownerUserId,
         currentOwnerName: ownerName,

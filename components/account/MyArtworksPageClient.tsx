@@ -55,6 +55,21 @@ type MyArtworkItem = {
   publicReviewStartedAt?: string | Date | null;
   mintWindowOpensAt?: string | Date | null;
   mintWindowEndsAt?: string | Date | null;
+  lazyMintSnapshot?: {
+    mintType?: string | null;
+    network?: string | null;
+    contractAddress?: string | null;
+    tokenId?: string | null;
+    txHash?: string | null;
+  } | null;
+  mintExecutions?: Array<{
+    executionType?: string | null;
+    status?: string | null;
+    network?: string | null;
+    contractAddress?: string | null;
+    tokenId?: string | null;
+    txHash?: string | null;
+  }> | null;
   auction?: {
     id: number;
     status: string;
@@ -105,10 +120,10 @@ function getArtworkSummary(artwork: MyArtworkItem, mintWindowStatus: string) {
 
   if (artwork.status === ArtworkStatus.PUBLIC_REVIEW) {
     if (mintWindowStatus === 'mint_open') {
-      return 'This artwork is ready for Lazy Mint.';
+      return 'This artwork is ready for finalization through Lazy Mint or Testnet Mint.';
     }
     if (mintWindowStatus === 'expired') {
-      return 'The Lazy Mint window expired for this artwork.';
+      return 'The finalization window expired for this artwork.';
     }
     return 'This artwork is in public review.';
   }
@@ -171,6 +186,7 @@ function ManagedArtworkCard({
   const ownerName =
     ownerUserId === currentUserId ? 'You' : getPersonLabel(artwork.currentOwner);
   const summary = getArtworkSummary(artwork, mintWindowStatus);
+  const latestExecution = artwork.mintExecutions?.[0] || null;
 
   return (
     <>
@@ -210,6 +226,26 @@ function ManagedArtworkCard({
               )}
             </strong>
           </p>
+          {artwork.lazyMintSnapshot?.network ? (
+            <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
+              Network: <strong>{artwork.lazyMintSnapshot.network}</strong>
+            </p>
+          ) : null}
+          {artwork.lazyMintSnapshot?.contractAddress ? (
+            <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
+              Contract: <strong>{artwork.lazyMintSnapshot.contractAddress}</strong>
+            </p>
+          ) : null}
+          {artwork.lazyMintSnapshot?.tokenId ? (
+            <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
+              Token ID: <strong>{artwork.lazyMintSnapshot.tokenId}</strong>
+            </p>
+          ) : null}
+          {latestExecution?.status && artwork.mintStatus === ArtworkMintStatus.UNMINTED ? (
+            <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
+              Finalization flow: <strong>{latestExecution.executionType || 'Mint'} / {latestExecution.status}</strong>
+            </p>
+          ) : null}
           <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
             Sale:{' '}
             <strong>
@@ -267,10 +303,10 @@ function ManagedArtworkCard({
                 Review started: {formatDateTime(artwork.publicReviewStartedAt)}
               </p>
               <p style={{ margin: '0 0 4px' }}>
-                Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}
+                Finalization opens: {formatDateTime(artwork.mintWindowOpensAt)}
               </p>
               <p style={{ margin: 0 }}>
-                Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}
+                Finalization closes: {formatDateTime(artwork.mintWindowEndsAt)}
               </p>
             </div>
           ) : null}
@@ -297,11 +333,20 @@ function ManagedArtworkCard({
           ) : null}
 
           {showMintButton ? (
-            <MintArtworkButton
-              artworkId={artwork.id}
-              title={artwork.title}
-              onMinted={loadArtworks}
-            />
+            <>
+              <MintArtworkButton
+                artworkId={artwork.id}
+                title={artwork.title}
+                mode="LAZY"
+                onMinted={loadArtworks}
+              />
+              <MintArtworkButton
+                artworkId={artwork.id}
+                title={artwork.title}
+                mode="TESTNET"
+                onMinted={loadArtworks}
+              />
+            </>
           ) : null}
 
           {canManage ? (
@@ -317,14 +362,14 @@ function ManagedArtworkCard({
           {artwork.status === ArtworkStatus.PUBLIC_REVIEW &&
           mintWindowStatus === 'reviewing' ? (
             <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-              Lazy Mint opens after the {reviewHours}-hour public review period.
+              Finalization opens after the {reviewHours}-hour public review period.
             </p>
           ) : null}
 
           {artwork.status === ArtworkStatus.PUBLIC_REVIEW &&
           mintWindowStatus === 'expired' ? (
             <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-              Lazy mint window expired. This artwork will return to the configured
+              Finalization window expired. This artwork will return to the configured
               fallback status.
             </p>
           ) : null}
@@ -668,7 +713,9 @@ export default function MyArtworksPageClient() {
           {activeItems.map((artwork) => {
             const mintWindowStatus = getMintWindowStatus(artwork);
             const showMintButton =
-              primaryTab === 'creations' && mintWindowStatus === 'mint_open';
+              primaryTab === 'creations' &&
+              mintWindowStatus === 'mint_open' &&
+              (artwork.mintStatus || ArtworkMintStatus.UNMINTED) === ArtworkMintStatus.UNMINTED;
             const ownerUserId =
               artwork.currentOwnerUserId ?? artwork.artistUserId ?? null;
             const canManage =

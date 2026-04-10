@@ -12,8 +12,8 @@ export const ARTWORK_STATUS_LABELS: Record<string, string> = {
 
 export const ARTWORK_MINT_STATUS_LABELS: Record<string, string> = {
   [ArtworkMintStatus.UNMINTED]: 'Not minted yet',
-  [ArtworkMintStatus.LAZY_MINTED]: 'Off-chain',
-  [ArtworkMintStatus.MINTED]: 'On-chain',
+  [ArtworkMintStatus.LAZY_MINTED]: 'Lazy minted (off-chain)',
+  [ArtworkMintStatus.MINTED]: 'Minted on Pi Testnet',
 };
 
 export const ARTWORK_LISTING_LABELS: Record<string, string> = {

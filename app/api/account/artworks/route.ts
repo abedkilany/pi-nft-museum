@@ -44,6 +44,27 @@ export async function GET() {
           artistProfile: { select: { displayName: true } },
         },
       },
+      lazyMintSnapshot: {
+        select: {
+          mintType: true,
+          network: true,
+          contractAddress: true,
+          tokenId: true,
+          txHash: true,
+        },
+      },
+      mintExecutions: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          executionType: true,
+          status: true,
+          network: true,
+          contractAddress: true,
+          tokenId: true,
+          txHash: true,
+        },
+      },
       auctions: {
         take: 1,
         orderBy: { createdAt: 'desc' },
@@ -63,9 +84,11 @@ export async function GET() {
     },
   });
 
+  type ArtworkRow = (typeof artworks)[number];
+
   return NextResponse.json({
     ok: true,
-    artworks: artworks.map((artwork) => ({
+    artworks: artworks.map((artwork: ArtworkRow) => ({
       ...artwork,
       auction: artwork.auctions[0] ?? null,
     })),

@@ -42,7 +42,7 @@ export async function callPiPaymentApi(path: string, init?: RequestInit) {
   return payload;
 }
 
-export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number, purpose: 'ARTWORK_PURCHASE' | 'LAZY_MINT_FEE' | 'AUCTION_WIN' = 'ARTWORK_PURCHASE', auctionId?: number) {
+export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: number, buyerUserId: number, purpose: 'ARTWORK_PURCHASE' | 'LAZY_MINT_FEE' | 'TESTNET_MINT_FEE' | 'AUCTION_WIN' = 'ARTWORK_PURCHASE', auctionId?: number) {
   const artwork = await prisma.artwork.findUnique({
     where: { id: artworkId },
     select: { id: true, artistUserId: true, currentOwnerUserId: true, title: true, price: true, currency: true, status: true, mintStatus: true, listingType: true, visibility: true },
@@ -50,10 +50,13 @@ export async function ensurePaymentRecord(paymentIdentifier: string, artworkId: 
 
   if (!artwork) throw new Error('Artwork not found.');
 
-  if (purpose === 'LAZY_MINT_FEE') {
-    if ((artwork.currentOwnerUserId ?? artwork.artistUserId) !== buyerUserId) throw new Error('Only the artwork owner can pay the lazy mint fee.');
+  if (purpose === 'LAZY_MINT_FEE' || purpose === 'TESTNET_MINT_FEE') {
+    if ((artwork.currentOwnerUserId ?? artwork.artistUserId) !== buyerUserId) throw new Error(`Only the artwork owner can pay the ${purpose === 'LAZY_MINT_FEE' ? 'lazy mint' : 'testnet mint'} fee.`);
     if (artwork.status !== 'PUBLIC_REVIEW') {
-      throw new Error('This artwork is not available for lazy mint payment right now.');
+      throw new Error(`This artwork is not available for ${purpose === 'LAZY_MINT_FEE' ? 'lazy mint' : 'testnet mint'} payment right now.`);
+    }
+    if (artwork.mintStatus !== ArtworkMintStatus.UNMINTED) {
+      throw new Error('This artwork was already finalized.');
     }
     return { artwork };
   }

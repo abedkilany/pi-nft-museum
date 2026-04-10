@@ -5,15 +5,38 @@ import { createPiPayment } from '@/lib/domains/pi';
 import { piApiFetch } from '../../lib/pi-auth-client';
 import { usePiAuth } from '@/components/auth/PiAuthProvider';
 
+type MintMode = 'LAZY' | 'TESTNET';
+
+const COPY: Record<MintMode, { button: string; memoPrefix: string; purpose: 'LAZY_MINT_FEE' | 'TESTNET_MINT_FEE'; confirm: string; success: string; description: string; }> = {
+  LAZY: {
+    button: 'Lazy Mint — 1 Pi',
+    memoPrefix: 'Lazy Mint fee for',
+    purpose: 'LAZY_MINT_FEE',
+    confirm: 'Lazy Mint costs 1 Pi as a platform fee. After successful payment, the artwork will be finalized off-chain and published to the gallery.',
+    success: 'Lazy Mint completed successfully. The artwork is now published as an off-chain item.',
+    description: 'Finalize off-chain and publish inside the platform.',
+  },
+  TESTNET: {
+    button: 'Testnet Mint — 1 Pi',
+    memoPrefix: 'Testnet Mint fee for',
+    purpose: 'TESTNET_MINT_FEE',
+    confirm: 'Testnet Mint costs 1 Pi as a platform fee. After successful payment, the artwork will be finalized as a Pi Testnet item and published to the gallery.',
+    success: 'Testnet Mint completed successfully. The artwork is now published as a Pi Testnet item.',
+    description: 'Finalize on Pi Testnet and publish inside the platform.',
+  },
+};
+
 export function MintArtworkButton({
   artworkId,
   title,
+  mode = 'LAZY',
   onMinted,
   disabled = false,
   disabledReason = null,
 }: {
   artworkId: number;
   title: string;
+  mode?: MintMode;
   onMinted?: () => void | Promise<void>;
   disabled?: boolean;
   disabledReason?: string | null;
@@ -21,6 +44,7 @@ export function MintArtworkButton({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { ensurePaymentScope } = usePiAuth();
+  const config = COPY[mode];
 
   async function handleMint() {
     if (disabled) {
@@ -28,7 +52,7 @@ export function MintArtworkButton({
       return;
     }
 
-    const confirmed = window.confirm('Lazy Mint costs 1 Pi as a platform fee. After successful payment, the artwork will be published to the gallery. On-chain minting will become available later when Pi tooling is ready.');
+    const confirmed = window.confirm(config.confirm);
     if (!confirmed) return;
 
     try {
@@ -38,7 +62,7 @@ export function MintArtworkButton({
       setMessage('Refreshing Pi payment permissions...');
       const authenticatedUser = await ensurePaymentScope();
       if (!authenticatedUser) {
-        throw new Error('Please reconnect with Pi before starting Lazy Mint.');
+        throw new Error('Please reconnect with Pi before starting this mint payment.');
       }
 
       setMessage('Opening Pi payment window...');
@@ -46,15 +70,15 @@ export function MintArtworkButton({
       await createPiPayment(
         {
           amount: 1,
-          memo: `Lazy Mint fee for ${title}`,
-          metadata: { artworkId, title, purpose: 'LAZY_MINT_FEE', mode: 'testnet' }
+          memo: `${config.memoPrefix} ${title}`,
+          metadata: { artworkId, title, purpose: config.purpose, mode: 'testnet', mintMode: mode }
         },
         {
           onReadyForServerApproval: async (paymentId) => {
             const response = await piApiFetch('/api/pi/payments/approve', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ paymentId, artworkId, purpose: 'LAZY_MINT_FEE' })
+              body: JSON.stringify({ paymentId, artworkId, purpose: config.purpose })
             });
 
             const data = await response.json();
@@ -76,14 +100,12 @@ export function MintArtworkButton({
               throw new Error(data.error || 'Server completion failed.');
             }
 
-            setMessage('Lazy Mint completed successfully. The artwork is now published as an off-chain item.');
-            if (onMinted) {
-              await onMinted();
-            }
+            setMessage(config.success);
+            if (onMinted) await onMinted();
             setLoading(false);
           },
           onCancel: () => {
-            setMessage('Payment cancelled. Lazy Mint was not completed.');
+            setMessage('Payment cancelled. Mint was not completed.');
             setLoading(false);
           },
           onError: (error) => {
@@ -94,33 +116,23 @@ export function MintArtworkButton({
       );
     } catch (error) {
       setLoading(false);
-      setMessage(error instanceof Error ? error.message : 'Something went wrong while starting the lazy mint payment.');
+      setMessage(error instanceof Error ? error.message : 'Something went wrong while starting the mint payment.');
     }
   }
 
   return (
     <div style={{ display: 'grid', gap: '8px' }}>
       <button
-        className="button primary"
+        className={mode === 'TESTNET' ? 'button secondary' : 'button primary'}
         type="button"
         onClick={handleMint}
         disabled={disabled || loading}
+        title={config.description}
       >
-        {loading ? 'Opening Pi payment...' : 'Lazy Mint — 1 Pi'}
+        {loading ? 'Opening Pi payment...' : config.button}
       </button>
 
-      <button
-        className="button secondary"
-        type="button"
-        disabled
-        title="On-chain minting will be available once Pi Network tooling is ready."
-      >
-        Mint
-      </button>
-
-      <p style={{ margin: 0, fontSize: '13px', opacity: 0.8 }}>
-        Lazy Mint charges a 1 Pi platform fee, then publishes the artwork on-platform. On-chain minting will be enabled later through Pi Network.
-      </p>
+      <p style={{ margin: 0, fontSize: '13px', opacity: 0.8 }}>{config.description}</p>
 
       {disabledReason ? (
         <p style={{ margin: 0, fontSize: '14px', opacity: 0.85 }}>{disabledReason}</p>

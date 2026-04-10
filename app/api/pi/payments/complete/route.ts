@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/domains/auth';
@@ -5,6 +6,7 @@ import { prisma } from '@/lib/domains/system';
 import { callPiPaymentApi, assertTestnetNetwork, logPaymentEvent } from '@/lib/domains/pi';
 import { syncExpiredPublicReviewWindows } from '@/lib/artwork-windows';
 import { performLazyMint } from '@/lib/lazy-mint-execution';
+import { performTestnetMint } from '@/lib/testnet-mint-execution';
 import { assertSameOrigin } from '@/lib/services/request';
 import { PERMISSIONS, userHasPermission } from '@/lib/permissions';
 import { ArtworkListingType, ArtworkVisibility } from '@/types/enums';
@@ -35,9 +37,11 @@ export async function POST(request: Request) {
 
     const paymentPurpose = existing.memo?.startsWith('Lazy Mint fee') || (existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'LAZY_MINT_FEE')
       ? 'LAZY_MINT_FEE'
-      : ((existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'AUCTION_WIN') || existing.memo?.startsWith('Auction payment'))
-        ? 'AUCTION_WIN'
-        : 'ARTWORK_PURCHASE';
+      : existing.memo?.startsWith('Testnet Mint fee') || (existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'TESTNET_MINT_FEE')
+        ? 'TESTNET_MINT_FEE'
+        : ((existing.rawPayload && typeof existing.rawPayload === 'object' && 'localPurpose' in (existing.rawPayload as Record<string, unknown>) && (existing.rawPayload as Record<string, unknown>).localPurpose === 'AUCTION_WIN') || existing.memo?.startsWith('Auction payment'))
+          ? 'AUCTION_WIN'
+          : 'ARTWORK_PURCHASE';
 
     const canCompleteAnyPayment = await userHasPermission(currentUser, PERMISSIONS.paymentsCompleteAny);
     if (existing.buyerUserId !== currentUser.userId && !canCompleteAnyPayment) {
@@ -69,6 +73,17 @@ export async function POST(request: Request) {
           ownerUserId: currentUser.userId,
           ownerName: currentUser.username,
           ownerWalletAddress: null,
+          paymentIdentifier: paymentId,
+          paymentTxid: txid,
+        });
+      } else if (paymentPurpose === 'TESTNET_MINT_FEE') {
+        await performTestnetMint({
+          artworkId: existing.artworkId,
+          ownerUserId: currentUser.userId,
+          ownerName: currentUser.username,
+          ownerWalletAddress: null,
+          paymentIdentifier: paymentId,
+          paymentTxid: txid,
         });
       } else if (paymentPurpose === 'AUCTION_WIN') {
         const rawPayload = existing.rawPayload && typeof existing.rawPayload === 'object' ? existing.rawPayload as Record<string, unknown> : {};
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
         const auction = await prisma.auction.findUnique({ where: { id: auctionId }, include: { artwork: { include: { ownership: true } } } });
         if (auction && auction.winnerUserId === currentUser.userId) {
           const acquiredAt = new Date();
-          await prisma.$transaction(async (tx) => {
+          await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             await tx.auction.update({ where: { id: auction.id }, data: { status: 'SETTLED', settledAt: acquiredAt, paymentDueAt: null, winningAmount: existing.amount } });
             if (auction.winningBidId) {
               await tx.auctionBid.update({ where: { id: auction.winningBidId }, data: { status: 'PAID' } }).catch(() => null);
@@ -98,7 +113,7 @@ export async function POST(request: Request) {
 
         if (artwork) {
           const acquiredAt = new Date();
-          await prisma.$transaction(async (tx) => {
+          await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             await tx.artwork.update({
               where: { id: existing.artworkId },
               data: {

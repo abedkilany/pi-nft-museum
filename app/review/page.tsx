@@ -112,11 +112,11 @@ export default async function ReviewPage() {
                   </p>
 
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
-                    Lazy mint opens: {formatDateTime(artwork.mintWindowOpensAt)}
+                    Finalization opens: {formatDateTime(artwork.mintWindowOpensAt)}
                   </p>
 
                   <p style={{ margin: '0 0 6px', color: 'var(--muted)' }}>
-                    Lazy mint closes: {formatDateTime(artwork.mintWindowEndsAt)}
+                    Finalization closes: {formatDateTime(artwork.mintWindowEndsAt)}
                   </p>
 
                   <p style={{ margin: 0, color: 'var(--muted)' }}>

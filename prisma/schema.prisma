@@ -99,6 +99,7 @@ model User {
   lazyMintOwnerships           ArtworkOwnership[]     @relation("ArtworkOwnershipCurrentOwner")
   currentOwnedArtworks         Artwork[]              @relation("ArtworkCurrentOwner")
   lazyMintSnapshots            ArtworkMintSnapshot[]  @relation("ArtworkMintOwner")
+  mintExecutions               ArtworkMintExecution[]
   ownershipHistoryFrom         ArtworkOwnershipHistory[] @relation("ArtworkOwnershipFromUser")
   ownershipHistoryTo           ArtworkOwnershipHistory[] @relation("ArtworkOwnershipToUser")
   sessions                     UserSession[]
@@ -249,6 +250,7 @@ model Artwork {
   lazyMintSnapshot       ArtworkMintSnapshot?
   ownership              ArtworkOwnership?
   ownershipHistory       ArtworkOwnershipHistory[]
+  mintExecutions         ArtworkMintExecution[]
   auctions               Auction[]
 
   @@index([artistUserId])
@@ -274,8 +276,11 @@ model ArtworkMintSnapshot {
   finalRating        Decimal   @db.Decimal(3, 2)
   totalVotes         Int       @default(0)
   metadataVersion    Int       @default(1)
+  network            String?
+  contractAddress    String?
   tokenId            String?
   txHash             String?
+  mintReference      String?
   onChainMintedAt    DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -284,6 +289,33 @@ model ArtworkMintSnapshot {
 
   @@index([ownerUserId])
   @@index([mintType])
+}
+
+model ArtworkMintExecution {
+  id                Int      @id @default(autoincrement())
+  artworkId         Int
+  initiatedByUserId Int
+  paymentIdentifier String?  @unique
+  executionType     String
+  status            String   @default("INITIATED")
+  network           String?  @default("Pi Testnet")
+  contractAddress   String?
+  tokenId           String?
+  txHash            String?
+  mintReference     String?
+  metadataSnapshot  Json?
+  errorMessage      String?
+  startedAt         DateTime @default(now())
+  submittedAt       DateTime?
+  confirmedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  artwork           Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  initiatedBy       User     @relation(fields: [initiatedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId, executionType])
+  @@index([initiatedByUserId])
+  @@index([status])
 }
 
 model ArtworkOwnership {

@@ -21,6 +21,7 @@ async function getGalleryArtworks() {
       description: true,
       listingType: true,
       mintStatus: true,
+      lazyMintSnapshot: { select: { network: true, mintType: true } },
       likesCount: true,
       dislikesCount: true,
       artist: {
@@ -39,6 +40,8 @@ async function getGalleryArtworks() {
 export default async function GalleryPage() {
   const artworks = await getGalleryArtworks();
 
+  type GalleryArtwork = (typeof artworks)[number];
+
   return (
     <div className="page-stack">
       <GalleryAutoRefresh />
@@ -51,7 +54,7 @@ export default async function GalleryPage() {
 
       {artworks.length === 0 ? <section className="card surface-section"><p style={{ margin: 0 }}>No published artworks are available right now.</p></section> : (
         <section className="stack-md gallery-list">
-          {artworks.map((artwork) => {
+          {artworks.map((artwork: GalleryArtwork) => {
             const artistName = artwork.artist.artistProfile?.displayName || artwork.artist.fullName || artwork.artist.username;
             return (
               <article key={artwork.id} className="card split-list-card gallery-list-card">
@@ -65,7 +68,8 @@ export default async function GalleryPage() {
                     <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Artist:</strong> {artistName}</p>
                     <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Category:</strong> {artwork.category?.name || 'General'}</p>
                     <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Availability:</strong> {artwork.listingType === 'FIXED_PRICE' ? 'For sale' : artwork.listingType === 'AUCTION' ? 'Auction' : 'Not for sale'}</p>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Chain:</strong> {getArtworkMintStatusLabel(artwork.mintStatus || 'UNMINTED')}</p>
+                    <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Mint:</strong> {getArtworkMintStatusLabel(artwork.mintStatus || 'UNMINTED')}</p>
+                    <p style={{ margin: 0, color: 'var(--muted)' }}><strong style={{ color: 'var(--text)' }}>Network:</strong> {artwork.lazyMintSnapshot?.network || '—'}</p>
                   </div>
                   <p className="gallery-description">{artwork.description}</p>
                   <div className="card-actions"><Link href={`/artwork/${artwork.id}`} className="button secondary">View artwork</Link></div>
