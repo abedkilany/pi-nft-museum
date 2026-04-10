@@ -1,8 +1,10 @@
 import { prisma } from '@/lib/domains/system';
 import { ArtworkMintStatus, ArtworkStatus } from '@/types/enums';
 
-export const TESTNET_MINT_NETWORK = 'Pi Testnet';
-export const TESTNET_MINT_CONTRACT_ADDRESS = 'pi-testnet-demo-contract';
+import { getPiTestnetPrototypeContractAddress, getPiTestnetPrototypeNetwork } from '@/lib/pi-testnet-prototype-mint';
+
+export const TESTNET_MINT_NETWORK = getPiTestnetPrototypeNetwork();
+export const TESTNET_MINT_CONTRACT_ADDRESS = getPiTestnetPrototypeContractAddress();
 
 export function canTestnetMintNow(artwork: { status: string; mintWindowOpensAt: Date | string | null; mintWindowEndsAt: Date | string | null; mintStatus?: string | null }) {
   if (artwork.status !== ArtworkStatus.PUBLIC_REVIEW) return false;
