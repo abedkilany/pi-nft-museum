@@ -12,8 +12,7 @@
     "check": "npm run lint && tsc --noEmit && npm run build",
     "check:env": "node scripts/check-env.js",
     "postinstall": "prisma generate",
-    "resync:counts": "node scripts/resync-counts.js",
-    "relay:start": "node relay/server.mjs"
+    "resync:counts": "node scripts/resync-counts.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -24,8 +23,7 @@
     "next": "^14.2.35",
     "prisma": "^6.19.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@stellar/stellar-sdk": "^13.3.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "20.14.10",
